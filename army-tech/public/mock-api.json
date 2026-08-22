@@ -1,0 +1,1287 @@
+{
+  "meta": {
+    "name": "Exam Draw Website API mock data",
+    "version": "1.0.0",
+    "baseUrl": "/api",
+    "description": "JSON mau cho frontend dung de mock fetch hoac tao fixture trong khi lap trinh UI.",
+    "googleAuthEnv": {
+      "GOOGLE_CLIENT_ID": "Client ID cua Google OAuth web app, bat buoc de backend verify idToken.",
+      "GOOGLE_ALLOWED_EMAIL_DOMAIN": "Tuy chon. Dat gmail.com neu chi cho phep tai khoan @gmail.com.",
+      "GOOGLE_DEFAULT_ROLE": "Tuy chon. Role mac dinh khi dang ky Google: viewer, manager hoac admin. Mac dinh viewer.",
+      "AUTH_TOKEN_SECRET": "Tuy chon nhung nen dat khi deploy de ky accessToken noi bo."
+    }
+  },
+  "shared": {
+    "roles": [
+      "examiner1",
+      "examiner2",
+      "supervisor"
+    ],
+    "plans": [
+      "Phuong an 1",
+      "Phuong an 2",
+      "Phuong an 3",
+      "Phuong an 4"
+    ],
+    "teacher": {
+      "id": 1,
+      "name": "Nguyen Van An",
+      "role": "examiner1",
+      "unit": "Khoa Ly luan co so",
+      "note": "",
+      "is_active": 1,
+      "created_at": "2026-06-12 08:00:00"
+    },
+    "room": {
+      "id": 101,
+      "name": "Phong thi 101",
+      "capacity": 35,
+      "note": "",
+      "is_active": 1,
+      "created_at": "2026-06-12 08:00:00",
+      "allow_supervisor_pair": 1
+    },
+    "user": {
+      "id": 1,
+      "username": "admin",
+      "full_name": "Quan tri vien",
+      "role": "admin",
+      "email": "admin@example.com",
+      "phone": "0900000001",
+      "avatar_url": null,
+      "auth_provider": "password",
+      "note": "",
+      "is_active": 1,
+      "last_login_at": null,
+      "created_at": "2026-06-12 08:00:00",
+      "updated_at": "2026-06-12 08:00:00"
+    },
+    "drawRow": {
+      "roomId": 101,
+      "roomName": "Phong thi 101",
+      "examiner1Id": 1,
+      "examiner1Name": "Nguyen Van An",
+      "examiner2Id": 6,
+      "examiner2Name": "Le Thi Binh",
+      "supervisorId": 11,
+      "supervisorName": "Pham Van Cuong"
+    },
+    "reserve": {
+      "role": "supervisor",
+      "staffId": 13,
+      "staffName": "Do Thi Dung"
+    },
+    "error": {
+      "message": "Thong bao loi mau tu backend."
+    }
+  },
+  "endpoints": {
+    "GET /api/dashboard": {
+      "description": "Lay KPI va cac danh sach tom tat cho dashboard MVP.",
+      "request": {
+        "method": "GET",
+        "url": "/api/dashboard"
+      },
+      "response": {
+        "date": "2026-06-15",
+        "kpis": {
+          "calendarToday": 0,
+          "tasksToday": 0,
+          "overdueTasks": 0,
+          "activeStudents": 0,
+          "newStudents": 0,
+          "unreadNotifications": 0,
+          "rooms": 10,
+          "examiners": 22,
+          "supervisors": 7
+        },
+        "upcomingCalendar": [],
+        "dueTasks": [],
+        "notifications": [],
+        "latestDrawSession": null
+      }
+    },
+    "GET /api/calendar": {
+      "description": "Lay danh sach lich tuan dang hoat dong.",
+      "request": {
+        "method": "GET",
+        "url": "/api/calendar"
+      },
+      "response": [
+        {
+          "id": 1,
+          "title": "Hop giao ban dao tao",
+          "task_date": "2026-06-15",
+          "start_time": "08:00",
+          "end_time": "09:30",
+          "content": "Hop giao ban dao tao",
+          "location": "Phong hop A",
+          "tt_hv": "PGD Hoang",
+          "tt_phong": "TT Ha",
+          "ban": "Kien",
+          "person_in_charge": "Phong Dao tao",
+          "duty_officer": "Dong",
+          "color": "#166534",
+          "status": "Published",
+          "is_active": 1
+        }
+      ]
+    },
+    "GET /api/calendar/week-meta": {
+      "description": "Lay metadata Truc ban va TCH Phong theo tuan. Co the truyen query weekStart=YYYY-MM-DD.",
+      "request": {
+        "method": "GET",
+        "url": "/api/calendar/week-meta?weekStart=2026-06-15"
+      },
+      "response": {
+        "id": 1,
+        "week_start": "2026-06-15",
+        "duty_summary": "1* Nguyen Huy Hoang",
+        "room_summary": "4// Nguyen Dinh Bac",
+        "created_at": "2026-06-15 08:00:00",
+        "updated_at": "2026-06-15 08:00:00"
+      }
+    },
+    "PUT /api/calendar/week-meta": {
+      "description": "Tao hoac cap nhat metadata Truc ban va TCH Phong rieng cho mot tuan.",
+      "request": {
+        "method": "PUT",
+        "url": "/api/calendar/week-meta",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "weekStart": "2026-06-15",
+          "dutySummary": "1* Nguyen Huy Hoang",
+          "roomSummary": "4// Nguyen Dinh Bac"
+        }
+      },
+      "response": {
+        "id": 1,
+        "week_start": "2026-06-15",
+        "duty_summary": "1* Nguyen Huy Hoang",
+        "room_summary": "4// Nguyen Dinh Bac"
+      }
+    },
+    "POST /api/calendar": {
+      "description": "Tao lich tuan moi va tao thong bao in-app.",
+      "request": {
+        "method": "POST",
+        "url": "/api/calendar",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "title": "Hop giao ban dao tao",
+          "date": "2026-06-15",
+          "startTime": "08:00",
+          "endTime": "09:30",
+          "location": "Phong hop A",
+          "ttHv": "PGD Hoang",
+          "ttPhong": "TT Ha",
+          "ban": "Kien",
+          "personInCharge": "Phong Dao tao",
+          "dutyOfficer": "Dong",
+          "status": "Published"
+        }
+      },
+      "response": {
+        "id": 1,
+        "title": "Hop giao ban dao tao",
+        "task_date": "2026-06-15",
+        "tt_hv": "PGD Hoang",
+        "tt_phong": "TT Ha",
+        "ban": "Kien",
+        "status": "Published"
+      }
+    },
+    "PUT /api/calendar/:id": {
+      "description": "Cap nhat lich tuan.",
+      "request": {
+        "method": "PUT",
+        "url": "/api/calendar/1"
+      },
+      "response": {
+        "id": 1,
+        "title": "Hop giao ban dao tao",
+        "status": "Archived"
+      }
+    },
+    "DELETE /api/calendar/:id": {
+      "description": "Xoa mem lich tuan.",
+      "request": {
+        "method": "DELETE",
+        "url": "/api/calendar/1"
+      },
+      "response": {
+        "ok": true
+      }
+    },
+    "GET /api/students": {
+      "description": "Lay danh sach hoc vien dang hoat dong.",
+      "request": {
+        "method": "GET",
+        "url": "/api/students"
+      },
+      "response": [
+        {
+          "id": 1,
+          "student_code": "HV001",
+          "full_name": "Nguyen Van A",
+          "rank": "Dai uy",
+          "unit": "Don vi A",
+          "class_name": "Lop 1",
+          "status": "Created"
+        }
+      ]
+    },
+    "POST /api/students": {
+      "description": "Tao ho so hoc vien, co kiem tra trung ma hoc vien.",
+      "request": {
+        "method": "POST",
+        "url": "/api/students",
+        "body": {
+          "studentCode": "HV001",
+          "fullName": "Nguyen Van A",
+          "rank": "Dai uy",
+          "unit": "Don vi A",
+          "className": "Lop 1",
+          "status": "Created"
+        }
+      },
+      "response": {
+        "id": 1,
+        "student_code": "HV001",
+        "full_name": "Nguyen Van A",
+        "status": "Created"
+      }
+    },
+    "PUT /api/students/:id": {
+      "description": "Cap nhat ho so hoc vien.",
+      "request": {
+        "method": "PUT",
+        "url": "/api/students/1"
+      },
+      "response": {
+        "id": 1,
+        "student_code": "HV001",
+        "status": "Approved"
+      }
+    },
+    "DELETE /api/students/:id": {
+      "description": "Xoa mem hoc vien.",
+      "request": {
+        "method": "DELETE",
+        "url": "/api/students/1"
+      },
+      "response": {
+        "ok": true
+      }
+    },
+    "GET /api/tasks": {
+      "description": "Lay danh sach cong viec nhac viec hang ngay.",
+      "request": {
+        "method": "GET",
+        "url": "/api/tasks"
+      },
+      "response": [
+        {
+          "id": 1,
+          "title": "Kiem tra lich thi",
+          "assignee": "Phong Khao thi",
+          "due_date": "2026-06-15",
+          "priority": "Normal",
+          "status": "New",
+          "progress": 0
+        }
+      ]
+    },
+    "POST /api/tasks": {
+      "description": "Tao cong viec moi.",
+      "request": {
+        "method": "POST",
+        "url": "/api/tasks",
+        "body": {
+          "title": "Kiem tra lich thi",
+          "assignee": "Phong Khao thi",
+          "dueDate": "2026-06-15",
+          "priority": "Normal",
+          "status": "New"
+        }
+      },
+      "response": {
+        "id": 1,
+        "title": "Kiem tra lich thi",
+        "status": "New"
+      }
+    },
+    "PUT /api/tasks/:id": {
+      "description": "Cap nhat cong viec.",
+      "request": {
+        "method": "PUT",
+        "url": "/api/tasks/1"
+      },
+      "response": {
+        "id": 1,
+        "title": "Kiem tra lich thi",
+        "status": "Completed",
+        "progress": 100
+      }
+    },
+    "DELETE /api/tasks/:id": {
+      "description": "Xoa mem cong viec.",
+      "request": {
+        "method": "DELETE",
+        "url": "/api/tasks/1"
+      },
+      "response": {
+        "ok": true
+      }
+    },
+    "POST /api/tasks/:id/remind": {
+      "description": "Tao thong bao nhac viec cho cong viec.",
+      "request": {
+        "method": "POST",
+        "url": "/api/tasks/1/remind"
+      },
+      "response": {
+        "ok": true,
+        "notification": {
+          "id": 1,
+          "title": "Nhac viec: Kiem tra lich thi"
+        }
+      }
+    },
+    "GET /api/notifications": {
+      "description": "Lay danh sach thong bao.",
+      "request": {
+        "method": "GET",
+        "url": "/api/notifications"
+      },
+      "response": [
+        {
+          "id": 1,
+          "title": "Lich tuan moi",
+          "priority": "Normal",
+          "status": "Queued",
+          "is_read": 0
+        }
+      ]
+    },
+    "POST /api/notifications": {
+      "description": "Tao thong bao in-app.",
+      "request": {
+        "method": "POST",
+        "url": "/api/notifications",
+        "body": {
+          "title": "Thong bao moi",
+          "message": "Noi dung",
+          "priority": "Normal"
+        }
+      },
+      "response": {
+        "id": 1,
+        "title": "Thong bao moi",
+        "status": "Pending"
+      }
+    },
+    "PUT /api/notifications/:id/read": {
+      "description": "Danh dau thong bao da doc.",
+      "request": {
+        "method": "PUT",
+        "url": "/api/notifications/1/read"
+      },
+      "response": {
+        "id": 1,
+        "status": "Read",
+        "is_read": 1
+      }
+    },
+    "GET /api/ai/documents": {
+      "description": "Lay danh sach tai lieu AI, gom cac file Markdown trong docs.",
+      "request": {
+        "method": "GET",
+        "url": "/api/ai/documents"
+      },
+      "response": [
+        {
+          "id": "docs/README.md",
+          "file_name": "README.md",
+          "file_type": "md",
+          "scope": "Noi bo",
+          "status": "Indexed",
+          "size": 2048
+        }
+      ]
+    },
+    "POST /api/ai/chat": {
+      "description": "Tra loi cau hoi bang OpenAI server-side voi context doc tu cac file Markdown trong docs. Neu chua co OPENAI_API_KEY thi tra local-fallback.",
+      "request": {
+        "method": "POST",
+        "url": "/api/ai/chat",
+        "body": {
+          "question": "Quy tac boc tham thi tot nghiep la gi?"
+        }
+      },
+      "response": {
+        "id": 1,
+        "answer": "Cau tra loi theo tai lieu.",
+        "sources": [
+          "docs/00-core-business-rules.md",
+          "docs/09-module-graduation-exam.md"
+        ],
+        "provider": "openai",
+        "model": "gpt-4o-mini",
+        "created_at": "2026-06-17T00:00:00.000Z"
+      }
+    },
+    "GET /api/audit-logs": {
+      "description": "Lay audit log he thong.",
+      "request": {
+        "method": "GET",
+        "url": "/api/audit-logs"
+      },
+      "response": [
+        {
+          "id": 1,
+          "username": "system",
+          "action": "Create",
+          "entity_name": "Students",
+          "entity_id": "1",
+          "created_at": "2026-06-15 08:00:00"
+        }
+      ]
+    },
+    "GET /api/docs": {
+      "description": "Hien thi tai lieu API dang HTML. Them query format=json de nhan JSON.",
+      "request": {
+        "method": "GET",
+        "url": "/api/docs"
+      },
+      "response": {
+        "contentType": "text/html",
+        "source": "/mock-api.json"
+      }
+    },
+    "GET /api/docs.json": {
+      "description": "Tra ve toan bo API docs dang JSON de frontend hoac cong cu khac su dung.",
+      "request": {
+        "method": "GET",
+        "url": "/api/docs.json"
+      },
+      "response": {
+        "meta": {
+          "name": "Exam Draw Website API mock data",
+          "version": "1.0.0",
+          "baseUrl": "/api"
+        },
+        "endpoints": "Object chua toan bo request/response mau"
+      }
+    },
+    "POST /api/auth/google/register": {
+      "description": "Dang ky tai khoan bang Google. Frontend gui idToken hoac credential lay tu Google Identity Services. Neu email da ton tai va chua lien ket Google, backend se lien ket vao user do.",
+      "request": {
+        "method": "POST",
+        "url": "/api/auth/google/register",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "idToken": "GOOGLE_ID_TOKEN_FROM_FRONTEND"
+        }
+      },
+      "response": {
+        "user": {
+          "id": 3,
+          "username": "nguyenvana",
+          "full_name": "Nguyen Van A",
+          "role": "viewer",
+          "email": "nguyenvana@gmail.com",
+          "phone": "",
+          "avatar_url": "https://lh3.googleusercontent.com/a/example-avatar",
+          "auth_provider": "google",
+          "note": "",
+          "is_active": 1,
+          "last_login_at": "2026-06-12 10:00:00",
+          "created_at": "2026-06-12 10:00:00",
+          "updated_at": "2026-06-12 10:00:00"
+        },
+        "accessToken": "INTERNAL_AUTH_TOKEN",
+        "tokenType": "Bearer",
+        "expiresIn": 86400,
+        "expiresAt": "2026-06-13T10:00:00.000Z",
+        "authProvider": "google",
+        "isNewUser": true
+      },
+      "errors": {
+        "400": {
+          "message": "Thieu Google idToken."
+        },
+        "401": {
+          "message": "Google idToken khong hop le."
+        },
+        "403": {
+          "message": "Email Google chua duoc xac minh."
+        },
+        "409": {
+          "message": "Email nay da lien ket voi tai khoan Google khac."
+        },
+        "500": {
+          "message": "Chua cau hinh GOOGLE_CLIENT_ID tren server."
+        }
+      }
+    },
+    "POST /api/auth/google/login": {
+      "description": "Dang nhap bang Google voi tai khoan da dang ky hoac user co email trung khop da duoc lien ket.",
+      "request": {
+        "method": "POST",
+        "url": "/api/auth/google/login",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "credential": "GOOGLE_ID_TOKEN_FROM_GOOGLE_IDENTITY_SERVICES"
+        }
+      },
+      "response": {
+        "user": {
+          "id": 3,
+          "username": "nguyenvana",
+          "full_name": "Nguyen Van A",
+          "role": "viewer",
+          "email": "nguyenvana@gmail.com",
+          "phone": "",
+          "avatar_url": "https://lh3.googleusercontent.com/a/example-avatar",
+          "auth_provider": "google",
+          "note": "",
+          "is_active": 1,
+          "last_login_at": "2026-06-12 10:05:00",
+          "created_at": "2026-06-12 10:00:00",
+          "updated_at": "2026-06-12 10:05:00"
+        },
+        "accessToken": "INTERNAL_AUTH_TOKEN",
+        "tokenType": "Bearer",
+        "expiresIn": 86400,
+        "expiresAt": "2026-06-13T10:05:00.000Z",
+        "authProvider": "google",
+        "isNewUser": false
+      },
+      "errors": {
+        "404": {
+          "message": "Tai khoan Google chua duoc dang ky."
+        },
+        "403": {
+          "message": "Tai khoan da bi khoa."
+        }
+      }
+    },
+    "POST /api/auth/google": {
+      "description": "Login-or-register bang Google. Endpoint nay tu dong tao user moi neu Google email chua ton tai.",
+      "request": {
+        "method": "POST",
+        "url": "/api/auth/google",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "idToken": "GOOGLE_ID_TOKEN_FROM_FRONTEND"
+        }
+      },
+      "response": {
+        "user": {
+          "id": 3,
+          "username": "nguyenvana",
+          "full_name": "Nguyen Van A",
+          "role": "viewer",
+          "email": "nguyenvana@gmail.com",
+          "phone": "",
+          "avatar_url": "https://lh3.googleusercontent.com/a/example-avatar",
+          "auth_provider": "google",
+          "note": "",
+          "is_active": 1,
+          "last_login_at": "2026-06-12 10:00:00",
+          "created_at": "2026-06-12 10:00:00",
+          "updated_at": "2026-06-12 10:00:00"
+        },
+        "accessToken": "INTERNAL_AUTH_TOKEN",
+        "tokenType": "Bearer",
+        "expiresIn": 86400,
+        "expiresAt": "2026-06-13T10:00:00.000Z",
+        "authProvider": "google",
+        "isNewUser": true
+      }
+    },
+    "GET /api/users": {
+      "description": "Lay danh sach user dang hoat dong. Them query includeInactive=1 de lay ca user da khoa/xoa mem.",
+      "request": {
+        "method": "GET",
+        "url": "/api/users"
+      },
+      "response": [
+        {
+          "id": 1,
+          "username": "admin",
+          "full_name": "Quan tri vien",
+          "role": "admin",
+          "email": "admin@example.com",
+          "phone": "0900000001",
+          "avatar_url": null,
+          "auth_provider": "password",
+          "note": "",
+          "is_active": 1,
+          "last_login_at": null,
+          "created_at": "2026-06-12 08:00:00",
+          "updated_at": "2026-06-12 08:00:00"
+        },
+        {
+          "id": 2,
+          "username": "manager01",
+          "full_name": "Nguyen Thi Quan Ly",
+          "role": "manager",
+          "email": "manager01@example.com",
+          "phone": "0900000002",
+          "avatar_url": null,
+          "auth_provider": "password",
+          "note": "Quan ly danh sach can bo",
+          "is_active": 1,
+          "last_login_at": null,
+          "created_at": "2026-06-12 08:05:00",
+          "updated_at": "2026-06-12 08:05:00"
+        }
+      ]
+    },
+    "GET /api/users/:id": {
+      "description": "Lay chi tiet 1 user. Them query includeInactive=1 neu can xem user da bi khoa/xoa mem.",
+      "request": {
+        "method": "GET",
+        "url": "/api/users/1"
+      },
+      "response": {
+        "id": 1,
+        "username": "admin",
+        "full_name": "Quan tri vien",
+        "role": "admin",
+        "email": "admin@example.com",
+        "phone": "0900000001",
+        "avatar_url": null,
+        "auth_provider": "password",
+        "note": "",
+        "is_active": 1,
+        "last_login_at": null,
+        "created_at": "2026-06-12 08:00:00",
+        "updated_at": "2026-06-12 08:00:00"
+      },
+      "errors": {
+        "404": {
+          "message": "Khong tim thay user."
+        }
+      }
+    },
+    "POST /api/users": {
+      "description": "Tao user moi. Backend hash password va khong tra password_hash.",
+      "request": {
+        "method": "POST",
+        "url": "/api/users",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "username": "manager01",
+          "password": "123456",
+          "full_name": "Nguyen Thi Quan Ly",
+          "role": "manager",
+          "email": "manager01@example.com",
+          "phone": "0900000002",
+          "note": "Quan ly danh sach can bo"
+        }
+      },
+      "response": {
+        "id": 2,
+        "username": "manager01",
+        "full_name": "Nguyen Thi Quan Ly",
+        "role": "manager",
+        "email": "manager01@example.com",
+        "phone": "0900000002",
+        "avatar_url": null,
+        "auth_provider": "password",
+        "note": "Quan ly danh sach can bo",
+        "is_active": 1,
+        "last_login_at": null,
+        "created_at": "2026-06-12 08:05:00",
+        "updated_at": "2026-06-12 08:05:00"
+      },
+      "errors": {
+        "400": {
+          "message": "Mat khau phai co it nhat 6 ky tu."
+        },
+        "409": {
+          "message": "Username da ton tai."
+        }
+      }
+    },
+    "PUT /api/users/:id": {
+      "description": "Cap nhat day du thong tin user. Co the gui fullName hoac full_name.",
+      "request": {
+        "method": "PUT",
+        "url": "/api/users/2",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "username": "manager01",
+          "full_name": "Nguyen Thi Quan Ly",
+          "role": "manager",
+          "email": "manager01@example.com",
+          "phone": "0900000002",
+          "note": "Quan ly danh sach can bo",
+          "is_active": 1
+        }
+      },
+      "response": {
+        "id": 2,
+        "username": "manager01",
+        "full_name": "Nguyen Thi Quan Ly",
+        "role": "manager",
+        "email": "manager01@example.com",
+        "phone": "0900000002",
+        "avatar_url": null,
+        "auth_provider": "password",
+        "note": "Quan ly danh sach can bo",
+        "is_active": 1,
+        "last_login_at": null,
+        "created_at": "2026-06-12 08:05:00",
+        "updated_at": "2026-06-12 08:20:00"
+      },
+      "errors": {
+        "400": {
+          "message": "Vai tro user khong hop le."
+        },
+        "404": {
+          "message": "Khong tim thay user."
+        },
+        "409": {
+          "message": "Username da ton tai."
+        }
+      }
+    },
+    "PATCH /api/users/:id": {
+      "description": "Cap nhat thong tin user. Cac field khong gui se duoc giu nguyen.",
+      "request": {
+        "method": "PATCH",
+        "url": "/api/users/2",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "full_name": "Nguyen Thi Quan Ly",
+          "role": "viewer",
+          "is_active": 1
+        }
+      },
+      "response": {
+        "id": 2,
+        "username": "manager01",
+        "full_name": "Nguyen Thi Quan Ly",
+        "role": "viewer",
+        "email": "manager01@example.com",
+        "phone": "0900000002",
+        "avatar_url": null,
+        "auth_provider": "password",
+        "note": "Quan ly danh sach can bo",
+        "is_active": 1,
+        "last_login_at": null,
+        "created_at": "2026-06-12 08:05:00",
+        "updated_at": "2026-06-12 08:25:00"
+      }
+    },
+    "PATCH /api/users/:id/password": {
+      "description": "Doi mat khau user. Backend chi tra trang thai thanh cong.",
+      "request": {
+        "method": "PATCH",
+        "url": "/api/users/2/password",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "password": "new-password-123"
+        }
+      },
+      "response": {
+        "ok": true
+      },
+      "errors": {
+        "400": {
+          "message": "Mat khau phai co it nhat 6 ky tu."
+        },
+        "404": {
+          "message": "Khong tim thay user."
+        }
+      }
+    },
+    "DELETE /api/users/:id": {
+      "description": "Xoa mem user bang cach set is_active = 0.",
+      "request": {
+        "method": "DELETE",
+        "url": "/api/users/2"
+      },
+      "response": {
+        "ok": true
+      },
+      "errors": {
+        "404": {
+          "message": "Khong tim thay user."
+        }
+      }
+    },
+    "GET /api/bootstrap": {
+      "description": "Lay toan bo du lieu khoi tao cho man hinh frontend.",
+      "request": {
+        "method": "GET",
+        "url": "/api/bootstrap"
+      },
+      "response": {
+        "plans": [
+          "Phuong an 1",
+          "Phuong an 2",
+          "Phuong an 3",
+          "Phuong an 4"
+        ],
+        "teachers": {
+          "examiner1": [
+            {
+              "id": 1,
+              "name": "Nguyen Van An",
+              "role": "examiner1",
+              "unit": "Khoa Ly luan co so",
+              "note": "",
+              "is_active": 1,
+              "created_at": "2026-06-12 08:00:00"
+            },
+            {
+              "id": 2,
+              "name": "Tran Thi Bao Chau",
+              "role": "examiner1",
+              "unit": "Khoa Nha nuoc va Phap luat",
+              "note": "",
+              "is_active": 1,
+              "created_at": "2026-06-12 08:02:00"
+            },
+            {
+              "id": 3,
+              "name": "Hoang Minh Duc",
+              "role": "examiner1",
+              "unit": "Khoa Xay dung Dang",
+              "note": "Du bi neu can",
+              "is_active": 1,
+              "created_at": "2026-06-12 08:04:00"
+            }
+          ],
+          "examiner2": [
+            {
+              "id": 6,
+              "name": "Le Thi Binh",
+              "role": "examiner2",
+              "unit": "Khoa Chinh tri hoc",
+              "note": "",
+              "is_active": 1,
+              "created_at": "2026-06-12 08:06:00"
+            },
+            {
+              "id": 7,
+              "name": "Pham Quoc Huy",
+              "role": "examiner2",
+              "unit": "Khoa Kinh te chinh tri",
+              "note": "",
+              "is_active": 1,
+              "created_at": "2026-06-12 08:08:00"
+            },
+            {
+              "id": 8,
+              "name": "Vo Thanh Lam",
+              "role": "examiner2",
+              "unit": "Khoa Tu tuong Ho Chi Minh",
+              "note": "Du bi neu can",
+              "is_active": 1,
+              "created_at": "2026-06-12 08:10:00"
+            }
+          ],
+          "supervisor": [
+            {
+              "id": 11,
+              "name": "Pham Van Cuong",
+              "role": "supervisor",
+              "unit": "Phong Dao tao",
+              "note": "",
+              "is_active": 1,
+              "created_at": "2026-06-12 08:12:00"
+            },
+            {
+              "id": 12,
+              "name": "Do Thi Dung",
+              "role": "supervisor",
+              "unit": "Phong Khao thi",
+              "note": "",
+              "is_active": 1,
+              "created_at": "2026-06-12 08:14:00"
+            }
+          ]
+        },
+        "rooms": [
+          {
+            "id": 101,
+            "name": "Phong thi 101",
+            "capacity": 35,
+            "note": "",
+            "is_active": 1,
+            "created_at": "2026-06-12 08:00:00",
+            "allow_supervisor_pair": 1
+          },
+          {
+            "id": 102,
+            "name": "Phong thi 102",
+            "capacity": 35,
+            "note": "",
+            "is_active": 1,
+            "created_at": "2026-06-12 08:01:00",
+            "allow_supervisor_pair": 1
+          },
+          {
+            "id": 103,
+            "name": "Phong thi 103",
+            "capacity": 30,
+            "note": "",
+            "is_active": 1,
+            "created_at": "2026-06-12 08:02:00",
+            "allow_supervisor_pair": 0
+          }
+        ],
+        "latestSession": {
+          "id": 21,
+          "plan_name": "Phuong an 2",
+          "result_hash": "{\"planName\":\"Phuong an 2\",\"rows\":[{\"roomId\":101,\"examiner1Id\":1,\"examiner2Id\":6,\"supervisorId\":11}]}",
+          "created_at": "2026-06-12 09:15:00"
+        }
+      }
+    },
+    "POST /api/teachers": {
+      "description": "Them 1 can bo.",
+      "request": {
+        "method": "POST",
+        "url": "/api/teachers",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "name": "Nguyen Van An",
+          "role": "examiner1",
+          "unit": "Khoa Ly luan co so",
+          "note": ""
+        }
+      },
+      "response": {
+        "id": 31,
+        "name": "Nguyen Van An",
+        "role": "examiner1",
+        "unit": "Khoa Ly luan co so",
+        "note": ""
+      },
+      "errors": {
+        "400": {
+          "message": "Ten hoac vai tro khong hop le."
+        }
+      }
+    },
+    "POST /api/teachers/import": {
+      "description": "Them nhieu can bo theo tung dong.",
+      "request": {
+        "method": "POST",
+        "url": "/api/teachers/import",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "role": "examiner1",
+          "names": "Nguyen Van An\nTran Thi Bao Chau\nHoang Minh Duc"
+        }
+      },
+      "response": {
+        "inserted": 3
+      },
+      "errors": {
+        "400": {
+          "message": "Vai tro khong hop le."
+        }
+      }
+    },
+    "DELETE /api/teachers/:id": {
+      "description": "An can bo khoi danh sach dang hoat dong.",
+      "request": {
+        "method": "DELETE",
+        "url": "/api/teachers/31"
+      },
+      "response": {
+        "ok": true
+      }
+    },
+    "POST /api/rooms": {
+      "description": "Them 1 phong thi.",
+      "request": {
+        "method": "POST",
+        "url": "/api/rooms",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "name": "Phong thi 104",
+          "capacity": 35,
+          "note": "Tang 2"
+        }
+      },
+      "response": {
+        "id": 104,
+        "name": "Phong thi 104",
+        "capacity": 35,
+        "note": "Tang 2"
+      },
+      "errors": {
+        "400": {
+          "message": "Ten phong thi khong hop le."
+        }
+      }
+    },
+    "POST /api/rooms/import": {
+      "description": "Them nhieu phong thi theo tung dong.",
+      "request": {
+        "method": "POST",
+        "url": "/api/rooms/import",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "names": "Phong thi 101\nPhong thi 102\nPhong thi 103"
+        }
+      },
+      "response": {
+        "inserted": 3
+      }
+    },
+    "DELETE /api/rooms/:id": {
+      "description": "An phong thi khoi danh sach dang hoat dong.",
+      "request": {
+        "method": "DELETE",
+        "url": "/api/rooms/104"
+      },
+      "response": {
+        "ok": true
+      }
+    },
+    "PATCH /api/rooms/:id/supervisor-pair": {
+      "description": "Bat/tat che do cho phep 2 phong lien ke dung chung can bo giam sat.",
+      "request": {
+        "method": "PATCH",
+        "url": "/api/rooms/101/supervisor-pair",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {
+          "allow": true
+        }
+      },
+      "response": {
+        "ok": true
+      }
+    },
+    "POST /api/draw": {
+      "description": "Boc tham va luu 1 phien ket qua moi.",
+      "request": {
+        "method": "POST",
+        "url": "/api/draw",
+        "headers": {
+          "Content-Type": "application/json"
+        },
+        "body": {}
+      },
+      "response": {
+        "sessionId": 22,
+        "planName": "Phuong an 3",
+        "rows": [
+          {
+            "roomId": 101,
+            "roomName": "Phong thi 101",
+            "examiner1Id": 1,
+            "examiner1Name": "Nguyen Van An",
+            "examiner2Id": 6,
+            "examiner2Name": "Le Thi Binh",
+            "supervisorId": 11,
+            "supervisorName": "Pham Van Cuong"
+          },
+          {
+            "roomId": 102,
+            "roomName": "Phong thi 102",
+            "examiner1Id": 2,
+            "examiner1Name": "Tran Thi Bao Chau",
+            "examiner2Id": 7,
+            "examiner2Name": "Pham Quoc Huy",
+            "supervisorId": 11,
+            "supervisorName": "Pham Van Cuong"
+          },
+          {
+            "roomId": 103,
+            "roomName": "Phong thi 103",
+            "examiner1Id": 3,
+            "examiner1Name": "Hoang Minh Duc",
+            "examiner2Id": 8,
+            "examiner2Name": "Vo Thanh Lam",
+            "supervisorId": 12,
+            "supervisorName": "Do Thi Dung"
+          }
+        ],
+        "reserves": [
+          {
+            "role": "examiner1",
+            "staffId": 4,
+            "staffName": "Bui Quang Hai"
+          },
+          {
+            "role": "examiner2",
+            "staffId": 9,
+            "staffName": "Dang Thuy Linh"
+          }
+        ]
+      },
+      "errors": {
+        "400": {
+          "message": "So can bo coi thi 1 it hon so phong thi."
+        },
+        "409": {
+          "message": "Khong tao duoc ket qua khac lan truoc. Vui long bo sung them can bo/phong thi."
+        }
+      }
+    },
+    "GET /api/history": {
+      "description": "Lay toi da 5 phien boc tham gan nhat.",
+      "request": {
+        "method": "GET",
+        "url": "/api/history"
+      },
+      "response": [
+        {
+          "id": 22,
+          "plan_name": "Phuong an 3",
+          "result_hash": "{\"planName\":\"Phuong an 3\",\"rows\":[{\"roomId\":101,\"examiner1Id\":1,\"examiner2Id\":6,\"supervisorId\":11}]}",
+          "created_at": "2026-06-12 09:30:00"
+        },
+        {
+          "id": 21,
+          "plan_name": "Phuong an 2",
+          "result_hash": "{\"planName\":\"Phuong an 2\",\"rows\":[{\"roomId\":101,\"examiner1Id\":2,\"examiner2Id\":7,\"supervisorId\":12}]}",
+          "created_at": "2026-06-12 09:15:00"
+        }
+      ]
+    },
+    "GET /api/history/:id": {
+      "description": "Lay chi tiet 1 phien boc tham.",
+      "request": {
+        "method": "GET",
+        "url": "/api/history/22"
+      },
+      "response": {
+        "session": {
+          "id": 22,
+          "plan_name": "Phuong an 3",
+          "result_hash": "{\"planName\":\"Phuong an 3\",\"rows\":[{\"roomId\":101,\"examiner1Id\":1,\"examiner2Id\":6,\"supervisorId\":11}]}",
+          "created_at": "2026-06-12 09:30:00"
+        },
+        "rows": [
+          {
+            "id": 201,
+            "session_id": 22,
+            "room_id": 101,
+            "room_name": "Phong thi 101",
+            "examiner1_id": 1,
+            "examiner1_name": "Nguyen Van An",
+            "examiner2_id": 6,
+            "examiner2_name": "Le Thi Binh",
+            "supervisor_id": 11,
+            "supervisor_name": "Pham Van Cuong"
+          },
+          {
+            "id": 202,
+            "session_id": 22,
+            "room_id": 102,
+            "room_name": "Phong thi 102",
+            "examiner1_id": 2,
+            "examiner1_name": "Tran Thi Bao Chau",
+            "examiner2_id": 7,
+            "examiner2_name": "Pham Quoc Huy",
+            "supervisor_id": 11,
+            "supervisor_name": "Pham Van Cuong"
+          },
+          {
+            "id": 203,
+            "session_id": 22,
+            "room_id": 103,
+            "room_name": "Phong thi 103",
+            "examiner1_id": 3,
+            "examiner1_name": "Hoang Minh Duc",
+            "examiner2_id": 8,
+            "examiner2_name": "Vo Thanh Lam",
+            "supervisor_id": 12,
+            "supervisor_name": "Do Thi Dung"
+          }
+        ],
+        "reserves": [
+          {
+            "id": 301,
+            "session_id": 22,
+            "role": "examiner1",
+            "staff_id": 4,
+            "staff_name": "Bui Quang Hai"
+          },
+          {
+            "id": 302,
+            "session_id": 22,
+            "role": "examiner2",
+            "staff_id": 9,
+            "staff_name": "Dang Thuy Linh"
+          }
+        ]
+      },
+      "errors": {
+        "404": {
+          "message": "Khong tim thay phien boc tham."
+        }
+      }
+    },
+    "GET /api/history/:id/export": {
+      "description": "Tai file Word ket qua boc tham. Endpoint nay tra ve file .docx, khong tra JSON.",
+      "request": {
+        "method": "GET",
+        "url": "/api/history/22/export"
+      },
+      "response": {
+        "contentType": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "contentDisposition": "attachment; filename=\"ket-qua-boc-tham-22.docx\""
+      },
+      "errors": {
+        "404": {
+          "message": "Khong tim thay phien boc tham."
+        },
+        "500": {
+          "message": "Thong bao loi khi xuat file Word."
+        }
+      }
+    }
+  },
+  "frontendUsage": {
+    "fetchMockFile": {
+      "example": "const mockApi = await fetch('/mock-api.json').then(res => res.json());"
+    },
+    "getBootstrapFixture": {
+      "example": "const bootstrap = mockApi.endpoints['GET /api/bootstrap'].response;"
+    },
+    "getDrawFixture": {
+      "example": "const drawResult = mockApi.endpoints['POST /api/draw'].response;"
+    }
+  }
+}

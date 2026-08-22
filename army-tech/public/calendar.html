@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Lịch tuần - Hệ thống điều hành nội bộ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-page="calendar">
+  <!-- Mobile Header (<1024px) -->
+  <header class="mobile-topbar">
+    <div class="mobile-brand">
+      <div class="logo"><img src="img/logo-removebg-preview.png" alt="Logo"></div>
+      <h1>Học viện Chính trị</h1>
+    </div>
+    <button class="mobile-menu-btn" onclick="openMobileDrawer()" aria-label="Mở menu" title="Mở menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="24" height="24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+
+  <!-- Slide-out Mobile Drawer -->
+  <div class="mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu điều hướng">
+    <div class="drawer-backdrop" onclick="closeMobileDrawer()"></div>
+    <div class="drawer-content">
+      <div class="drawer-header">
+        <div class="mobile-brand">
+          <div class="logo"><img src="img/logo-removebg-preview.png" alt="Logo"></div>
+          <div>
+            <h1>Học viện Chính trị</h1>
+            <p style="font-size: 11px; color: var(--sidebar-muted);">Hệ thống điều hành nội bộ</p>
+          </div>
+        </div>
+        <button class="drawer-close icon-action-btn" onclick="closeMobileDrawer()" aria-label="Đóng menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <nav class="nav drawer-nav"></nav>
+    </div>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo"><img src="img/logo-removebg-preview.png" alt="Logo"></div>
+        <div>
+          <h1>Học viện Chính trị</h1>
+          <p>Hệ thống điều hành nội bộ</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="index.html">Dashboard</a>
+        <a class="active" href="calendar.html">Lịch tuần</a>
+        <a href="students.html">Tiếp nhận học viên</a>
+        <a href="exam.html">Thi tốt nghiệp</a>
+        <a href="tasks.html">Nhắc việc</a>
+        <a href="ai.html">AI Assistant</a>
+        <a href="admin.html">Quản trị</a>
+      </nav>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Module 01</p>
+          <h2>Quản lý lịch công tác</h2>
+        </div>
+        <div class="topbar-actions">
+          <span id="todayLabel" class="date-chip"></span>
+        </div>
+      </header>
+
+      <main>
+        <section id="calendar" class="section">
+          <div class="calendar-shell">
+            <aside class="calendar-side">
+              <button class="primary create-event-btn" onclick="focusCalendarTitle()" type="button">
+                <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                Tạo lịch công tác
+              </button>
+
+              <form id="calendarWeekMetaForm" class="week-meta-form" onsubmit="saveWeekMeta(event)">
+                <div>
+                  <h4>Thông tin trực ban tuần</h4>
+                  <p id="weekMetaRange">Tuần đang chọn</p>
+                </div>
+                <label>
+                  TCH Học viện
+                  <input id="weekDutySummary" placeholder="Nhập TCH Học viện" />
+                </label>
+                <label>
+                  TCH Phòng
+                  <input id="weekRoomSummary" placeholder="Nhập TCH Phòng" />
+                </label>
+                <button class="primary" type="submit">Lưu thông tin tuần</button>
+              </form>
+
+              <form id="calendarForm" class="calendar-form" onsubmit="createCalendar(event)">
+                <h4 style="font-size: 15px; border-bottom: 1px solid var(--line); padding-bottom: 8px;">Nhập lịch mới</h4>
+                <label>
+                  Tiêu đề / Nội dung
+                  <input id="calendarTitle" placeholder="Tiêu đề lịch" required />
+                </label>
+                <label>
+                  Ngày công tác
+                  <input id="calendarDate" type="date" required />
+                </label>
+                <div class="time-row">
+                  <label>
+                    Bắt đầu
+                    <input id="calendarStart" type="time" />
+                  </label>
+                  <label>
+                    Kết thúc
+                    <input id="calendarEnd" type="time" />
+                  </label>
+                </div>
+                <label>
+                  Địa điểm
+                  <input id="calendarLocation" placeholder="Hội trường, phòng họp..." />
+                </label>
+                <label>
+                  Thành phần Học viện (TT HV)
+                  <input id="calendarTtHv" placeholder="Thông tin học viên" />
+                </label>
+                <label>
+                  Thành phần Phòng (TT Phòng)
+                  <input id="calendarTtPhong" placeholder="Thông tin phòng ban" />
+                </label>
+                <label>
+                  Ban chủ trì
+                  <input id="calendarBan" placeholder="Ban phụ trách" />
+                </label>
+                <label>
+                  Người phụ trách
+                  <input id="calendarOwner" placeholder="Chỉ huy / cán bộ chủ trì" />
+                </label>
+                <label>
+                  Trực ban HL
+                  <input id="calendarDutyOfficer" placeholder="Cán bộ trực ban" />
+                </label>
+                <button class="primary" type="submit">Lưu lịch</button>
+              </form>
+
+              <div class="mini-summary">
+                <h4>Thống kê tháng</h4>
+                <div id="calendarMiniStats" class="mini-stats"></div>
+              </div>
+            </aside>
+
+            <div class="calendar-main">
+              <div class="calendar-toolbar">
+                <div class="calendar-nav">
+                  <button onclick="goCalendarToday()">Hôm nay</button>
+                  <button class="icon-action-btn" onclick="moveCalendarPeriod(-1)" aria-label="Kỳ trước" title="Kỳ trước">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="m15 18-6-6 6-6"></path></svg>
+                  </button>
+                  <button class="icon-action-btn" onclick="moveCalendarPeriod(1)" aria-label="Kỳ sau" title="Kỳ sau">
+                    <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="m9 18 6-6-6-6"></path></svg>
+                  </button>
+                  <h3 id="calendarMonthTitle">Tháng</h3>
+                </div>
+                <div class="calendar-view-switch" aria-label="Chế độ xem lịch">
+                  <button id="calendarViewMonth" onclick="setCalendarView('month')">Tháng</button>
+                  <button id="calendarViewWeek" onclick="setCalendarView('week')">Tuần</button>
+                  <button id="calendarViewDay" onclick="setCalendarView('day')">Ngày</button>
+                </div>
+              </div>
+
+              <div id="calendarWeekdays" class="calendar-weekdays">
+                <span>Thứ 2</span>
+                <span>Thứ 3</span>
+                <span>Thứ 4</span>
+                <span>Thứ 5</span>
+                <span>Thứ 6</span>
+                <span>Thứ 7</span>
+                <span>Chủ Nhật</span>
+              </div>
+              <div id="calendarGrid" class="calendar-grid"></div>
+            </div>
+
+            <aside class="calendar-detail">
+              <h4 id="calendarSelectedDate">Ngày đang chọn</h4>
+              <div id="calendarSelectedList" class="stack-list"></div>
+            </aside>
+          </div>
+
+          <!-- Bảng Lịch Công Tác Phục Vụ Trình Chiếu / Toàn Màn Hình -->
+          <div id="workScheduleCard" class="work-schedule-card">
+            <div class="schedule-title-row">
+              <div></div>
+              <h3>LỊCH CÔNG TÁC HỌC VIỆN CHÍNH TRỊ</h3>
+              <button class="schedule-fullscreen-btn" onclick="toggleWorkScheduleFullscreen()" title="Toàn màn hình" aria-label="Toàn màn hình lịch công tác">
+                <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+                  <path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
+                </svg>
+              </button>
+            </div>
+            <div class="schedule-meta-row">
+              <strong id="scheduleDutySummary">Trực ban: Chưa có dữ liệu</strong>
+              <strong id="scheduleRoomSummary">TCH Phòng: Chưa có dữ liệu</strong>
+            </div>
+            <div class="work-table-wrap">
+              <table class="work-schedule-table">
+                <thead>
+                  <tr>
+                    <th>Thứ, ngày</th>
+                    <th>Trực ban HL</th>
+                    <th>Thời gian</th>
+                    <th>Nội dung</th>
+                    <th>TT HV</th>
+                    <th>TT Phòng</th>
+                    <th>Phụ trách</th>
+                    <th>Ban</th>
+                    <th>Địa điểm</th>
+                  </tr>
+                </thead>
+                <tbody id="workScheduleBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar (Mobile <1024px) -->
+  <nav class="bottom-nav"></nav>
+
+  <!-- Floating AI Assistant Widget -->
+  <div id="aiWidget" class="ai-widget collapsed">
+    <button class="ai-toggle" onclick="toggleAiWidget()" aria-label="Mở trợ lý AI" title="Trợ lý AI">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.8C4 4.25 5.25 3 6.8 3h10.4C18.75 3 20 4.25 20 5.8v6.9c0 1.55-1.25 2.8-2.8 2.8H11l-4.6 3.2c-.66.46-1.57-.01-1.57-.82V15.4C3.8 15.08 3 14.11 3 12.95V5.8Zm3-.8c-.44 0-.8.36-.8.8v7.15c0 .44.36.8.8.8h.83v2.58l2.55-1.78.26-.18h6.56c.44 0 .8-.36.8-.8V5.8c0-.44-.36-.8-.8-.8H7Zm1.25 3.2h7.5v1.6h-7.5V8.2Zm0 3.2h5.5V13h-5.5v-1.6Z"/></svg>
+    </button>
+    <div class="ai-widget-panel">
+      <div class="ai-widget-header">
+        <span class="chat-avatar">AI</span>
+        <div>
+          <strong>Trợ lý AI</strong>
+          <small>Tra cứu nhanh quy chế & tài liệu</small>
+        </div>
+      </div>
+      <div id="aiWidgetMessages" class="chat-log small"></div>
+      <form class="chat-form" onsubmit="askAi(event, 'widget')">
+        <input id="aiWidgetQuestion" placeholder="Nhập câu hỏi tra cứu..." />
+        <button class="primary" type="submit">Gửi</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Thi tốt nghiệp - Hệ thống điều hành nội bộ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-page="exam">
+  <!-- Mobile Header (<1024px) -->
+  <header class="mobile-topbar">
+    <div class="mobile-brand">
+      <div class="logo"><img src="img/logo-removebg-preview.png" alt="Logo"></div>
+      <h1>Học viện Chính trị</h1>
+    </div>
+    <button class="mobile-menu-btn" onclick="openMobileDrawer()" aria-label="Mở menu" title="Mở menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="24" height="24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+
+  <!-- Slide-out Mobile Drawer -->
+  <div class="mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu điều hướng">
+    <div class="drawer-backdrop" onclick="closeMobileDrawer()"></div>
+    <div class="drawer-content">
+      <div class="drawer-header">
+        <div class="mobile-brand">
+          <div class="logo"><img src="img/logo-removebg-preview.png" alt="Logo"></div>
+          <div>
+            <h1>Học viện Chính trị</h1>
+            <p style="font-size: 11px; color: var(--sidebar-muted);">Hệ thống điều hành nội bộ</p>
+          </div>
+        </div>
+        <button class="drawer-close icon-action-btn" onclick="closeMobileDrawer()" aria-label="Đóng menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <nav class="nav drawer-nav"></nav>
+    </div>
+  </div>
+
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="logo"><img src="img/logo-removebg-preview.png" alt="Logo"></div>
+        <div>
+          <h1>Học viện Chính trị</h1>
+          <p>Hệ thống điều hành nội bộ</p>
+        </div>
+      </div>
+      <nav class="nav">
+        <a href="index.html">Dashboard</a>
+        <a href="calendar.html">Lịch tuần</a>
+        <a href="students.html">Tiếp nhận học viên</a>
+        <a class="active" href="exam.html">Thi tốt nghiệp</a>
+        <a href="tasks.html">Nhắc việc</a>
+        <a href="ai.html">AI Assistant</a>
+        <a href="admin.html">Quản trị</a>
+      </nav>
+    </aside>
+
+    <div class="workspace">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Module 03</p>
+          <h2>Thi tốt nghiệp & Bốc thăm</h2>
+        </div>
+        <div class="topbar-actions">
+          <span id="todayLabel" class="date-chip"></span>
+        </div>
+      </header>
+
+      <main>
+        <section id="exam" class="section">
+          <div class="section-title">
+            <div>
+              <h3>Quản lý kỳ thi & Bốc thăm giám thị</h3>
+              <p>Quản lý hồ sơ kỳ thi, tài liệu đính kèm, danh sách cán bộ coi thi, phòng thi và thực hiện quy trình bốc thăm 6 bước tự động.</p>
+              <p id="examSelectedContext" class="selected-context" style="margin-top: 6px;">Chọn ngày thi - môn thi trước khi bốc thăm.</p>
+            </div>
+            <button class="primary" onclick="drawNow()">Bốc thăm ngay</button>
+          </div>
+
+          <!-- Exam Session Management & List Grid -->
+          <div class="exam-management-grid">
+            <form id="examSessionForm" class="data-card exam-session-form" onsubmit="saveExamSession(event)">
+              <div class="section-title compact-title">
+                <h4 id="examFormTitle">Tạo kỳ thi</h4>
+                <button id="examCancelEditButton" class="hidden" type="button" onclick="resetExamSessionForm()">Hủy sửa</button>
+              </div>
+              <label>
+                Tên đối tượng đào tạo
+                <input id="examTargetName" placeholder="VD: Đào tạo cán bộ chính trị cấp phân đội" required />
+              </label>
+              <label>
+                Số lượng học viên
+                <input id="examStudentCount" type="number" min="0" value="0" required />
+              </label>
+              <label>
+                Ghi chú
+                <input id="examNote" placeholder="Ghi chú kỳ thi" />
+              </label>
+              <div class="exam-subject-editor">
+                <div class="section-title compact-title">
+                  <h4 style="font-size: 14px;">Ngày thi - Môn thi</h4>
+                  <button type="button" onclick="addExamSubjectRow()">Thêm môn</button>
+                </div>
+                <div id="examSubjectRows"></div>
+              </div>
+              <button id="examSubmitButton" class="primary" type="submit" title="Tạo kỳ thi" aria-label="Tạo kỳ thi">
+                <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
+                Tạo kỳ thi
+              </button>
+            </form>
+
+            <div class="data-card exam-session-list-card">
+              <div class="exam-list-header">
+                <div>
+                  <h4>Danh sách kỳ thi</h4>
+                  <p class="empty-small" style="padding: 2px 0;">Tìm theo tên đối tượng, mở chi tiết để nhập dữ liệu.</p>
+                </div>
+                <input id="examSearchInput" placeholder="Tìm tên kỳ thi..." oninput="setExamSearch(this.value)" style="max-width: 220px;" />
+              </div>
+              <div id="examSessionList" class="exam-session-list"></div>
+              <div class="exam-pagination">
+                <button id="examPrevPage" type="button" onclick="moveExamPage(-1)">Trước</button>
+                <span id="examPaginationInfo">0-0/0</span>
+                <button id="examNextPage" type="button" onclick="moveExamPage(1)">Sau</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Empty Detail Notice -->
+          <div id="examNoSelection" class="exam-empty-detail">
+            <strong>Chưa chọn kỳ thi</strong>
+            <p>Nhấn vào <strong>Chi tiết</strong> trong danh sách kỳ thi để quản lý tài liệu, phân bổ cán bộ coi thi 1, cán bộ 2, giám sát và phòng thi.</p>
+          </div>
+
+          <!-- Detailed Exam Panel -->
+          <div id="examDetailPanel" class="exam-detail-panel hidden">
+            <div class="exam-detail-header">
+              <div>
+                <p class="eyebrow">Hồ sơ chi tiết</p>
+                <h3 id="examDetailTitle">Kỳ thi</h3>
+                <p id="examDetailMeta"></p>
+              </div>
+              <button type="button" onclick="closeExamDetail()">Đóng chi tiết</button>
+            </div>
+
+            <!-- Subject Chips Navigation -->
+            <div id="examDetailSubjects" class="exam-subject-list detail-subjects"></div>
+
+            <!-- Exam Documents Card -->
+            <div class="data-card exam-document-card">
+              <div class="section-title compact-title">
+                <div>
+                  <h4>Tài liệu kỳ thi</h4>
+                  <p id="examDocumentContext" class="empty-small" style="padding: 2px 0;">0 tài liệu đã tải lên</p>
+                </div>
+              </div>
+              <form class="exam-document-form" onsubmit="uploadExamDocument(event)">
+                <input id="examDocumentFile" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
+                <button class="primary" type="submit">Tải tài liệu</button>
+              </form>
+              <div id="examDocumentList" class="exam-document-list"></div>
+            </div>
+
+            <!-- KPI Summary for Examiners & Rooms -->
+            <div class="kpi-grid exam-kpis">
+              <div class="kpi"><span id="countExaminer1">0</span><p>Cán bộ coi thi 1</p></div>
+              <div class="kpi"><span id="countExaminer2">0</span><p>Cán bộ coi thi 2</p></div>
+              <div class="kpi"><span id="countSupervisor">0</span><p>Cán bộ giám sát</p></div>
+              <div class="kpi"><span id="countRooms">0</span><p>Phòng thi</p></div>
+            </div>
+
+            <!-- Bulk Inputs for Staff and Rooms -->
+            <div class="module-grid">
+              <div class="data-card">
+                <h4>Cán bộ coi thi số 1</h4>
+                <textarea id="bulkExaminer1" placeholder="Nguyễn Văn A&#10;Trần Văn B"></textarea>
+                <button onclick="importTeachers('examiner1', 'bulkExaminer1')">Thêm danh sách</button>
+                <div id="listExaminer1" class="pill-list"></div>
+              </div>
+              <div class="data-card">
+                <h4>Cán bộ coi thi số 2</h4>
+                <textarea id="bulkExaminer2" placeholder="Lê Văn C&#10;Phạm Văn D"></textarea>
+                <button onclick="importTeachers('examiner2', 'bulkExaminer2')">Thêm danh sách</button>
+                <div id="listExaminer2" class="pill-list"></div>
+              </div>
+              <div class="data-card">
+                <h4>Cán bộ giám sát</h4>
+                <textarea id="bulkSupervisor" placeholder="Hoàng Văn E&#10;Đỗ Văn F"></textarea>
+                <button onclick="importTeachers('supervisor', 'bulkSupervisor')">Thêm danh sách</button>
+                <div id="listSupervisor" class="pill-list"></div>
+              </div>
+              <div class="data-card">
+                <h4>Phòng thi</h4>
+                <textarea id="bulkRooms" placeholder="Phòng 101&#10;Phòng 102"></textarea>
+                <button onclick="importRooms()">Thêm phòng thi</button>
+                <div id="listRooms" class="pill-list"></div>
+              </div>
+            </div>
+
+            <!-- Draw Result Display Board (Màn hình bốc thăm & Kết quả) -->
+            <div id="draw" class="draw-panel">
+              <div class="section-title compact-title">
+                <div>
+                  <h4>Màn hình bốc thăm & Kết quả</h4>
+                  <p id="drawExamContext">Chọn ngày thi - môn thi trước khi bốc thăm.</p>
+                </div>
+                <div class="actions">
+                  <button onclick="toggleFullscreen()">Toàn màn hình</button>
+                  <button onclick="exportCurrent()">Xuất Word</button>
+                  <button class="primary" onclick="drawNow()">Bốc thăm</button>
+                </div>
+              </div>
+              <div id="planBox" class="plan-box hidden"></div>
+              <div class="table-wrap">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>STT</th>
+                      <th>Phòng thi</th>
+                      <th>Cán bộ coi thi 1</th>
+                      <th>Cán bộ coi thi 2</th>
+                      <th>Cán bộ giám sát</th>
+                    </tr>
+                  </thead>
+                  <tbody id="resultBody" style="font-weight: 700;">
+                    <tr><td colspan="5" class="empty">Chưa có kết quả bốc thăm.</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div id="reserveBox" style="font-weight: 600;" class="reserve-box hidden"></div>
+            </div>
+
+            <!-- History of Draws -->
+            <div class="data-card">
+              <div class="section-title compact-title">
+                <h4>Lịch sử các phiên bốc thăm</h4>
+                <button onclick="loadHistory()">Tải lại</button>
+              </div>
+              <div id="historyList" class="history-list"></div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- Draw Wizard Modal (6-Step Drawing Pipeline) -->
+  <div id="drawModal" class="draw-modal hidden" role="dialog" aria-modal="true" aria-labelledby="drawStepTitle">
+    <div class="draw-modal-backdrop" onclick="closeDrawModal()"></div>
+    <div class="draw-modal-panel">
+      <div class="draw-modal-header">
+        <div>
+          <p id="drawStepKicker" class="eyebrow"></p>
+          <h3 id="drawStepTitle"></h3>
+        </div>
+        <button class="icon-action-btn" onclick="closeDrawModal()" aria-label="Đóng" title="Đóng">
+          <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>
+        </button>
+      </div>
+      <div id="drawStepProgress" class="draw-step-progress"></div>
+      <div id="drawStepContent" class="draw-step-content"></div>
+      <div class="draw-modal-footer">
+        <button id="drawPrevButton" onclick="prevDrawStep()">Quay lại</button>
+        <button id="drawNextButton" class="primary" onclick="nextDrawStep()">Tiếp tục</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar (Mobile <1024px) -->
+  <nav class="bottom-nav"></nav>
+
+  <!-- Floating AI Assistant Widget -->
+  <div id="aiWidget" class="ai-widget collapsed">
+    <button class="ai-toggle" onclick="toggleAiWidget()" aria-label="Mở trợ lý AI" title="Trợ lý AI">
+      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.8C4 4.25 5.25 3 6.8 3h10.4C18.75 3 20 4.25 20 5.8v6.9c0 1.55-1.25 2.8-2.8 2.8H11l-4.6 3.2c-.66.46-1.57-.01-1.57-.82V15.4C3.8 15.08 3 14.11 3 12.95V5.8Zm3-.8c-.44 0-.8.36-.8.8v7.15c0 .44.36.8.8.8h.83v2.58l2.55-1.78.26-.18h6.56c.44 0 .8-.36.8-.8V5.8c0-.44-.36-.8-.8-.8H7Zm1.25 3.2h7.5v1.6h-7.5V8.2Zm0 3.2h5.5V13h-5.5v-1.6Z"/></svg>
+    </button>
+    <div class="ai-widget-panel">
+      <div class="ai-widget-header">
+        <span class="chat-avatar">AI</span>
+        <div>
+          <strong>Trợ lý AI</strong>
+          <small>Tra cứu nhanh quy chế & tài liệu</small>
+        </div>
+      </div>
+      <div id="aiWidgetMessages" class="chat-log small"></div>
+      <form class="chat-form" onsubmit="askAi(event, 'widget')">
+        <input id="aiWidgetQuestion" placeholder="Nhập câu hỏi tra cứu..." />
+        <button class="primary" type="submit">Gửi</button>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>

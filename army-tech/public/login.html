@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Đăng nhập - Hệ thống điều hành nội bộ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body data-page="login" class="login-page">
+  <main class="login-shell">
+    <section class="login-identity">
+      <div class="login-emblem">
+        <img src="img/logo-removebg-preview.png" alt="Logo Học viện Chính trị" />
+      </div>
+      <div>
+        <p class="login-kicker">Học viện Chính trị</p>
+        <h1>Hệ thống điều hành nội bộ</h1>
+        <p style="margin-top: 10px; color: #bbf7d0; font-size: 1.0625rem; font-weight: 500;">
+          Nền tảng số hóa quản lý lịch công tác, học viên & bốc thăm coi thi
+        </p>
+      </div>
+    </section>
+
+    <section class="login-card" aria-labelledby="loginTitle">
+      <div class="login-card-header">
+        <span class="login-star" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l1.35 4.1L17.5 7.5l-4.15 1.4L12 13l-1.35-4.1L6.5 7.5l4.15-1.4L12 2z"></path><path d="M19 13l.8 2.4L22 16.2l-2.2.8-.8 2.4-.8-2.4-2.2-.8 2.2-.8.8-2.4z"></path></svg>
+        </span>
+        <div>
+          <h2 id="loginTitle">Đăng nhập hệ thống</h2>
+          <p id="loginHint" style="font-size: 13px; color: var(--text-muted);">Nhập tài khoản định danh để truy cập.</p>
+        </div>
+      </div>
+
+      <form id="loginForm" class="login-form">
+        <label>
+          Tài khoản đăng nhập
+          <input id="loginUsername" autocomplete="username" placeholder="Tên đăng nhập" required autofocus />
+        </label>
+        <label>
+          Mật khẩu bảo mật
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Mật khẩu" required />
+        </label>
+        <p id="loginError" class="login-error" role="alert"></p>
+        <button id="loginSubmit" class="primary" type="submit">Đăng nhập</button>
+      </form>
+
+      <div class="login-default-account">
+        <strong>Tài khoản & Phân quyền</strong>
+        <span>Do Quản trị viên cấp</span>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>
