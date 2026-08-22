@@ -1,0 +1,11 @@
+node_modules
+npm-debug.log*
+.env
+.env.*
+!.env.example
+exam-draw.db
+*.db
+uploads
+.git
+.github
+Dockerfile

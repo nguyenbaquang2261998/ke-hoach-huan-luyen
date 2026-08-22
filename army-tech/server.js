@@ -31,8 +31,20 @@ loadLocalEnv();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
-const db = new Database(path.join(__dirname, 'exam-draw.db'));
-const EXAM_UPLOAD_ROOT = path.join(__dirname, 'uploads', 'exams');
+function resolveRuntimePath(value, fallback) {
+  const text = String(value || '').trim();
+  return text ? path.resolve(text) : fallback;
+}
+
+const DATA_DIR = resolveRuntimePath(process.env.DATA_DIR, __dirname);
+const DB_PATH = resolveRuntimePath(process.env.DB_PATH, path.join(DATA_DIR, 'exam-draw.db'));
+const UPLOAD_ROOT = resolveRuntimePath(process.env.UPLOAD_DIR, path.join(DATA_DIR, 'uploads'));
+
+fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
+fs.mkdirSync(UPLOAD_ROOT, { recursive: true });
+
+const db = new Database(DB_PATH);
+const EXAM_UPLOAD_ROOT = path.join(UPLOAD_ROOT, 'exams');
 
 app.use(cors());
 app.use(express.json({ limit: '30mb' }));
