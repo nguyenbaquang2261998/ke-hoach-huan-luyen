@@ -151,5 +151,11 @@ jobs:
           docker compose pull
           docker compose up -d --remove-orphans
           docker image prune -f
+
+          install -m 0644 "${REMOTE_TMP_DIR}/nginx/tapluyen.conf" /etc/nginx/sites-available/tapluyen.vmeta.vn.conf
+          ln -sfn /etc/nginx/sites-available/tapluyen.vmeta.vn.conf /etc/nginx/sites-enabled/tapluyen.vmeta.vn.conf
+          nginx -t
+          systemctl reload nginx
+
           docker compose ps
           REMOTE_SCRIPT
