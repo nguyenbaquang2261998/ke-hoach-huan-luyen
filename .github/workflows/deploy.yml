@@ -12,6 +12,8 @@ env:
   IMAGE_NAME: tapluyen
   DEPLOY_DIR: tapluyen
   REMOTE_TMP_DIR: /tmp/tapluyen-deploy
+  DOMAIN_NAME: khhl.vmeta.vn
+  NGINX_CONF_NAME: khhl.vmeta.vn.conf
 
 jobs:
   deploy:
@@ -92,8 +94,8 @@ jobs:
           APP_IMAGE="${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${GIT_SHA}"
           REMOTE="${VPS_USER}@${VPS_HOST}"
           SSH_BASE=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null)
-          REMOTE_ENV=$(printf 'APP_IMAGE=%q DOCKERHUB_USERNAME=%q DOCKERHUB_TOKEN=%q DEPLOY_DIR=%q REMOTE_TMP_DIR=%q' \
-            "${APP_IMAGE}" "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}" "${DEPLOY_DIR}" "${REMOTE_TMP_DIR}")
+          REMOTE_ENV=$(printf 'APP_IMAGE=%q DOCKERHUB_USERNAME=%q DOCKERHUB_TOKEN=%q DEPLOY_DIR=%q REMOTE_TMP_DIR=%q DOMAIN_NAME=%q NGINX_CONF_NAME=%q' \
+            "${APP_IMAGE}" "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}" "${DEPLOY_DIR}" "${REMOTE_TMP_DIR}" "${DOMAIN_NAME}" "${NGINX_CONF_NAME}")
 
           sshpass -e ssh "${SSH_BASE[@]}" -p "${VPS_PORT}" "${REMOTE}" "${REMOTE_ENV} bash -s" <<'REMOTE_SCRIPT'
           set -euo pipefail
@@ -152,8 +154,9 @@ jobs:
           docker compose up -d --remove-orphans
           docker image prune -f
 
-          install -m 0644 "${REMOTE_TMP_DIR}/nginx/tapluyen.conf" /etc/nginx/sites-available/tapluyen.vmeta.vn.conf
-          ln -sfn /etc/nginx/sites-available/tapluyen.vmeta.vn.conf /etc/nginx/sites-enabled/tapluyen.vmeta.vn.conf
+          install -m 0644 "${REMOTE_TMP_DIR}/nginx/tapluyen.conf" "/etc/nginx/sites-available/${NGINX_CONF_NAME}"
+          ln -sfn "/etc/nginx/sites-available/${NGINX_CONF_NAME}" "/etc/nginx/sites-enabled/${NGINX_CONF_NAME}"
+          rm -f /etc/nginx/sites-enabled/tapluyen.vmeta.vn.conf /etc/nginx/sites-available/tapluyen.vmeta.vn.conf
           nginx -t
           systemctl reload nginx
 
