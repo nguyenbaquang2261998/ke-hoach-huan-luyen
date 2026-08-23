@@ -16,9 +16,19 @@
       <div class="logo"><img src="img/logo-removebg-preview.png" alt="Logo"></div>
       <h1>Học viện Chính trị</h1>
     </div>
-    <button class="mobile-menu-btn" onclick="openMobileDrawer()" aria-label="Mở menu" title="Mở menu">
-      <svg viewBox="0 0 24 24" aria-hidden="true" width="24" height="24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    </button>
+    <div class="mobile-topbar-actions">
+      <button type="button" class="mobile-schedule-table-btn" onclick="openWorkScheduleModal()" aria-label="Bảng Lịch công tác Học viện" title="Bảng Lịch công tác">
+        <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20">
+          <rect x="3" y="4" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+          <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/>
+        </svg>
+      </button>
+      <button class="mobile-menu-btn" onclick="openMobileDrawer()" aria-label="Mở menu" title="Mở menu">
+        <svg viewBox="0 0 24 24" aria-hidden="true" width="24" height="24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+      </button>
+    </div>
   </header>
 
   <!-- Slide-out Mobile Drawer -->
@@ -68,6 +78,16 @@
           <h2>Quản lý lịch công tác</h2>
         </div>
         <div class="topbar-actions">
+          <button type="button" class="btn-topbar-schedule" onclick="openWorkScheduleModal()" title="Xem toàn màn hình Bảng Lịch công tác Học viện">
+            <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+              <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/>
+              <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
+            </svg>
+            <span>Bảng Lịch công tác Học viện</span>
+          </button>
           <span id="todayLabel" class="date-chip"></span>
         </div>
       </header>
@@ -76,9 +96,9 @@
         <section id="calendar" class="section">
           <div class="calendar-shell">
             <aside class="calendar-side">
-              <button class="primary create-event-btn" onclick="focusCalendarTitle()" type="button">
-                <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false"><path d="M12 5v14"></path><path d="M5 12h14"></path></svg>
-                Tạo lịch công tác
+              <button class="primary create-event-btn" onclick="openCreateCalendarModal()" type="button">
+                <svg aria-hidden="true" viewBox="0 0 24 24" width="18" height="18" focusable="false"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                <span>Tạo lịch công tác</span>
               </button>
 
               <form id="calendarWeekMetaForm" class="week-meta-form" onsubmit="saveWeekMeta(event)">
@@ -95,53 +115,6 @@
                   <input id="weekRoomSummary" placeholder="Nhập TCH Phòng" />
                 </label>
                 <button class="primary" type="submit">Lưu thông tin tuần</button>
-              </form>
-
-              <form id="calendarForm" class="calendar-form" onsubmit="createCalendar(event)">
-                <h4 style="font-size: 15px; border-bottom: 1px solid var(--line); padding-bottom: 8px;">Nhập lịch mới</h4>
-                <label>
-                  Tiêu đề / Nội dung
-                  <input id="calendarTitle" placeholder="Tiêu đề lịch" required />
-                </label>
-                <label>
-                  Ngày công tác
-                  <input id="calendarDate" type="date" required />
-                </label>
-                <div class="time-row">
-                  <label>
-                    Bắt đầu
-                    <input id="calendarStart" type="time" />
-                  </label>
-                  <label>
-                    Kết thúc
-                    <input id="calendarEnd" type="time" />
-                  </label>
-                </div>
-                <label>
-                  Địa điểm
-                  <input id="calendarLocation" placeholder="Hội trường, phòng họp..." />
-                </label>
-                <label>
-                  Thành phần Học viện (TT HV)
-                  <input id="calendarTtHv" placeholder="Thông tin học viên" />
-                </label>
-                <label>
-                  Thành phần Phòng (TT Phòng)
-                  <input id="calendarTtPhong" placeholder="Thông tin phòng ban" />
-                </label>
-                <label>
-                  Ban chủ trì
-                  <input id="calendarBan" placeholder="Ban phụ trách" />
-                </label>
-                <label>
-                  Người phụ trách
-                  <input id="calendarOwner" placeholder="Chỉ huy / cán bộ chủ trì" />
-                </label>
-                <label>
-                  Trực ban HL
-                  <input id="calendarDutyOfficer" placeholder="Cán bộ trực ban" />
-                </label>
-                <button class="primary" type="submit">Lưu lịch</button>
               </form>
 
               <div class="mini-summary">
@@ -166,6 +139,10 @@
                   <button id="calendarViewMonth" onclick="setCalendarView('month')">Tháng</button>
                   <button id="calendarViewWeek" onclick="setCalendarView('week')">Tuần</button>
                   <button id="calendarViewDay" onclick="setCalendarView('day')">Ngày</button>
+                  <button type="button" class="schedule-table-view-btn" onclick="openWorkScheduleModal()" title="Mở Bảng Lịch công tác Học viện">
+                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/></svg>
+                    <span>Bảng Lịch HV</span>
+                  </button>
                 </div>
               </div>
 
@@ -181,49 +158,284 @@
               <div id="calendarGrid" class="calendar-grid"></div>
             </div>
 
+            <!-- Right Sidebar: Chi tiết Lịch ngày khoa học & trực quan -->
             <aside class="calendar-detail">
-              <h4 id="calendarSelectedDate">Ngày đang chọn</h4>
-              <div id="calendarSelectedList" class="stack-list"></div>
-            </aside>
-          </div>
+              <div class="daily-schedule-header">
+                <div class="daily-date-badge-box">
+                  <span id="dailyDateDayNum" class="daily-date-big-num">--</span>
+                  <div class="daily-date-text-wrap">
+                    <div class="daily-date-row-top">
+                      <strong id="dailyDateWeekday">Ngày đang chọn</strong>
+                      <span id="dailyDateTodayBadge" class="daily-today-badge hidden">Hôm nay</span>
+                    </div>
+                    <span id="dailyDateMonthYear" class="daily-date-sub">Tháng --, ----</span>
+                  </div>
+                </div>
+                <div class="daily-actions-bar">
+                  <span id="dailyEventCountBadge" class="daily-count-chip">0 lịch công tác</span>
+                  <button type="button" class="daily-quick-add-btn" onclick="quickAddEventForSelectedDate()" title="Thêm lịch cho ngày này">
+                    <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                    <span>Thêm lịch</span>
+                  </button>
+                </div>
+              </div>
 
-          <!-- Bảng Lịch Công Tác Phục Vụ Trình Chiếu / Toàn Màn Hình -->
-          <div id="workScheduleCard" class="work-schedule-card">
-            <div class="schedule-title-row">
-              <div></div>
-              <h3>LỊCH CÔNG TÁC HỌC VIỆN CHÍNH TRỊ</h3>
-              <button class="schedule-fullscreen-btn" onclick="toggleWorkScheduleFullscreen()" title="Toàn màn hình" aria-label="Toàn màn hình lịch công tác">
-                <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-                  <path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>
-                </svg>
-              </button>
-            </div>
-            <div class="schedule-meta-row">
-              <strong id="scheduleDutySummary">Trực ban: Chưa có dữ liệu</strong>
-              <strong id="scheduleRoomSummary">TCH Phòng: Chưa có dữ liệu</strong>
-            </div>
-            <div class="work-table-wrap">
-              <table class="work-schedule-table">
-                <thead>
-                  <tr>
-                    <th>Thứ, ngày</th>
-                    <th>Trực ban HL</th>
-                    <th>Thời gian</th>
-                    <th>Nội dung</th>
-                    <th>TT HV</th>
-                    <th>TT Phòng</th>
-                    <th>Phụ trách</th>
-                    <th>Ban</th>
-                    <th>Địa điểm</th>
-                  </tr>
-                </thead>
-                <tbody id="workScheduleBody"></tbody>
-              </table>
-            </div>
+              <!-- Danh sách sự kiện ngày được chọn -->
+              <div id="calendarSelectedList" class="daily-schedule-list">
+                <p class="empty-small">Đang tải lịch...</p>
+              </div>
+            </aside>
           </div>
         </section>
       </main>
     </div>
+  </div>
+
+  <!-- Modal Toàn Màn Hình: Bảng Lịch Công Tác Học Viện Chính Trị -->
+  <div id="workScheduleModal" class="schedule-modal-overlay hidden" onclick="if(event.target===this) closeWorkScheduleModal()">
+    <div class="schedule-modal-dialog">
+      <div class="schedule-modal-header">
+        <div class="schedule-modal-title-group">
+          <div class="schedule-modal-icon-badge">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2"/>
+              <line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+              <line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/>
+            </svg>
+          </div>
+          <div>
+            <h3>LỊCH CÔNG TÁC HỌC VIỆN CHÍNH TRỊ</h3>
+            <p id="scheduleModalSubtitle" class="schedule-modal-sub">Tuần đang chọn</p>
+          </div>
+        </div>
+        <div class="schedule-modal-actions">
+          <button type="button" class="btn-tool-modal" onclick="printWorkSchedule()" title="In bảng lịch công tác" aria-label="In lịch">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" stroke="currentColor" stroke-width="2" fill="none"/><rect x="6" y="14" width="12" height="8" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+            <span>In lịch</span>
+          </button>
+          <button type="button" class="btn-tool-modal" onclick="toggleWorkScheduleFullscreen()" title="Toàn màn hình trình chiếu" aria-label="Toàn màn hình">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+            <span>Toàn màn hình</span>
+          </button>
+          <button type="button" class="schedule-modal-close-btn" onclick="closeWorkScheduleModal()" aria-label="Đóng">&times;</button>
+        </div>
+      </div>
+
+      <div id="workScheduleCard" class="work-schedule-card modal-content-wrap">
+        <div class="schedule-meta-banner">
+          <div class="meta-banner-pill">
+            <span class="meta-label">TCH Học viện:</span>
+            <strong id="scheduleDutySummary">Chưa có dữ liệu</strong>
+          </div>
+          <div class="meta-banner-pill">
+            <span class="meta-label">TCH Phòng:</span>
+            <strong id="scheduleRoomSummary">Chưa có dữ liệu</strong>
+          </div>
+        </div>
+        <div class="work-table-wrap">
+          <table class="work-schedule-table">
+            <thead>
+              <tr>
+                <th>Thứ, ngày</th>
+                <th>Trực ban HL</th>
+                <th>Thời gian</th>
+                <th>Nội dung</th>
+                <th>TT HV</th>
+                <th>TT Phòng</th>
+                <th>Phụ trách</th>
+                <th>Ban</th>
+                <th>Địa điểm</th>
+              </tr>
+            </thead>
+            <tbody id="workScheduleBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Thêm Lịch Công Tác Mới -->
+  <div id="createCalendarModal" class="calendar-modal-backdrop todo-modal-overlay hidden" onclick="if(event.target===this) closeCreateCalendarModal()">
+    <div class="calendar-modal-content todo-modal-dialog">
+      <div class="calendar-modal-header todo-modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge" style="background: linear-gradient(135deg, #15803d 0%, #166534 100%);">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          </div>
+          <div>
+            <h3>Thêm lịch công tác mới</h3>
+            <p class="modal-subtitle">Nhập thông tin kế hoạch huấn luyện & công tác</p>
+          </div>
+        </div>
+        <button type="button" class="todo-modal-close" onclick="closeCreateCalendarModal()" aria-label="Đóng">&times;</button>
+      </div>
+
+      <form id="createCalendarModalForm" onsubmit="handleCreateCalendarSubmit(event)">
+        <div class="todo-form-group">
+          <label>Tiêu đề / Nội dung công tác <span class="required">*</span></label>
+          <input id="modalCalendarTitle" placeholder="Ví dụ: Giao ban trực tuyến toàn quân, Hội nghị..." required />
+        </div>
+
+        <div class="todo-form-row">
+          <div class="todo-form-group">
+            <label>Ngày công tác <span class="required">*</span></label>
+            <input id="modalCalendarDate" type="date" required />
+          </div>
+          <div class="todo-form-group">
+            <label>Bắt đầu</label>
+            <input id="modalCalendarStart" type="time" />
+          </div>
+          <div class="todo-form-group">
+            <label>Kết thúc</label>
+            <input id="modalCalendarEnd" type="time" />
+          </div>
+        </div>
+
+        <div class="todo-form-group">
+          <label>Địa điểm</label>
+          <input id="modalCalendarLocation" placeholder="Hội trường, phòng họp, thao trường..." />
+        </div>
+
+        <div class="todo-form-row">
+          <div class="todo-form-group">
+            <label>Người phụ trách / Chủ trì</label>
+            <input id="modalCalendarOwner" placeholder="Chỉ huy / cán bộ chủ trì" />
+          </div>
+          <div class="todo-form-group">
+            <label>Trực ban huấn luyện</label>
+            <input id="modalCalendarDutyOfficer" placeholder="Cán bộ trực ban" />
+          </div>
+        </div>
+
+        <div class="todo-form-row">
+          <div class="todo-form-group">
+            <label>Ban phụ trách</label>
+            <input id="modalCalendarBan" placeholder="Ban phụ trách" />
+          </div>
+          <div class="todo-form-group">
+            <label>Màu hiển thị</label>
+            <select id="modalCalendarColor">
+              <option value="#15803d">🟢 Xanh quân đội</option>
+              <option value="#2563eb">🔵 Xanh dương</option>
+              <option value="#ea580c">🟠 Cam hổ phách</option>
+              <option value="#dc2626">🔴 Đỏ ruby</option>
+              <option value="#7c3aed">🟣 Tím hoàng gia</option>
+              <option value="#0284c7">🔷 Xanh da trời</option>
+              <option value="#475569">🔘 Xám chì</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="todo-form-row">
+          <div class="todo-form-group">
+            <label>Thành phần Học viện (TT HV)</label>
+            <input id="modalCalendarTtHv" placeholder="Thông tin học viên" />
+          </div>
+          <div class="todo-form-group">
+            <label>Thành phần Phòng (TT Phòng)</label>
+            <input id="modalCalendarTtPhong" placeholder="Thông tin phòng ban" />
+          </div>
+        </div>
+
+        <div class="todo-modal-footer">
+          <button type="button" class="btn-ghost" onclick="closeCreateCalendarModal()">Hủy</button>
+          <button type="submit" class="primary">Tạo lịch công tác</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal Chỉnh sửa Lịch công tác -->
+  <div id="editCalendarModal" class="calendar-modal-backdrop todo-modal-overlay hidden" onclick="if(event.target===this) closeEditCalendarModal()">
+    <div class="calendar-modal-content todo-modal-dialog">
+      <div class="calendar-modal-header todo-modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-badge" style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);">
+            <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </div>
+          <div>
+            <h3>Chỉnh sửa lịch công tác</h3>
+            <p class="modal-subtitle">Cập nhật thông tin chi tiết sự kiện</p>
+          </div>
+        </div>
+        <button type="button" class="todo-modal-close" onclick="closeEditCalendarModal()" aria-label="Đóng">&times;</button>
+      </div>
+
+      <form id="editCalendarForm" onsubmit="saveEditCalendar(event)">
+        <input type="hidden" id="editCalendarId" />
+        
+        <div class="todo-form-group">
+          <label>Tiêu đề / Nội dung <span class="required">*</span></label>
+          <input id="editCalendarTitle" placeholder="Tiêu đề lịch" required />
+        </div>
+
+        <div class="todo-form-row">
+          <div class="todo-form-group">
+            <label>Ngày công tác <span class="required">*</span></label>
+            <input id="editCalendarDate" type="date" required />
+          </div>
+          <div class="todo-form-group">
+            <label>Bắt đầu</label>
+            <input id="editCalendarStart" type="time" />
+          </div>
+          <div class="todo-form-group">
+            <label>Kết thúc</label>
+            <input id="editCalendarEnd" type="time" />
+          </div>
+        </div>
+
+        <div class="todo-form-group">
+          <label>Địa điểm</label>
+          <input id="editCalendarLocation" placeholder="Hội trường, phòng họp..." />
+        </div>
+
+        <div class="todo-form-row">
+          <div class="todo-form-group">
+            <label>Người phụ trách / Chủ trì</label>
+            <input id="editCalendarOwner" placeholder="Chỉ huy / cán bộ chủ trì" />
+          </div>
+          <div class="todo-form-group">
+            <label>Trực ban huấn luyện</label>
+            <input id="editCalendarDutyOfficer" placeholder="Cán bộ trực ban" />
+          </div>
+        </div>
+
+        <div class="todo-form-row">
+          <div class="todo-form-group">
+            <label>Ban phụ trách</label>
+            <input id="editCalendarBan" placeholder="Ban phụ trách" />
+          </div>
+          <div class="todo-form-group">
+            <label>Màu hiển thị</label>
+            <select id="editCalendarColor">
+              <option value="#15803d">🟢 Xanh quân đội</option>
+              <option value="#2563eb">🔵 Xanh dương</option>
+              <option value="#ea580c">🟠 Cam hổ phách</option>
+              <option value="#dc2626">🔴 Đỏ ruby</option>
+              <option value="#7c3aed">🟣 Tím hoàng gia</option>
+              <option value="#0284c7">🔷 Xanh da trời</option>
+              <option value="#475569">🔘 Xám chì</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="todo-form-row">
+          <div class="todo-form-group">
+            <label>Thành phần Học viện (TT HV)</label>
+            <input id="editCalendarTtHv" placeholder="Thông tin học viên" />
+          </div>
+          <div class="todo-form-group">
+            <label>Thành phần Phòng (TT Phòng)</label>
+            <input id="editCalendarTtPhong" placeholder="Thông tin phòng ban" />
+          </div>
+        </div>
+
+        <div class="todo-modal-footer">
+          <button type="button" class="btn-ghost" onclick="closeEditCalendarModal()">Hủy</button>
+          <button type="submit" class="primary">Lưu thay đổi</button>
+        </div>
+      </form>
   </div>
 
   <!-- Bottom Navigation Bar (Mobile <1024px) -->

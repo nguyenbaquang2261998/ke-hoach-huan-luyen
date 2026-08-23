@@ -73,40 +73,299 @@
       </header>
 
       <main>
-        <section id="tasks" class="section">
-          <div class="section-title">
-            <div>
-              <h3>Quản lý & Nhắc nhở công việc</h3>
-              <p>Giao nhiệm vụ, theo dõi tiến độ hoàn thành, cảnh báo quá hạn và gửi thông báo nhắc việc tức thì.</p>
+        <section id="tasks" class="section todo-app-section">
+          <!-- Mobile Todo App Container -->
+          <div class="todo-app-container">
+            
+            <!-- Progress & Stats Header Card -->
+            <div class="todo-header-card">
+              <div class="todo-header-info">
+                <div class="todo-header-badge">
+                  <svg viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="M9 11l3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                  <span>Sổ tay nhắc việc</span>
+                </div>
+                <h3 id="todoGreetingTitle">Danh sách công việc & Nhiệm vụ</h3>
+                <p id="todoStatsSummary" class="todo-subtitle">Đang tải tiến độ công việc...</p>
+              </div>
+
+              <!-- Completion Progress Bar -->
+              <div class="todo-progress-box">
+                <div class="todo-progress-labels">
+                  <span class="todo-progress-title">Tiến độ hoàn thành</span>
+                  <span id="todoProgressPercent" class="todo-progress-val">0%</span>
+                </div>
+                <div class="todo-progress-track">
+                  <div id="todoProgressBar" class="todo-progress-fill" style="width: 0%;"></div>
+                </div>
+                <div class="todo-progress-meta">
+                  <span id="todoRatioText">0/0 việc đã xong</span>
+                  <span id="todoOverdueAlert" class="todo-overdue-alert hidden">0 việc quá hạn</span>
+                </div>
+              </div>
             </div>
+
+            <!-- Quick Filter Tabs (Segmented Controls) -->
+            <div class="todo-filter-bar">
+              <div class="todo-filter-tabs" role="tablist">
+                <button type="button" class="todo-tab-btn active" data-filter="all" onclick="setTaskFilter('all')">
+                  <span>Tất cả</span>
+                  <span id="tabCountAll" class="todo-tab-badge">0</span>
+                </button>
+                <button type="button" class="todo-tab-btn" data-filter="today" onclick="setTaskFilter('today')">
+                  <span>Hôm nay</span>
+                  <span id="tabCountToday" class="todo-tab-badge">0</span>
+                </button>
+                <button type="button" class="todo-tab-btn" data-filter="active" onclick="setTaskFilter('active')">
+                  <span>Đang làm</span>
+                  <span id="tabCountActive" class="todo-tab-badge">0</span>
+                </button>
+                <button type="button" class="todo-tab-btn" data-filter="overdue" onclick="setTaskFilter('overdue')">
+                  <span>Quá hạn</span>
+                  <span id="tabCountOverdue" class="todo-tab-badge danger">0</span>
+                </button>
+                <button type="button" class="todo-tab-btn" data-filter="completed" onclick="setTaskFilter('completed')">
+                  <span>Đã xong</span>
+                  <span id="tabCountCompleted" class="todo-tab-badge success">0</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Search & Filter Options Bar -->
+            <div class="todo-search-bar">
+              <div class="todo-search-input-wrap">
+                <svg class="search-icon" viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><circle cx="11" cy="11" r="8" stroke="currentColor" stroke-width="2" fill="none"/><path d="m21 21-4.35-4.35" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                <input id="taskSearchInput" type="text" placeholder="Tìm kiếm công việc, người phụ trách..." oninput="onTaskSearch(this.value)" />
+                <button type="button" id="taskSearchClearBtn" class="search-clear-btn hidden" onclick="clearTaskSearch()" aria-label="Xóa tìm kiếm">&times;</button>
+              </div>
+
+              <div class="todo-filter-selects">
+                <select id="taskFilterPriority" onchange="onTaskFilterChange()" aria-label="Lọc theo mức độ ưu tiên">
+                  <option value="">Tất cả mức độ</option>
+                  <option value="Critical">Ưu tiên: Khẩn cấp</option>
+                  <option value="High">Ưu tiên: Cao</option>
+                  <option value="Normal">Ưu tiên: Bình thường</option>
+                  <option value="Low">Ưu tiên: Thấp</option>
+                </select>
+                <select id="taskFilterColor" onchange="onTaskFilterChange()" aria-label="Lọc theo màu sắc">
+                  <option value="">Tất cả màu sắc</option>
+                  <option value="#15803d">🟢 Xanh quân đội</option>
+                  <option value="#2563eb">🔵 Xanh dương</option>
+                  <option value="#7c3aed">🟣 Tím</option>
+                  <option value="#dc2626">🔴 Đỏ</option>
+                  <option value="#ea580c">🟠 Cam</option>
+                  <option value="#0d9488">🩵 Xanh ngọc</option>
+                  <option value="#d97706">🟡 Vàng</option>
+                  <option value="#475569">🔘 Xám chì</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Quick Add Task Box (Mobile-First Card) -->
+            <div class="todo-create-card">
+              <form id="taskForm" onsubmit="createTask(event)">
+                <div class="todo-create-main">
+                  <div class="todo-create-input-row">
+                    <span class="todo-create-icon">
+                      <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>
+                    </span>
+                    <input id="taskTitle" class="todo-main-input" placeholder="Thêm công việc mới..." required autocomplete="off" />
+                    <button class="primary todo-add-btn" type="submit" id="taskSubmitBtn">
+                      <span>Thêm việc</span>
+                    </button>
+                  </div>
+
+                  <!-- Quick Options Row -->
+                  <div class="todo-create-options">
+                    <!-- Color Swatches Picker -->
+                    <div class="todo-color-picker-group">
+                      <span class="color-picker-label">Màu sắc:</span>
+                      <div class="color-swatches" id="taskColorSwatches">
+                        <button type="button" class="color-swatch-btn active" data-color="#15803d" style="--swatch-color: #15803d;" onclick="selectTaskColor('#15803d', this)" title="Xanh quân đội"></button>
+                        <button type="button" class="color-swatch-btn" data-color="#2563eb" style="--swatch-color: #2563eb;" onclick="selectTaskColor('#2563eb', this)" title="Xanh dương"></button>
+                        <button type="button" class="color-swatch-btn" data-color="#7c3aed" style="--swatch-color: #7c3aed;" onclick="selectTaskColor('#7c3aed', this)" title="Tím hoàng gia"></button>
+                        <button type="button" class="color-swatch-btn" data-color="#dc2626" style="--swatch-color: #dc2626;" onclick="selectTaskColor('#dc2626', this)" title="Đỏ"></button>
+                        <button type="button" class="color-swatch-btn" data-color="#ea580c" style="--swatch-color: #ea580c;" onclick="selectTaskColor('#ea580c', this)" title="Cam"></button>
+                        <button type="button" class="color-swatch-btn" data-color="#0d9488" style="--swatch-color: #0d9488;" onclick="selectTaskColor('#0d9488', this)" title="Xanh ngọc"></button>
+                        <button type="button" class="color-swatch-btn" data-color="#d97706" style="--swatch-color: #d97706;" onclick="selectTaskColor('#d97706', this)" title="Vàng"></button>
+                        <button type="button" class="color-swatch-btn" data-color="#475569" style="--swatch-color: #475569;" onclick="selectTaskColor('#475569', this)" title="Xám chì"></button>
+                        <label class="color-custom-picker" title="Màu tự chọn">
+                          <input type="color" id="taskCustomColorPicker" value="#15803d" onchange="onCustomColorPicked(this.value)" />
+                          <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14"><path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+                        </label>
+                      </div>
+                      <input type="hidden" id="taskColor" value="#15803d" />
+                    </div>
+
+                    <!-- Meta Inputs -->
+                    <div class="todo-create-meta-inputs">
+                      <div class="todo-meta-field">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="2"/></svg>
+                        <input id="taskDueDate" type="date" title="Hạn hoàn thành" />
+                      </div>
+                      <div class="todo-meta-field">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                        <input id="taskAssignee" placeholder="Người phụ trách" />
+                      </div>
+                      <div class="todo-meta-field">
+                        <select id="taskPriority" title="Mức độ ưu tiên">
+                          <option value="Normal">Ưu tiên: Bình thường</option>
+                          <option value="High">Ưu tiên: Cao</option>
+                          <option value="Critical">Ưu tiên: Khẩn cấp</option>
+                          <option value="Low">Ưu tiên: Thấp</option>
+                        </select>
+                      </div>
+                      <button type="button" class="todo-expand-note-btn" onclick="toggleTaskNoteField()" title="Thêm ghi chú/mô tả">
+                        <svg viewBox="0 0 24 24" aria-hidden="true" width="16" height="16"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="2" fill="none"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                        <span>Ghi chú</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Collapsible Note Field -->
+                  <div id="taskNoteContainer" class="todo-note-container hidden">
+                    <textarea id="taskDescription" placeholder="Thêm mô tả chi tiết, hướng dẫn hoặc ghi chú cho công việc..." rows="2"></textarea>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <!-- Active To-Do List Group -->
+            <div class="todo-list-section">
+              <div class="todo-section-header">
+                <div class="todo-section-title">
+                  <h4>Đang thực hiện</h4>
+                  <span id="activeTasksCount" class="todo-count-pill">0</span>
+                </div>
+              </div>
+
+              <!-- Active Task Cards List -->
+              <div id="activeTasksList" class="todo-cards-list"></div>
+            </div>
+
+            <!-- Completed Tasks Group (Collapsible) -->
+            <div id="completedTasksSection" class="todo-list-section completed-section">
+              <button type="button" class="todo-completed-toggle-btn" onclick="toggleCompletedSection()">
+                <div class="todo-section-title">
+                  <svg id="completedChevronIcon" class="chevron-icon" viewBox="0 0 24 24" aria-hidden="true" width="18" height="18"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                  <h4>Đã hoàn thành</h4>
+                  <span id="completedTasksCount" class="todo-count-pill success">0</span>
+                </div>
+                <span class="todo-toggle-hint">Nhấn để ẩn/hiện</span>
+              </button>
+
+              <!-- Completed Task Cards List -->
+              <div id="completedTasksList" class="todo-cards-list"></div>
+            </div>
+
+            <!-- Legacy container hook for compatibility -->
+            <div id="taskCards" class="hidden"></div>
+
+            <!-- Empty State Fallback -->
+            <div id="emptyTasksState" class="todo-empty-state hidden">
+              <div class="todo-empty-icon">
+                <svg viewBox="0 0 24 24" aria-hidden="true" width="48" height="48"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="m9 12 2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </div>
+              <h4 id="emptyStateTitle">Không có công việc nào</h4>
+              <p id="emptyStateDesc">Tất cả công việc đã hoàn tất hoặc không tìm thấy kết quả phù hợp với bộ lọc.</p>
+            </div>
+
           </div>
-
-          <!-- Add Task Form -->
-          <form id="taskForm" class="form-row" onsubmit="createTask(event)">
-            <input id="taskTitle" placeholder="Tên công việc *" required />
-            <input id="taskAssignee" placeholder="Người phụ trách" />
-            <input id="taskDueDate" type="date" />
-            <select id="taskPriority">
-              <option value="Normal">Mức độ: Normal</option>
-              <option value="High">Mức độ: High</option>
-              <option value="Critical">Mức độ: Critical</option>
-              <option value="Low">Mức độ: Low</option>
-            </select>
-            <select id="taskStatus">
-              <option value="New">Trạng thái: New</option>
-              <option value="InProgress">Trạng thái: InProgress</option>
-              <option value="Pending">Trạng thái: Pending</option>
-              <option value="Completed">Trạng thái: Completed</option>
-              <option value="Overdue">Trạng thái: Overdue</option>
-              <option value="Cancelled">Trạng thái: Cancelled</option>
-            </select>
-            <button class="primary" type="submit">Thêm việc</button>
-          </form>
-
-          <!-- Task Cards Kanban / Grid -->
-          <div id="taskCards" class="task-board"></div>
         </section>
       </main>
+    </div>
+  </div>
+
+  <!-- Edit Task Modal Dialog -->
+  <div id="editTaskModal" class="todo-modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="editTaskModalTitle">
+    <div class="todo-modal-content">
+      <div class="todo-modal-header">
+        <div class="todo-modal-title-wrap">
+          <span class="todo-modal-tag">Chỉnh sửa</span>
+          <h3 id="editTaskModalTitle">Cập nhật công việc</h3>
+        </div>
+        <button type="button" class="icon-action-btn" onclick="closeEditTaskModal()" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <form id="editTaskForm" onsubmit="saveEditTask(event)">
+        <input type="hidden" id="editTaskId" />
+        
+        <div class="todo-modal-body">
+          <!-- Title Input -->
+          <label>
+            <span>Tên công việc *</span>
+            <input id="editTaskTitle" required placeholder="Tên công việc" />
+          </label>
+
+          <!-- Description Input -->
+          <label>
+            <span>Ghi chú / Mô tả chi tiết</span>
+            <textarea id="editTaskDescription" placeholder="Mô tả công việc..." rows="3"></textarea>
+          </label>
+
+          <!-- Color Customizer -->
+          <div class="todo-edit-color-field">
+            <span class="color-picker-label">Màu sắc công việc:</span>
+            <div class="color-swatches" id="editTaskColorSwatches">
+              <button type="button" class="color-swatch-btn" data-color="#15803d" style="--swatch-color: #15803d;" onclick="selectEditTaskColor('#15803d', this)" title="Xanh quân đội"></button>
+              <button type="button" class="color-swatch-btn" data-color="#2563eb" style="--swatch-color: #2563eb;" onclick="selectEditTaskColor('#2563eb', this)" title="Xanh dương"></button>
+              <button type="button" class="color-swatch-btn" data-color="#7c3aed" style="--swatch-color: #7c3aed;" onclick="selectEditTaskColor('#7c3aed', this)" title="Tím hoàng gia"></button>
+              <button type="button" class="color-swatch-btn" data-color="#dc2626" style="--swatch-color: #dc2626;" onclick="selectEditTaskColor('#dc2626', this)" title="Đỏ"></button>
+              <button type="button" class="color-swatch-btn" data-color="#ea580c" style="--swatch-color: #ea580c;" onclick="selectEditTaskColor('#ea580c', this)" title="Cam"></button>
+              <button type="button" class="color-swatch-btn" data-color="#0d9488" style="--swatch-color: #0d9488;" onclick="selectEditTaskColor('#0d9488', this)" title="Xanh ngọc"></button>
+              <button type="button" class="color-swatch-btn" data-color="#d97706" style="--swatch-color: #d97706;" onclick="selectEditTaskColor('#d97706', this)" title="Vàng"></button>
+              <button type="button" class="color-swatch-btn" data-color="#475569" style="--swatch-color: #475569;" onclick="selectEditTaskColor('#475569', this)" title="Xám chì"></button>
+              <label class="color-custom-picker" title="Màu tự chọn">
+                <input type="color" id="editTaskCustomColorPicker" value="#15803d" onchange="onEditCustomColorPicked(this.value)" />
+                <svg viewBox="0 0 24 24" aria-hidden="true" width="14" height="14"><path d="M12 2v20M2 12h20" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+              </label>
+            </div>
+            <input type="hidden" id="editTaskColor" value="#15803d" />
+          </div>
+
+          <!-- Grid: Assignee & Due Date -->
+          <div class="todo-modal-grid">
+            <label>
+              <span>Người phụ trách</span>
+              <input id="editTaskAssignee" placeholder="Ví dụ: Đ/c Nguyễn Văn A" />
+            </label>
+            <label>
+              <span>Hạn hoàn thành</span>
+              <input id="editTaskDueDate" type="date" />
+            </label>
+          </div>
+
+          <!-- Grid: Priority & Status -->
+          <div class="todo-modal-grid">
+            <label>
+              <span>Mức độ ưu tiên</span>
+              <select id="editTaskPriority">
+                <option value="Normal">Bình thường</option>
+                <option value="High">Cao</option>
+                <option value="Critical">Khẩn cấp</option>
+                <option value="Low">Thấp</option>
+              </select>
+            </label>
+            <label>
+              <span>Trạng thái</span>
+              <select id="editTaskStatus">
+                <option value="New">Mới tạo (New)</option>
+                <option value="InProgress">Đang thực hiện (InProgress)</option>
+                <option value="Pending">Chờ xử lý (Pending)</option>
+                <option value="Completed">Đã hoàn thành (Completed)</option>
+                <option value="Overdue">Quá hạn (Overdue)</option>
+                <option value="Cancelled">Đã hủy (Cancelled)</option>
+              </select>
+            </label>
+          </div>
+        </div>
+
+        <div class="todo-modal-footer">
+          <button type="button" class="todo-btn-secondary" onclick="closeEditTaskModal()">Hủy bỏ</button>
+          <button type="submit" class="primary">Lưu thay đổi</button>
+        </div>
+      </form>
     </div>
   </div>
 

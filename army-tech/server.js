@@ -316,6 +316,14 @@ addWeeklyTaskColumn('tt_hv', 'TEXT');
 addWeeklyTaskColumn('tt_phong', 'TEXT');
 addWeeklyTaskColumn('ban', 'TEXT');
 
+const dailyTaskColumns = db.prepare('PRAGMA table_info(daily_tasks)').all().map(column => column.name);
+function addDailyTaskColumn(name, definition) {
+  if (!dailyTaskColumns.includes(name)) {
+    db.prepare(`ALTER TABLE daily_tasks ADD COLUMN ${name} ${definition}`).run();
+  }
+}
+addDailyTaskColumn('color', "TEXT DEFAULT '#15803d'");
+
 const ROLES = ['examiner1', 'examiner2', 'supervisor'];
 const USER_ROLES = ['admin', 'manager', 'viewer'];
 const USER_MENU_PERMISSIONS = [
@@ -1542,14 +1550,22 @@ function getDashboardSummary() {
     SELECT COUNT(*) AS total FROM weekly_tasks
     WHERE is_active = 1 AND task_date = ?
   `).get(today).total;
+  
   const tasksToday = db.prepare(`
     SELECT COUNT(*) AS total FROM daily_tasks
     WHERE is_active = 1 AND due_date = ? AND status NOT IN ('Completed','Cancelled')
   `).get(today).total;
+  
   const overdueTasks = db.prepare(`
     SELECT COUNT(*) AS total FROM daily_tasks
     WHERE is_active = 1 AND due_date < ? AND status NOT IN ('Completed','Cancelled')
   `).get(today).total;
+
+  const upcomingDueCount = db.prepare(`
+    SELECT COUNT(*) AS total FROM daily_tasks
+    WHERE is_active = 1 AND due_date > ? AND due_date <= date(?, '+3 day') AND status NOT IN ('Completed','Cancelled')
+  `).get(today, today).total;
+
   const newStudents = db.prepare(`
     SELECT COUNT(*) AS total FROM students
     WHERE is_active = 1 AND date(created_at) >= date('now', '-7 day')
@@ -1557,12 +1573,41 @@ function getDashboardSummary() {
   const activeStudents = db.prepare('SELECT COUNT(*) AS total FROM students WHERE is_active = 1').get().total;
   const unreadNotifications = db.prepare('SELECT COUNT(*) AS total FROM notifications WHERE is_read = 0').get().total;
 
+  // All tasks due today (including completed for checklist & progress calculation)
+  const todayTasks = db.prepare(`
+    SELECT * FROM daily_tasks
+    WHERE is_active = 1 AND due_date = ?
+    ORDER BY status = 'Completed' ASC, priority = 'Critical' DESC, priority = 'High' DESC, id DESC
+    LIMIT 20
+  `).all(today);
+
+  const todayCompletedCount = todayTasks.filter(t => t.status === 'Completed').length;
+  const todayTotalCount = todayTasks.length;
+  const todayPercent = todayTotalCount > 0 ? Math.round((todayCompletedCount / todayTotalCount) * 100) : 0;
+
+  // Overdue tasks list
+  const overdueTasksList = db.prepare(`
+    SELECT * FROM daily_tasks
+    WHERE is_active = 1 AND due_date < ? AND status NOT IN ('Completed','Cancelled')
+    ORDER BY due_date ASC, priority = 'Critical' DESC, id DESC
+    LIMIT 10
+  `).all(today);
+
+  // Upcoming due tasks in next 3 days
+  const upcomingDueTasks = db.prepare(`
+    SELECT * FROM daily_tasks
+    WHERE is_active = 1 AND due_date > ? AND due_date <= date(?, '+3 day') AND status NOT IN ('Completed','Cancelled')
+    ORDER BY due_date ASC, priority = 'Critical' DESC, id DESC
+    LIMIT 10
+  `).all(today, today);
+
   return {
     date: today,
     kpis: {
       calendarToday,
       tasksToday,
       overdueTasks,
+      upcomingDue: upcomingDueCount,
       activeStudents,
       newStudents,
       unreadNotifications,
@@ -1570,17 +1615,25 @@ function getDashboardSummary() {
       examiners: listByRole('examiner1').length + listByRole('examiner2').length,
       supervisors: listByRole('supervisor').length
     },
+    todayTasks,
+    todayProgress: {
+      total: todayTotalCount,
+      completed: todayCompletedCount,
+      percent: todayPercent
+    },
+    overdueTasksList,
+    upcomingDueTasks,
     upcomingCalendar: db.prepare(`
       SELECT * FROM weekly_tasks
       WHERE is_active = 1 AND task_date >= ?
       ORDER BY task_date ASC, start_time ASC, id DESC
-      LIMIT 6
+      LIMIT 8
     `).all(today),
     dueTasks: db.prepare(`
       SELECT * FROM daily_tasks
       WHERE is_active = 1 AND status NOT IN ('Completed','Cancelled')
       ORDER BY due_date IS NULL, due_date ASC, id DESC
-      LIMIT 6
+      LIMIT 8
     `).all(),
     notifications: db.prepare('SELECT * FROM notifications ORDER BY id DESC LIMIT 5').all(),
     latestDrawSession: db.prepare('SELECT * FROM draw_sessions ORDER BY id DESC LIMIT 1').get() || null
@@ -1631,7 +1684,8 @@ function normalizeTaskPayload(body, current = {}) {
     dueDate: cleanText(body.due_date ?? body.dueDate ?? current.due_date),
     priority: normalizePriority(body.priority ?? current.priority),
     status: normalizeStatus(body.status ?? current.status, TASK_STATUSES, 'New'),
-    progress: Number.isFinite(progress) ? Math.max(0, Math.min(100, Math.round(progress))) : 0
+    progress: Number.isFinite(progress) ? Math.max(0, Math.min(100, Math.round(progress))) : 0,
+    color: cleanText(body.color ?? current.color) || '#15803d'
   };
 }
 
@@ -2215,9 +2269,9 @@ app.post('/api/tasks', (req, res) => {
     const payload = normalizeTaskPayload(req.body || {});
     if (!payload.title) throw httpError(400, 'Tieu de cong viec khong hop le.');
     const info = db.prepare(`
-      INSERT INTO daily_tasks(title, description, assignee, due_date, priority, status, progress)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(payload.title, payload.description, payload.assignee, payload.dueDate, payload.priority, payload.status, payload.progress);
+      INSERT INTO daily_tasks(title, description, assignee, due_date, priority, status, progress, color)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(payload.title, payload.description, payload.assignee, payload.dueDate, payload.priority, payload.status, payload.progress, payload.color);
     const row = db.prepare('SELECT * FROM daily_tasks WHERE id = ?').get(info.lastInsertRowid);
     auditLog('Create', 'Tasks', row.id, row, null, req);
     res.status(201).json(row);
@@ -2235,9 +2289,9 @@ app.put('/api/tasks/:id', (req, res) => {
     db.prepare(`
       UPDATE daily_tasks
       SET title = ?, description = ?, assignee = ?, due_date = ?, priority = ?, status = ?,
-          progress = ?, updated_at = CURRENT_TIMESTAMP
+          progress = ?, color = ?, updated_at = CURRENT_TIMESTAMP
       WHERE id = ?
-    `).run(payload.title, payload.description, payload.assignee, payload.dueDate, payload.priority, payload.status, payload.progress, current.id);
+    `).run(payload.title, payload.description, payload.assignee, payload.dueDate, payload.priority, payload.status, payload.progress, payload.color, current.id);
     const row = db.prepare('SELECT * FROM daily_tasks WHERE id = ?').get(current.id);
     auditLog('Update', 'Tasks', row.id, row, current, req);
     res.json(row);

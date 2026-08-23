@@ -27,7 +27,23 @@ const state = {
   drawStep: 0,
   drawBusy: false,
   sidebarCollapsed: false,
-  currentUser: null
+  currentUser: null,
+  taskFilter: 'all',
+  taskSearch: '',
+  taskFilterPriority: '',
+  taskFilterColor: '',
+  selectedTaskColor: '#15803d',
+  editingTaskId: null,
+  completedTasksCollapsed: false,
+  dashboardDeadlineTab: 'overdue',
+  weather: {
+    locationKey: localStorage.getItem('armyTechWeatherLoc') || 'hanoi',
+    unit: localStorage.getItem('armyTechWeatherUnit') || 'C',
+    activeTab: 'temperature',
+    selectedDayIndex: 0,
+    data: null,
+    loading: false
+  }
 };
 
 const roleMap = {
@@ -72,41 +88,117 @@ const pagePermissions = {
 };
 
 const navItems = [
-  { key: 'dashboard', label: 'Dashboard', href: 'index.html', icon: 'dashboard' },
-  { key: 'calendar', label: 'Lịch tuần', href: 'calendar.html', permission: 'calendar', icon: 'calendar' },
-  { key: 'students', label: 'Tiếp nhận học viên', href: 'students.html', permission: 'students', icon: 'students' },
-  { key: 'exam', label: 'Thi tốt nghiệp', href: 'exam.html', permission: 'exam', icon: 'exam' },
-  { key: 'tasks', label: 'Nhắc việc', href: 'tasks.html', permission: 'tasks', icon: 'tasks' },
-  { key: 'ai', label: 'AI Assistant', href: 'ai.html', icon: 'ai' },
-  { key: 'admin', label: 'Quản trị', href: 'admin.html', permission: 'admin', icon: 'admin' }
+  { 
+    key: 'dashboard', 
+    label: 'Dashboard', 
+    shortLabel: 'Tổng quan', 
+    desc: 'Tổng quan chỉ số & lịch trình', 
+    href: 'index.html', 
+    icon: 'dashboard', 
+    color: '#10b981', 
+    gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+    category: 'ops'
+  },
+  { 
+    key: 'calendar', 
+    label: 'Lịch tuần', 
+    shortLabel: 'Lịch tuần', 
+    desc: 'Kế hoạch công tác & huấn luyện', 
+    href: 'calendar.html', 
+    permission: 'calendar', 
+    icon: 'calendar', 
+    color: '#f59e0b', 
+    gradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)',
+    category: 'ops'
+  },
+  { 
+    key: 'tasks', 
+    label: 'Nhắc việc', 
+    shortLabel: 'Nhắc việc', 
+    desc: 'Sổ tay & tiến độ công việc', 
+    href: 'tasks.html', 
+    permission: 'tasks', 
+    icon: 'tasks', 
+    color: '#22c55e', 
+    gradient: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
+    category: 'ops'
+  },
+  { 
+    key: 'exam', 
+    label: 'Thi tốt nghiệp', 
+    shortLabel: 'Thi cử', 
+    desc: 'Bốc thăm cán bộ & phòng thi', 
+    href: 'exam.html', 
+    permission: 'exam', 
+    icon: 'exam', 
+    color: '#f43f5e', 
+    gradient: 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)',
+    category: 'ops'
+  },
+  { 
+    key: 'students', 
+    label: 'Tiếp nhận học viên', 
+    shortLabel: 'Học viên', 
+    desc: 'Quản lý hồ sơ & biên chế', 
+    href: 'students.html', 
+    permission: 'students', 
+    icon: 'students', 
+    color: '#3b82f6', 
+    gradient: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
+    category: 'ops'
+  },
+  { 
+    key: 'ai', 
+    label: 'AI Assistant', 
+    shortLabel: 'Trợ lý AI', 
+    desc: 'Trợ lý thông minh tra cứu quy chế', 
+    href: 'ai.html', 
+    icon: 'ai', 
+    color: '#8b5cf6', 
+    gradient: 'linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%)',
+    category: 'tools'
+  },
+  { 
+    key: 'admin', 
+    label: 'Quản trị hệ thống', 
+    shortLabel: 'Quản trị', 
+    desc: 'Phân quyền tài khoản & nhật ký', 
+    href: 'admin.html', 
+    permission: 'admin', 
+    icon: 'admin', 
+    color: '#64748b', 
+    gradient: 'linear-gradient(135deg, #64748b 0%, #334155 100%)',
+    category: 'tools'
+  }
 ];
 
 const iconPaths = {
-  dashboard: '<rect x="3" y="3" width="7" height="7" rx="1.5"></rect><rect x="14" y="3" width="7" height="7" rx="1.5"></rect><rect x="3" y="14" width="7" height="7" rx="1.5"></rect><rect x="14" y="14" width="7" height="7" rx="1.5"></rect>',
-  calendar: '<rect x="3" y="4" width="18" height="17" rx="2"></rect><path d="M8 2v4"></path><path d="M16 2v4"></path><path d="M3 10h18"></path>',
-  students: '<path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path><circle cx="9.5" cy="7" r="4"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path>',
-  exam: '<path d="M8 4h8"></path><path d="M9 2h6v4H9z"></path><path d="M16 4h2a2 2 0 0 1 2 2v14H4V6a2 2 0 0 1 2-2h2"></path><path d="M8 13h8"></path><path d="M8 17h5"></path><path d="m8 9 1.5 1.5L12 8"></path>',
-  tasks: '<path d="M9 6h12"></path><path d="M9 12h12"></path><path d="M9 18h12"></path><path d="m3 6 1 1 2-2"></path><path d="m3 12 1 1 2-2"></path><path d="m3 18 1 1 2-2"></path>',
-  ai: '<path d="M12 2l1.35 4.1L17.5 7.5l-4.15 1.4L12 13l-1.35-4.1L6.5 7.5l4.15-1.4L12 2z"></path><rect x="4" y="13" width="16" height="8" rx="3"></rect><path d="M9 17h.01"></path><path d="M15 17h.01"></path>',
-  admin: '<path d="M12 3l7 3v5c0 4.4-2.7 8.4-7 10-4.3-1.6-7-5.6-7-10V6l7-3z"></path><path d="M9.5 12a2.5 2.5 0 1 0 5 0 2.5 2.5 0 0 0-5 0z"></path><path d="M12 14.5V17"></path>',
-  logout: '<path d="M10 6H5a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h5"></path><path d="M15 8l4 4-4 4"></path><path d="M19 12H9"></path>',
-  panelClose: '<rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path><path d="m16 10-2 2 2 2"></path>',
-  panelOpen: '<rect x="3" y="4" width="18" height="16" rx="2"></rect><path d="M9 4v16"></path><path d="m14 10 2 2-2 2"></path>',
-  plus: '<path d="M12 5v14"></path><path d="M5 12h14"></path>',
-  save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"></path><path d="M17 21v-8H7v8"></path><path d="M7 3v5h8"></path>',
-  check: '<path d="m20 6-11 11-5-5"></path>',
-  bell: '<path d="M10 21h4"></path><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"></path>',
-  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m17 8-5-5-5 5"></path><path d="M12 3v12"></path>',
-  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="M7 10l5 5 5-5"></path><path d="M12 15V3"></path>',
-  lock: '<rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>',
-  unlock: '<rect x="3" y="11" width="18" height="10" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 9.5-2.2"></path>',
-  x: '<path d="M18 6 6 18"></path><path d="m6 6 12 12"></path>',
-  maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path>',
-  refresh: '<path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path><path d="M3 21v-5h5"></path><path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path><path d="M21 3v5h-5"></path>',
-  send: '<path d="m22 2-7 20-4-9-9-4 20-7Z"></path><path d="M22 2 11 13"></path>',
-  play: '<path d="m6 3 15 9-15 9V3Z"></path>',
-  chevronLeft: '<path d="m15 18-6-6 6-6"></path>',
-  chevronRight: '<path d="m9 18 6-6-6-6"></path>'
+  dashboard: '<rect x="3" y="3" width="7" height="7" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect><rect x="14" y="3" width="7" height="7" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect><rect x="3" y="14" width="7" height="7" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect><rect x="14" y="14" width="7" height="7" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect>',
+  calendar: '<rect x="3" y="4" width="18" height="17" rx="3" stroke="currentColor" stroke-width="2" fill="none"></rect><path d="M8 2v4M16 2v4M3 10h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path><circle cx="8" cy="14" r="1.2" fill="currentColor"></circle><circle cx="12" cy="14" r="1.2" fill="currentColor"></circle><circle cx="16" cy="14" r="1.2" fill="currentColor"></circle><circle cx="8" cy="17.5" r="1.2" fill="currentColor"></circle><circle cx="12" cy="17.5" r="1.2" fill="currentColor"></circle>',
+  students: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"></path><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2" fill="none"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"></path>',
+  exam: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="2" fill="none"></path><path d="M14 2v6h6" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"></path><path d="m9 15 2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>',
+  tasks: '<path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path><path d="m4 6 1 1 2-2M4 12 5 13 7 11M4 18 5 19 7 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>',
+  ai: '<path d="M12 2l1.35 4.1L17.5 7.5l-4.15 1.4L12 13l-1.35-4.1L6.5 7.5l4.15-1.4L12 2z" stroke="currentColor" stroke-width="1.8" fill="currentColor" fill-opacity="0.25"></path><rect x="4" y="13" width="16" height="8" rx="3" stroke="currentColor" stroke-width="2" fill="none"></rect><circle cx="9" cy="17" r="1.1" fill="currentColor"></circle><circle cx="15" cy="17" r="1.1" fill="currentColor"></circle>',
+  admin: '<circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.8" fill="none"></path>',
+  menu: '<path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"></path>',
+  logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"></path><polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></polyline><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>',
+  panelClose: '<rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect><path d="M9 4v16" stroke="currentColor" stroke-width="2"></path><path d="m16 10-2 2 2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>',
+  panelOpen: '<rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect><path d="M9 4v16" stroke="currentColor" stroke-width="2"></path><path d="m14 10 2 2-2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>',
+  plus: '<path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>',
+  save: '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z" stroke="currentColor" stroke-width="2" fill="none"></path><path d="M17 21v-8H7v8M7 3v5h8" stroke="currentColor" stroke-width="2"></path>',
+  check: '<path d="m20 6-11 11-5-5" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"></path>',
+  bell: '<path d="M10 21h4" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path><path d="M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>',
+  upload: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>',
+  download: '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>',
+  lock: '<rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"></path>',
+  unlock: '<rect x="3" y="11" width="18" height="10" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect><path d="M7 11V7a5 5 0 0 1 9.5-2.2" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"></path>',
+  x: '<path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>',
+  maximize: '<path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>',
+  refresh: '<path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>',
+  send: '<path d="m22 2-7 20-4-9-9-4 20-7ZM22 2 11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>',
+  play: '<path d="m6 3 15 9-15 9V3Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="currentColor"></path>',
+  chevronLeft: '<path d="m15 18-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>',
+  chevronRight: '<path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>'
 };
 
 const DRAW_SHAKE_MS = 3000;
@@ -279,13 +371,13 @@ function renderNavigation() {
     sidebarNav.innerHTML = navItems
       .filter(item => canAccessMenu(item.permission))
       .map(item => `
-        <a class="${item.key === page ? 'active' : ''}" href="${item.href}" title="${escapeHtml(item.label)}" ${item.external ? 'target="_blank" rel="noreferrer"' : ''}>
-          <span class="nav-icon">${navIcon(item.icon)}</span>
+        <a class="${item.key === page ? 'active' : ''}" href="${item.href}" title="${escapeHtml(item.label)}" style="--item-color: ${item.color}; --item-gradient: ${item.gradient};">
+          <span class="nav-icon-box" style="background: ${item.gradient};">${navIcon(item.icon)}</span>
           <span class="nav-label">${escapeHtml(item.label)}</span>
         </a>
       `).join('') + `
         <button class="nav-logout" onclick="logout()" title="Đăng xuất">
-          <span class="nav-icon">${navIcon('logout')}</span>
+          <span class="nav-icon-box logout-box" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">${navIcon('logout')}</span>
           <span class="nav-label">Đăng xuất</span>
         </button>
       `;
@@ -299,46 +391,122 @@ function renderNavigation() {
     `);
   }
 
-  // Mobile drawer nav
+  // Mobile drawer nav (Organized with category groups and vivid cards)
   const drawerNav = document.querySelector('.mobile-drawer .drawer-nav');
   if (drawerNav) {
-    drawerNav.innerHTML = navItems
-      .filter(item => canAccessMenu(item.permission))
-      .map(item => `
-        <a class="${item.key === page ? 'active' : ''}" href="${item.href}" title="${escapeHtml(item.label)}" ${item.external ? 'target="_blank" rel="noreferrer"' : ''}>
-          <span class="nav-icon">${navIcon(item.icon)}</span>
-          <span class="nav-label">${escapeHtml(item.label)}</span>
-        </a>
-      `).join('') + `
-        <button class="nav-logout" onclick="logout()" title="Đăng xuất">
-          <span class="nav-icon">${navIcon('logout')}</span>
-          <span class="nav-label">Đăng xuất</span>
-        </button>
-      `;
+    const opsItems = navItems.filter(item => item.category === 'ops' && canAccessMenu(item.permission));
+    const toolItems = navItems.filter(item => item.category === 'tools' && canAccessMenu(item.permission));
+
+    drawerNav.innerHTML = `
+      <!-- User profile card in drawer header -->
+      <div class="drawer-user-card" title="${escapeHtml(state.currentUser.full_name || state.currentUser.username)}">
+        <div class="drawer-user-avatar" data-initials="${escapeHtml(getUserInitials(state.currentUser))}"></div>
+        <div class="drawer-user-meta">
+          <strong>${escapeHtml(state.currentUser.full_name || state.currentUser.username)}</strong>
+          <span>${escapeHtml([state.currentUser.rank, state.currentUser.unit].filter(Boolean).join(' · ') || userRoleLabels[state.currentUser.role] || state.currentUser.role)}</span>
+          <span class="drawer-role-tag">${escapeHtml(userRoleLabels[state.currentUser.role] || state.currentUser.role)}</span>
+        </div>
+      </div>
+
+      <!-- Category 1: Điều hành & Huấn luyện -->
+      <div class="drawer-nav-group">
+        <div class="drawer-group-title">
+          <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2" fill="none"/><rect x="14" y="3" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2" fill="none"/><rect x="3" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2" fill="none"/><rect x="14" y="14" width="7" height="7" rx="1.5" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+          <span>Điều hành & Huấn luyện</span>
+        </div>
+        <div class="drawer-items-list">
+          ${opsItems.map(item => `
+            <a class="drawer-nav-item ${item.key === page ? 'active' : ''}" href="${item.href}" style="--item-color: ${item.color}; --item-gradient: ${item.gradient};" onclick="closeMobileDrawer()">
+              <div class="drawer-item-icon" style="background: ${item.gradient};">
+                ${navIcon(item.icon)}
+              </div>
+              <div class="drawer-item-content">
+                <strong class="drawer-item-title">${escapeHtml(item.label)}</strong>
+                <span class="drawer-item-desc">${escapeHtml(item.desc)}</span>
+              </div>
+              ${item.key === page 
+                ? '<span class="drawer-active-pill">Đang xem</span>' 
+                : '<svg class="drawer-item-chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
+              }
+            </a>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Category 2: Công cụ & Tiện ích -->
+      <div class="drawer-nav-group">
+        <div class="drawer-group-title">
+          <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+          <span>Công cụ & Hệ thống</span>
+        </div>
+        <div class="drawer-items-list">
+          ${toolItems.map(item => `
+            <a class="drawer-nav-item ${item.key === page ? 'active' : ''}" href="${item.href}" style="--item-color: ${item.color}; --item-gradient: ${item.gradient};" onclick="closeMobileDrawer()">
+              <div class="drawer-item-icon" style="background: ${item.gradient};">
+                ${navIcon(item.icon)}
+              </div>
+              <div class="drawer-item-content">
+                <strong class="drawer-item-title">${escapeHtml(item.label)}</strong>
+                <span class="drawer-item-desc">${escapeHtml(item.desc)}</span>
+              </div>
+              ${item.key === page 
+                ? '<span class="drawer-active-pill">Đang xem</span>' 
+                : '<svg class="drawer-item-chevron" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>'
+              }
+            </a>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Logout button in drawer -->
+      <button type="button" class="drawer-logout-btn" onclick="logout()" title="Đăng xuất">
+        <div class="drawer-item-icon logout-icon" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">
+          ${navIcon('logout')}
+        </div>
+        <div class="drawer-item-content">
+          <strong class="drawer-item-title" style="color: #ef4444;">Đăng xuất</strong>
+          <span class="drawer-item-desc">Thoát tài khoản hiện tại</span>
+        </div>
+        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="m9 18 6-6-6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+      </button>
+    `;
 
     document.querySelector('.mobile-drawer .drawer-user')?.remove();
-    drawerNav.insertAdjacentHTML('afterend', `
-      <div class="sidebar-user drawer-user" style="margin-top: auto;" title="${escapeHtml(state.currentUser.full_name || state.currentUser.username)}" data-initials="${escapeHtml(getUserInitials(state.currentUser))}">
-        <strong>${escapeHtml(state.currentUser.full_name || state.currentUser.username)}</strong>
-        <span>${escapeHtml([state.currentUser.rank, state.currentUser.unit].filter(Boolean).join(' · ') || userRoleLabels[state.currentUser.role] || state.currentUser.role)}</span>
-      </div>
-    `);
   }
 
-  // Bottom navigation bar for mobile
+  // Bottom navigation bar for mobile (5 neatly arranged slots with vivid icons)
   const bottomNav = document.querySelector('.bottom-nav');
   if (bottomNav) {
-    const bottomNavKeys = ['dashboard', 'calendar', 'students', 'exam', 'tasks'];
-    const accessibleItems = navItems.filter(item => bottomNavKeys.includes(item.key) && canAccessMenu(item.permission));
-    bottomNav.innerHTML = accessibleItems.map(item => `
-      <a class="bottom-nav-item ${item.key === page ? 'active' : ''}" href="${item.href}">
-        ${navIcon(item.icon)}
-        <span>${escapeHtml(item.label.split(' ')[0])}</span>
-      </a>
-    `).join('') + `
-      <button type="button" class="bottom-nav-item" onclick="openMobileDrawer()" aria-label="Mở menu">
-        <svg viewBox="0 0 24 24" aria-hidden="true" width="22" height="22"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        <span>Thêm</span>
+    // 4 primary slots + 1 menu button
+    const defaultSlots = ['dashboard', 'calendar', 'tasks', 'exam'];
+    const activeIsOther = !defaultSlots.includes(page) && ['students', 'ai', 'admin'].includes(page);
+    
+    const activeSlots = activeIsOther 
+      ? ['dashboard', 'calendar', 'tasks', page]
+      : defaultSlots;
+
+    const visibleItems = activeSlots
+      .map(k => navItems.find(i => i.key === k))
+      .filter(Boolean)
+      .filter(item => canAccessMenu(item.permission));
+
+    bottomNav.innerHTML = visibleItems.map(item => {
+      const isActive = item.key === page;
+      return `
+        <a class="bottom-nav-item ${isActive ? 'active' : ''}" href="${item.href}" style="--item-color: ${item.color}; --item-gradient: ${item.gradient};">
+          <div class="bottom-nav-icon-wrap" style="${isActive ? `background: ${item.gradient};` : ''}">
+            ${navIcon(item.icon)}
+          </div>
+          <span class="bottom-nav-label">${escapeHtml(item.shortLabel || item.label)}</span>
+          ${isActive ? '<span class="bottom-nav-dot" style="background: ' + item.color + ';"></span>' : ''}
+        </a>
+      `;
+    }).join('') + `
+      <button type="button" class="bottom-nav-item bottom-nav-more" onclick="openMobileDrawer()" aria-label="Mở menu tất cả chức năng">
+        <div class="bottom-nav-icon-wrap more-icon-wrap" style="background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);">
+          <svg viewBox="0 0 24 24" aria-hidden="true" width="20" height="20"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+        </div>
+        <span class="bottom-nav-label">Thêm</span>
       </button>
     `;
   }
@@ -566,31 +734,549 @@ async function loadData() {
   enhanceActionButtons();
 }
 
+/* --------------------------------------------------------------------------
+   WEATHER ENGINE (GOOGLE WEATHER STYLE)
+   -------------------------------------------------------------------------- */
+const weatherLocations = {
+  hanoi: { name: 'Hà Nội', region: 'Học viện Chính trị', lat: 21.0285, lon: 105.8542 },
+  sontay: { name: 'Sơn Tây', region: 'Hà Nội', lat: 21.1394, lon: 105.5039 },
+  thainguyen: { name: 'Thái Nguyên', region: 'Quân khu 1', lat: 21.5928, lon: 105.8442 },
+  haiphong: { name: 'Hải Phòng', region: 'Quân khu 3', lat: 20.8449, lon: 106.6881 },
+  danang: { name: 'Đà Nẵng', region: 'Quân khu 5', lat: 16.0544, lon: 108.2022 },
+  nhatrang: { name: 'Nha Trang', region: 'Khánh Hòa', lat: 12.2388, lon: 109.1967 },
+  hcm: { name: 'TP. Hồ Chí Minh', region: 'Quân khu 7', lat: 10.8231, lon: 106.6297 },
+  cantho: { name: 'Cần Thơ', region: 'Quân khu 9', lat: 10.0452, lon: 105.7469 }
+};
+
+function getWeatherCondition(code) {
+  if (code === 0) return { text: 'Trời quang đãng, nắng đẹp', icon: 'sunny', color: '#f59e0b' };
+  if ([1, 2, 3].includes(code)) return { text: 'Có mây rải rác', icon: 'partly_cloudy', color: '#38bdf8' };
+  if ([45, 48].includes(code)) return { text: 'Có sương mù nhẹ', icon: 'fog', color: '#94a3b8' };
+  if ([51, 53, 55].includes(code)) return { text: 'Mưa phùn rải rác', icon: 'drizzle', color: '#60a5fa' };
+  if ([61, 63, 65, 80, 81, 82].includes(code)) return { text: 'Mưa rào rải rác', icon: 'rain', color: '#2563eb' };
+  if ([95, 96, 99].includes(code)) return { text: 'Có giông rải rác, sấm sét', icon: 'thunderstorm', color: '#f59e0b' };
+  return { text: 'Nhiều mây', icon: 'overcast', color: '#64748b' };
+}
+
+function getWeatherIconSvg(iconKey, size = 52) {
+  if (iconKey === 'sunny') {
+    return `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
+      <circle cx="32" cy="32" r="14" fill="#f59e0b"/>
+      <g stroke="#f59e0b" stroke-width="3.5" stroke-linecap="round">
+        <line x1="32" y1="5" x2="32" y2="12"/><line x1="32" y1="52" x2="32" y2="59"/>
+        <line x1="5" y1="32" x2="12" y2="32"/><line x1="52" y1="32" x2="59" y2="32"/>
+        <line x1="13" y1="13" x2="18" y2="18"/><line x1="46" y1="46" x2="51" y2="51"/>
+        <line x1="13" y1="51" x2="18" y2="46"/><line x1="46" y1="18" x2="51" y2="13"/>
+      </g>
+    </svg>`;
+  }
+  if (iconKey === 'partly_cloudy') {
+    return `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
+      <circle cx="23" cy="23" r="11" fill="#f59e0b"/>
+      <path d="M48 44H20a10 10 0 0 1-1.7-19.8A14 14 0 0 1 48 26a9 9 0 0 1 0 18z" fill="#94a3b8" fill-opacity="0.95"/>
+    </svg>`;
+  }
+  if (iconKey === 'rain') {
+    return `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
+      <path d="M48 34H20a10 10 0 0 1-1.7-19.8A14 14 0 0 1 48 18a9 9 0 0 1 0 16z" fill="#64748b"/>
+      <line x1="22" y1="40" x2="17" y2="52" stroke="#0284c7" stroke-width="3" stroke-linecap="round"/>
+      <line x1="32" y1="40" x2="27" y2="52" stroke="#0284c7" stroke-width="3" stroke-linecap="round"/>
+      <line x1="42" y1="40" x2="37" y2="52" stroke="#0284c7" stroke-width="3" stroke-linecap="round"/>
+    </svg>`;
+  }
+  if (iconKey === 'thunderstorm') {
+    return `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
+      <!-- Sun peek -->
+      <circle cx="20" cy="18" r="9" fill="#f59e0b"/>
+      <!-- Main Cloud -->
+      <path d="M50 36H22a10 10 0 0 1-1.7-19.8A14 14 0 0 1 50 20a9 9 0 0 1 0 16z" fill="#64748b"/>
+      <!-- Lightning bolt -->
+      <polygon points="34,34 26,46 32,46 27,58 42,42 35,42" fill="#eab308" stroke="#ca8a04" stroke-width="1.2"/>
+      <!-- Rain drops -->
+      <line x1="18" y1="44" x2="14" y2="54" stroke="#0284c7" stroke-width="3" stroke-linecap="round"/>
+      <line x1="48" y1="44" x2="44" y2="54" stroke="#0284c7" stroke-width="3" stroke-linecap="round"/>
+    </svg>`;
+  }
+  if (iconKey === 'fog') {
+    return `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
+      <path d="M46 26H22a9 9 0 0 1-1.5-17.8A12 12 0 0 1 47 13a8 8 0 0 1-1 13z" fill="#94a3b8"/>
+      <line x1="14" y1="36" x2="50" y2="36" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
+      <line x1="18" y1="44" x2="46" y2="44" stroke="#94a3b8" stroke-width="3" stroke-linecap="round"/>
+    </svg>`;
+  }
+  return `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
+    <path d="M48 38H20a11 11 0 0 1-2-21.8A15 15 0 0 1 50 21a10 10 0 0 1-2 17z" fill="#94a3b8"/>
+  </svg>`;
+}
+
+function formatTempDisplay(celsius) {
+  if (celsius === null || celsius === undefined || isNaN(celsius)) return '--';
+  if (state.weather.unit === 'F') {
+    return Math.round(celsius * 9 / 5 + 32);
+  }
+  return Math.round(celsius);
+}
+
+function generateFallbackWeatherData(loc) {
+  const now = new Date();
+  const times = [];
+  const hourlyTemp = [];
+  const hourlyRain = [];
+  const hourlyWind = [];
+  for (let i = 0; i < 24 * 7; i++) {
+    const d = new Date(now.getTime() + i * 3600 * 1000);
+    times.push(d.toISOString());
+    const hour = d.getHours();
+    const baseTemp = 28 + Math.sin((hour - 8) / 12 * Math.PI) * 5;
+    hourlyTemp.push(Math.round(baseTemp));
+    hourlyRain.push(hour >= 14 && hour <= 18 ? 45 : 15);
+    hourlyWind.push(Math.round(10 + Math.random() * 6));
+  }
+  return {
+    current: {
+      temperature_2m: 31,
+      relative_humidity_2m: 79,
+      weather_code: 95,
+      wind_speed_10m: 11
+    },
+    hourly: {
+      time: times,
+      temperature_2m: hourlyTemp,
+      precipitation_probability: hourlyRain,
+      wind_speed_10m: hourlyWind,
+      weather_code: times.map(() => 95)
+    },
+    daily: {
+      time: [0, 1, 2, 3, 4, 5, 6, 7].map(d => new Date(now.getTime() + d * 86400000).toISOString().slice(0, 10)),
+      weather_code: [95, 95, 95, 95, 61, 2, 95, 95],
+      temperature_2m_max: [31, 33, 31, 32, 33, 33, 32, 31],
+      temperature_2m_min: [26, 27, 27, 27, 27, 27, 27, 26],
+      precipitation_probability_max: [38, 55, 60, 40, 30, 20, 45, 38]
+    }
+  };
+}
+
+async function fetchWeatherData(locationKey, force = false) {
+  const loc = weatherLocations[locationKey] || weatherLocations.hanoi;
+  const cacheKey = `armyTechWeather_${locationKey}`;
+  const cached = localStorage.getItem(cacheKey);
+
+  if (!force && cached) {
+    try {
+      const parsed = JSON.parse(cached);
+      if (Date.now() - parsed.timestamp < 30 * 60 * 1000) {
+        state.weather.data = parsed.data;
+        return parsed.data;
+      }
+    } catch (e) {}
+  }
+
+  try {
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,wind_speed_10m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FBangkok`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('Weather API Error');
+    const data = await res.json();
+    state.weather.data = data;
+    localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
+    return data;
+  } catch (err) {
+    const fallback = generateFallbackWeatherData(loc);
+    state.weather.data = fallback;
+    return fallback;
+  }
+}
+
+function toggleWeatherLocationMenu() {
+  const menu = el('weatherLocationMenu');
+  const btn = el('weatherLocBtn');
+  if (!menu) return;
+  const isOpen = !menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', isOpen);
+  if (btn) btn.setAttribute('aria-expanded', String(!isOpen));
+}
+
+function selectWeatherLocation(locKey) {
+  state.weather.locationKey = locKey;
+  localStorage.setItem('armyTechWeatherLoc', locKey);
+  toggleWeatherLocationMenu();
+  document.querySelectorAll('.weather-loc-item').forEach(b => {
+    b.classList.toggle('active', b.getAttribute('onclick')?.includes(locKey));
+  });
+  fetchWeatherData(locKey, true).then(() => renderWeatherWidget());
+}
+
+function refreshWeatherData() {
+  toast('Đang cập nhật lại thời tiết...');
+  fetchWeatherData(state.weather.locationKey, true).then(() => {
+    renderWeatherWidget();
+    toast('Đã cập nhật thời tiết mới nhất.');
+  });
+}
+
+function setWeatherUnit(unit) {
+  state.weather.unit = unit;
+  localStorage.setItem('armyTechWeatherUnit', unit);
+  el('unitBtnC')?.classList.toggle('active', unit === 'C');
+  el('unitBtnF')?.classList.toggle('active', unit === 'F');
+  renderWeatherWidget();
+}
+
+function switchWeatherTab(tabName) {
+  state.weather.activeTab = tabName;
+  document.querySelectorAll('.weather-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.id === `wtab-${tabName === 'temperature' ? 'temp' : tabName === 'precipitation' ? 'rain' : 'wind'}`);
+  });
+  renderWeatherHourlyChart();
+}
+
+function selectWeatherDay(dayIndex) {
+  state.weather.selectedDayIndex = dayIndex;
+  document.querySelectorAll('.weather-day-pill').forEach((pill, idx) => {
+    pill.classList.toggle('active', idx === dayIndex);
+  });
+  renderWeatherHourlyChart();
+}
+
+function renderWeatherWidget() {
+  if (!has('weatherWidgetCard')) return;
+  const loc = weatherLocations[state.weather.locationKey] || weatherLocations.hanoi;
+  const data = state.weather.data;
+
+  if (has('weatherLocationName')) {
+    el('weatherLocationName').textContent = `${loc.name} (${loc.region})`;
+  }
+
+  if (!data || !data.current) {
+    fetchWeatherData(state.weather.locationKey).then(() => renderWeatherWidget());
+    return;
+  }
+
+  const current = data.current;
+  const condition = getWeatherCondition(current.weather_code);
+  const now = new Date();
+
+  // Update current metrics
+  if (has('weatherCurrentTemp')) el('weatherCurrentTemp').textContent = formatTempDisplay(current.temperature_2m);
+  if (has('weatherCurrentIconWrap')) el('weatherCurrentIconWrap').innerHTML = getWeatherIconSvg(condition.icon, 54);
+  if (has('weatherHumidity')) el('weatherHumidity').textContent = `${Math.round(current.relative_humidity_2m)}%`;
+  if (has('weatherWindSpeed')) el('weatherWindSpeed').textContent = `${Math.round(current.wind_speed_10m)} km/h`;
+
+  const rainProb = data.daily?.precipitation_probability_max?.[0] || 38;
+  if (has('weatherRainProb')) el('weatherRainProb').textContent = `${rainProb}%`;
+
+  if (has('weatherTimestamp')) {
+    const daysMap = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    el('weatherTimestamp').textContent = `${timeStr} ${daysMap[now.getDay()]}`;
+  }
+
+  if (has('weatherConditionText')) el('weatherConditionText').textContent = condition.text;
+
+  // Render Daily Forecast Pills (7 Days)
+  if (has('weatherDailyForecast') && data.daily) {
+    const daily = data.daily;
+    const daysShort = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+    const count = Math.min(8, daily.time.length);
+    let html = '';
+
+    for (let i = 0; i < count; i++) {
+      const date = parseDateOnly(daily.time[i]) || new Date(now.getTime() + i * 86400000);
+      const dayName = i === 0 ? 'Hôm nay' : daysShort[date.getDay()];
+      const dayCond = getWeatherCondition(daily.weather_code[i]);
+      const maxT = formatTempDisplay(daily.temperature_2m_max[i]);
+      const minT = formatTempDisplay(daily.temperature_2m_min[i]);
+      const isSelected = i === state.weather.selectedDayIndex;
+
+      html += `
+        <button type="button" class="weather-day-pill ${isSelected ? 'active' : ''}" onclick="selectWeatherDay(${i})">
+          <span class="day-pill-name">${escapeHtml(dayName)}</span>
+          <div class="day-pill-icon">${getWeatherIconSvg(dayCond.icon, 28)}</div>
+          <div class="day-pill-temps">
+            <strong>${maxT}°</strong>
+            <span>${minT}°</span>
+          </div>
+        </button>
+      `;
+    }
+    el('weatherDailyForecast').innerHTML = html;
+  }
+
+  renderWeatherHourlyChart();
+}
+
+function renderWeatherHourlyChart() {
+  if (!has('weatherHourlyChart') || !state.weather.data) return;
+  const data = state.weather.data;
+  const dayIdx = state.weather.selectedDayIndex || 0;
+  const tab = state.weather.activeTab || 'temperature';
+
+  // Extract 8 hourly sample points for the selected day (e.g. 01:00, 04:00, 07:00, 10:00, 13:00, 16:00, 19:00, 22:00)
+  const startHour = dayIdx * 24;
+  const sampleIndices = [1, 4, 7, 10, 13, 16, 19, 22].map(h => startHour + h);
+
+  const points = sampleIndices.map(idx => {
+    const timeRaw = data.hourly?.time?.[idx];
+    let hourStr = '00:00';
+    if (timeRaw) {
+      const d = new Date(timeRaw);
+      hourStr = `${String(d.getHours()).padStart(2, '0')}:00`;
+    }
+    const temp = data.hourly?.temperature_2m?.[idx] ?? 30;
+    const rain = data.hourly?.precipitation_probability?.[idx] ?? 20;
+    const wind = data.hourly?.wind_speed_10m?.[idx] ?? 10;
+    return { hourStr, temp, rain, wind };
+  });
+
+  // Calculate SVG curve coordinates
+  const svgWidth = 640;
+  const svgHeight = 110;
+  const padX = 40;
+  const padY = 28;
+  const w = svgWidth - padX * 2;
+  const h = svgHeight - padY * 2;
+
+  let values = [];
+  let unitSuffix = '°';
+  let lineColor = '#f59e0b';
+  let fillColor = 'rgba(245, 158, 11, 0.12)';
+
+  if (tab === 'precipitation') {
+    values = points.map(p => p.rain);
+    unitSuffix = '%';
+    lineColor = '#0284c7';
+    fillColor = 'rgba(2, 132, 199, 0.12)';
+  } else if (tab === 'wind') {
+    values = points.map(p => p.wind);
+    unitSuffix = ' km/h';
+    lineColor = '#0d9488';
+    fillColor = 'rgba(13, 148, 136, 0.12)';
+  } else {
+    values = points.map(p => formatTempDisplay(p.temp));
+    unitSuffix = '°';
+    lineColor = '#f59e0b';
+    fillColor = 'rgba(245, 158, 11, 0.12)';
+  }
+
+  const minVal = Math.min(...values) - 2;
+  const maxVal = Math.max(...values) + 2;
+  const range = maxVal - minVal || 1;
+
+  const coords = points.map((p, i) => {
+    const x = padX + (i / (points.length - 1)) * w;
+    const y = padY + h - ((values[i] - minVal) / range) * h;
+    return { x, y, val: values[i], hour: p.hourStr };
+  });
+
+  // Build smooth bezier path
+  let pathD = `M ${coords[0].x},${coords[0].y}`;
+  for (let i = 0; i < coords.length - 1; i++) {
+    const p0 = coords[i];
+    const p1 = coords[i + 1];
+    const mx = (p0.x + p1.x) / 2;
+    pathD += ` C ${mx},${p0.y} ${mx},${p1.y} ${p1.x},${p1.y}`;
+  }
+
+  const areaD = `${pathD} L ${coords[coords.length - 1].x},${svgHeight} L ${coords[0].x},${svgHeight} Z`;
+
+  const svgHtml = `
+    <svg viewBox="0 0 ${svgWidth} ${svgHeight + 25}" class="weather-curve-svg" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="weatherChartGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="${lineColor}" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="${lineColor}" stop-opacity="0.0"/>
+        </linearGradient>
+      </defs>
+      <!-- Gradient Fill Area -->
+      <path d="${areaD}" fill="url(#weatherChartGrad)"/>
+      <!-- Curve Line -->
+      <path d="${pathD}" fill="none" stroke="${lineColor}" stroke-width="2.5" stroke-linecap="round"/>
+      <!-- Value Labels & Dots -->
+      ${coords.map(c => `
+        <text x="${c.x}" y="${c.y - 8}" text-anchor="middle" class="chart-val-text">${c.val}${unitSuffix}</text>
+        <circle cx="${c.x}" cy="${c.y}" r="3.5" fill="#ffffff" stroke="${lineColor}" stroke-width="2.5"/>
+        <text x="${c.x}" y="${svgHeight + 16}" text-anchor="middle" class="chart-hour-text">${c.hour}</text>
+      `).join('')}
+    </svg>
+  `;
+
+  el('weatherHourlyChart').innerHTML = svgHtml;
+}
+
+/* --------------------------------------------------------------------------
+   DASHBOARD COMMAND CENTER & OPERATIONS
+   -------------------------------------------------------------------------- */
+async function toggleDashboardTaskComplete(id) {
+  const allList = (state.dashboard?.todayTasks || []).concat(state.dashboard?.dueTasks || [], state.tasks || []);
+  const current = allList.find(item => item.id === id);
+  if (!current) return;
+  const isCompleted = current.status === 'Completed';
+  const newStatus = isCompleted ? 'InProgress' : 'Completed';
+  const newProgress = isCompleted ? 0 : 100;
+
+  // Optimistic UI update
+  current.status = newStatus;
+  current.progress = newProgress;
+  renderDashboard();
+
+  try {
+    await request(`/api/tasks/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...current,
+        status: newStatus,
+        progress: newProgress
+      })
+    });
+    toast(isCompleted ? 'Đã bỏ đánh dấu hoàn thành.' : '🎉 Đã hoàn thành công việc!');
+    loadData();
+  } catch (error) {
+    toast(error.message);
+    loadData();
+  }
+}
+
+function switchDashboardDeadlineTab(tab) {
+  state.dashboardDeadlineTab = tab;
+  el('btnTabOverdue')?.classList.toggle('active', tab === 'overdue');
+  el('btnTabUpcomingDue')?.classList.toggle('active', tab === 'upcomingDue');
+  el('dashboardOverdueTasksList')?.classList.toggle('hidden', tab !== 'overdue');
+  el('dashboardUpcomingDueTasksList')?.classList.toggle('hidden', tab !== 'upcomingDue');
+}
+
 function renderDashboard() {
   if (!has('kpiCalendar')) return;
-  const kpis = state.dashboard?.kpis || {};
-  el('kpiCalendar').textContent = kpis.calendarToday || 0;
-  el('kpiTasks').textContent = kpis.tasksToday || 0;
-  el('kpiOverdue').textContent = kpis.overdueTasks || 0;
-  el('kpiStudents').textContent = kpis.activeStudents || 0;
-  el('kpiRooms').textContent = kpis.rooms || 0;
-  el('kpiUnread').textContent = kpis.unreadNotifications || 0;
+  const dash = state.dashboard || {};
+  const kpis = dash.kpis || {};
 
-  renderStack('dashboardCalendar', state.dashboard?.upcomingCalendar || [], item => `
-    <div class="stack-item">
-      <strong>${escapeHtml(item.title)}</strong>
-      <span>${formatDate(item.task_date)} ${escapeHtml(item.start_time || '')}</span>
-      <small>${escapeHtml(item.location || 'Chưa có địa điểm')}</small>
-    </div>
-  `, 'Chưa có lịch sắp tới.');
+  // 1. Render Google Weather Widget
+  renderWeatherWidget();
 
-  renderStack('dashboardTasks', state.dashboard?.dueTasks || [], item => `
-    <div class="stack-item">
-      <strong>${escapeHtml(item.title)}</strong>
-      <span>${escapeHtml(item.assignee || 'Chưa giao')} · ${formatDate(item.due_date)}</span>
-      <small class="${statusClass(item.status)}">${escapeHtml(item.status)}</small>
-    </div>
-  `, 'Chưa có công việc cần xử lý.');
+  // 2. Render KPI Metrics Bar
+  if (has('kpiCalendar')) el('kpiCalendar').textContent = kpis.calendarToday || 0;
+  if (has('kpiTasksToday')) el('kpiTasksToday').textContent = dash.todayTasks?.length || kpis.tasksToday || 0;
+  if (has('kpiOverdue')) el('kpiOverdue').textContent = kpis.overdueTasks || 0;
+  if (has('kpiUpcomingDue')) el('kpiUpcomingDue').textContent = kpis.upcomingDue || 0;
+  if (has('kpiStudents')) el('kpiStudents').textContent = kpis.activeStudents || 0;
+  if (has('kpiUnread')) el('kpiUnread').textContent = kpis.unreadNotifications || 0;
+
+  // 3. Card 1: Today's Tasks Overview & Checklist
+  const todayProgress = dash.todayProgress || { total: 0, completed: 0, percent: 0 };
+  if (has('dashboardTodayPercent')) el('dashboardTodayPercent').textContent = `${todayProgress.percent}%`;
+  if (has('dashboardTodayProgressBar')) {
+    el('dashboardTodayProgressBar').style.width = `${todayProgress.percent}%`;
+    el('dashboardTodayProgressBar').style.backgroundColor = todayProgress.percent === 100 ? '#16a34a' : todayProgress.percent >= 50 ? '#15803d' : '#2563eb';
+  }
+  if (has('dashboardTodayRatio')) el('dashboardTodayRatio').textContent = `${todayProgress.completed}/${todayProgress.total} việc đã xong`;
+
+  if (has('dashboardTodayOverdueWarn')) {
+    if (kpis.overdueTasks > 0) {
+      el('dashboardTodayOverdueWarn').textContent = `⚠️ ${kpis.overdueTasks} việc quá hạn`;
+      el('dashboardTodayOverdueWarn').classList.remove('hidden');
+    } else {
+      el('dashboardTodayOverdueWarn').classList.add('hidden');
+    }
+  }
+
+  // Today Tasks List with interactive circular checkboxes
+  const todayTasks = dash.todayTasks || [];
+  if (has('dashboardTodayTasksList')) {
+    el('dashboardTodayTasksList').innerHTML = todayTasks.length ? todayTasks.map(item => {
+      const isCompleted = item.status === 'Completed';
+      const accent = item.color || '#15803d';
+      return `
+        <div class="dash-today-task-item ${isCompleted ? 'is-completed' : ''}" style="--task-accent: ${escapeHtml(accent)};">
+          <button type="button" class="dash-task-check ${isCompleted ? 'checked' : ''}" onclick="toggleDashboardTaskComplete(${item.id})" aria-label="Hoàn thành việc">
+            <svg viewBox="0 0 24 24" width="14" height="14"><path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+          </button>
+          <div class="dash-today-task-info" onclick="toggleDashboardTaskComplete(${item.id})">
+            <strong class="dash-task-title ${isCompleted ? 'completed-strike' : ''}">${escapeHtml(item.title)}</strong>
+            <div class="dash-task-meta">
+              <span class="dash-task-color-dot" style="background-color: ${escapeHtml(accent)};"></span>
+              ${item.assignee ? `<span class="dash-task-assignee">${escapeHtml(item.assignee)}</span>` : ''}
+              <span class="todo-badge ${priorityClass(item.priority)}">${escapeHtml(priorityLabel(item.priority))}</span>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('') : '<p class="empty-hint">Không có công việc nào có hạn hôm nay. Tuyệt vời!</p>';
+  }
+
+  // 4. Card 2: Upcoming Calendar Timeline
+  const upcomingCalendar = dash.upcomingCalendar || [];
+  if (has('dashboardCalendar')) {
+    el('dashboardCalendar').innerHTML = upcomingCalendar.length ? upcomingCalendar.map(item => `
+      <div class="dash-calendar-timeline-item" style="border-left-color: ${escapeHtml(item.color || '#15803d')};">
+        <div class="dash-cal-time-chip">
+          <strong>${formatDate(item.task_date)}</strong>
+          <span>${escapeHtml(item.start_time || 'Cả ngày')}${item.end_time ? ` - ${escapeHtml(item.end_time)}` : ''}</span>
+        </div>
+        <div class="dash-cal-content">
+          <strong>${escapeHtml(item.title)}</strong>
+          <p>${escapeHtml(item.content || item.location || 'Chưa có địa điểm cụ thể')}</p>
+          <div class="dash-cal-meta-row">
+            ${item.location ? `<span>📍 ${escapeHtml(item.location)}</span>` : ''}
+            ${item.duty_officer ? `<span>👤 Trực ban: ${escapeHtml(item.duty_officer)}</span>` : ''}
+          </div>
+        </div>
+      </div>
+    `).join('') : '<p class="empty-hint">Chưa có lịch công tác sắp tới.</p>';
+  }
+
+  // 5. Card 3: Overdue & Upcoming Due Deadlines
+  const overdueList = dash.overdueTasksList || [];
+  const upcomingDueList = dash.upcomingDueTasks || [];
+
+  if (has('badgeOverdueTasksCount')) el('badgeOverdueTasksCount').textContent = overdueList.length;
+  if (has('badgeUpcomingDueCount')) el('badgeUpcomingDueCount').textContent = upcomingDueList.length;
+
+  if (has('dashboardOverdueTasksList')) {
+    el('dashboardOverdueTasksList').innerHTML = overdueList.length ? overdueList.map(item => {
+      const urgency = getTaskUrgency(item.due_date, item.status);
+      return `
+        <div class="dash-deadline-item overdue">
+          <div class="dash-deadline-main">
+            <strong>${escapeHtml(item.title)}</strong>
+            <div class="dash-deadline-meta">
+              <span class="todo-badge urgency-overdue">${escapeHtml(urgency.label)} (${formatDate(item.due_date)})</span>
+              ${item.assignee ? `<span>👤 ${escapeHtml(item.assignee)}</span>` : ''}
+            </div>
+          </div>
+          <div class="dash-deadline-actions">
+            <button type="button" class="dash-quick-remind-btn" onclick="remindTask(${item.id})" title="Gửi thông báo nhắc nhở">
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M10 21h4M18 8a6 6 0 1 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+              <span>Nhắc</span>
+            </button>
+            <button type="button" class="dash-quick-done-btn" onclick="toggleDashboardTaskComplete(${item.id})" title="Đánh dấu hoàn thành">
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('') : '<p class="empty-hint">Không có công việc nào bị quá hạn 🎉</p>';
+  }
+
+  if (has('dashboardUpcomingDueTasksList')) {
+    el('dashboardUpcomingDueTasksList').innerHTML = upcomingDueList.length ? upcomingDueList.map(item => {
+      const urgency = getTaskUrgency(item.due_date, item.status);
+      return `
+        <div class="dash-deadline-item due-soon">
+          <div class="dash-deadline-main">
+            <strong>${escapeHtml(item.title)}</strong>
+            <div class="dash-deadline-meta">
+              <span class="todo-badge ${urgency.class}">${escapeHtml(urgency.label)}</span>
+              ${item.assignee ? `<span>👤 ${escapeHtml(item.assignee)}</span>` : ''}
+              <span class="todo-badge ${priorityClass(item.priority)}">${escapeHtml(priorityLabel(item.priority))}</span>
+            </div>
+          </div>
+          <div class="dash-deadline-actions">
+            <button type="button" class="dash-quick-done-btn" onclick="toggleDashboardTaskComplete(${item.id})" title="Đánh dấu hoàn thành">
+              <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m5 13 4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('') : '<p class="empty-hint">Không có công việc nào sắp đến hạn.</p>';
+  }
 
   renderNotifications();
 }
@@ -635,7 +1321,22 @@ function renderCalendar() {
 }
 
 function renderCalendarView() {
-  if (!state.selectedCalendarDate) state.selectedCalendarDate = localDateString(new Date());
+  const eventsByDate = groupCalendarByDate();
+  const today = localDateString(new Date());
+  if (!state.selectedCalendarDate || (!eventsByDate.has(state.selectedCalendarDate) && eventsByDate.size > 0)) {
+    if (eventsByDate.has(today)) {
+      state.selectedCalendarDate = today;
+    } else {
+      const allDates = [...eventsByDate.keys()].sort();
+      const upcomingDate = allDates.find(d => d >= today);
+      state.selectedCalendarDate = upcomingDate || allDates[allDates.length - 1] || today;
+    }
+    const selDateObj = parseDateOnly(state.selectedCalendarDate);
+    if (selDateObj) {
+      state.calendarCursor = new Date(selDateObj.getFullYear(), selDateObj.getMonth(), 1);
+    }
+  }
+
   renderCalendarViewButtons();
   if (state.calendarView === 'week') {
     renderCalendarWeek();
@@ -679,14 +1380,23 @@ function renderCalendarMonth() {
     const isSelected = dateKey === state.selectedCalendarDate;
     const visibleEvents = events.slice(0, 3);
     return `
-      <button class="calendar-day ${isMuted ? 'muted-day' : ''} ${isToday ? 'today-day' : ''} ${isSelected ? 'selected-day' : ''}" onclick="selectCalendarDate('${dateKey}')">
-        <span class="day-number">${date.getDate()}</span>
+      <button class="calendar-day ${isMuted ? 'muted-day' : ''} ${isToday ? 'today-day' : ''} ${isSelected ? 'selected-day' : ''} ${events.length ? 'has-events' : ''}" onclick="selectCalendarDate('${dateKey}')">
+        <div class="calendar-day-header">
+          <span class="day-number">${date.getDate()}</span>
+          ${events.length ? `<span class="day-event-badge">${events.length}</span>` : ''}
+        </div>
         <div class="day-events">
-          ${visibleEvents.map(item => `
-            <span class="calendar-event" title="${escapeHtml(item.title)}">
-              ${escapeHtml(formatEventTime(item))}${escapeHtml(item.title)}
-            </span>
-          `).join('')}
+          ${visibleEvents.map(item => {
+            const color = item.color || '#15803d';
+            const tooltip = [item.start_time, item.title, item.location, item.person_in_charge, item.duty_officer ? `TB: ${item.duty_officer}` : ''].filter(Boolean).join(' · ');
+            return `
+              <div class="calendar-event-pill" style="--event-pill-color: ${escapeHtml(color)};" title="${escapeHtml(tooltip)}">
+                <span class="event-pill-dot" style="background-color: ${escapeHtml(color)};"></span>
+                ${item.start_time ? `<span class="event-pill-time">${escapeHtml(item.start_time)}</span>` : ''}
+                <span class="event-pill-title">${escapeHtml(item.title)}</span>
+              </div>
+            `;
+          }).join('')}
           ${events.length > visibleEvents.length ? `<span class="more-events">+${events.length - visibleEvents.length} lịch khác</span>` : ''}
         </div>
       </button>
@@ -712,16 +1422,36 @@ function renderCalendarWeek() {
     const date = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + index);
     const dateKey = localDateString(date);
     const events = eventsByDate.get(dateKey) || [];
+    const isToday = dateKey === today;
+    const isSelected = dateKey === state.selectedCalendarDate;
     return `
-      <button class="calendar-day week-day ${dateKey === today ? 'today-day' : ''} ${dateKey === state.selectedCalendarDate ? 'selected-day' : ''}" onclick="selectCalendarDate('${dateKey}')">
-        <span class="day-number">${date.getDate()}</span>
-        <div class="week-day-label">${date.toLocaleDateString('vi-VN', { weekday: 'short', day: '2-digit', month: '2-digit' })}</div>
-        <div class="day-events">
-          ${events.length ? events.map(item => `
-            <span class="calendar-event" title="${escapeHtml(item.title)}">
-              ${escapeHtml(formatEventTime(item))}${escapeHtml(item.title)}
-            </span>
-          `).join('') : '<span class="empty-small">Không có lịch</span>'}
+      <button class="calendar-day week-day ${isToday ? 'today-day' : ''} ${isSelected ? 'selected-day' : ''} ${events.length ? 'has-events' : ''}" onclick="selectCalendarDate('${dateKey}')">
+        <div class="week-day-header">
+          <span class="day-number">${date.getDate()}</span>
+          <div class="week-day-title-wrap">
+            <span class="week-day-name">${date.toLocaleDateString('vi-VN', { weekday: 'short' })}</span>
+            <span class="week-day-date">${date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' })}</span>
+          </div>
+          ${events.length ? `<span class="week-event-count-badge">${events.length} lịch</span>` : ''}
+        </div>
+        <div class="week-day-events-list">
+          ${events.length ? events.map(item => {
+            const color = item.color || '#15803d';
+            return `
+              <div class="week-event-card" style="--event-color: ${escapeHtml(color)};">
+                <div class="week-event-time">⏰ ${escapeHtml([item.start_time, item.end_time].filter(Boolean).join(' - ') || 'Cả ngày')}</div>
+                <div class="week-event-title">${escapeHtml(item.title)}</div>
+                ${item.location ? `<div class="week-event-meta location-meta">📍 ${escapeHtml(item.location)}</div>` : ''}
+                ${item.person_in_charge ? `<div class="week-event-meta owner-meta">👤 ${escapeHtml(item.person_in_charge)}</div>` : ''}
+                ${(item.tt_hv || item.tt_phong) ? `
+                  <div class="week-event-attendees">
+                    ${item.tt_hv ? `<span class="week-att-tag">🎓 ${escapeHtml(item.tt_hv)}</span>` : ''}
+                    ${item.tt_phong ? `<span class="week-att-tag">🏢 ${escapeHtml(item.tt_phong)}</span>` : ''}
+                  </div>
+                ` : ''}
+              </div>
+            `;
+          }).join('') : '<div class="week-empty-placeholder">Chưa có lịch</div>'}
         </div>
       </button>
     `;
@@ -748,16 +1478,55 @@ function renderCalendarDay() {
   });
   el('calendarGrid').innerHTML = `
     <div class="calendar-day-view">
-      ${events.length ? events.map(item => `
-        <article class="day-agenda-item">
-          <time>${escapeHtml([item.start_time, item.end_time].filter(Boolean).join(' - ') || 'Cả ngày')}</time>
-          <div>
-            <strong>${escapeHtml(item.title)}</strong>
-            <span>${escapeHtml([item.location, item.person_in_charge, item.tt_hv, item.tt_phong, item.ban].filter(Boolean).join(' · '))}</span>
-            <div class="inline-actions">${deleteIconButton(item.id, 'Xóa lịch')}</div>
-          </div>
-        </article>
-      `).join('') : '<p class="empty">Không có lịch trong ngày này.</p>'}
+      <div class="day-view-banner">
+        <div class="day-view-badge">
+          <strong>${selectedDate.getDate()}</strong>
+          <span>${selectedDate.toLocaleDateString('vi-VN', { weekday: 'long' })}</span>
+        </div>
+        <div class="day-view-meta">
+          <h4>Lịch công tác chi tiết trong ngày</h4>
+          <p>${events.length ? `Có tổng số ${events.length} nội dung công tác & huấn luyện` : 'Không có sự kiện nào'}</p>
+        </div>
+        <button type="button" class="btn-primary-soft" onclick="quickAddEventForSelectedDate()">+ Thêm lịch ngày này</button>
+      </div>
+
+      <div class="day-agenda-list">
+        ${events.length ? events.map(item => {
+          const color = item.color || '#15803d';
+          return `
+            <article class="day-agenda-item" style="--event-color: ${escapeHtml(color)};">
+              <div class="day-agenda-time-box">
+                <time class="agenda-time">${escapeHtml([item.start_time, item.end_time].filter(Boolean).join(' - ') || 'Cả ngày')}</time>
+                ${item.duty_officer ? `<span class="agenda-duty-pill">Trực: ${escapeHtml(item.duty_officer)}</span>` : ''}
+              </div>
+              <div class="day-agenda-main">
+                <div class="agenda-header-row">
+                  <strong class="agenda-title">${escapeHtml(item.title)}</strong>
+                  <div class="agenda-actions">
+                    <button type="button" class="daily-action-btn edit-btn" onclick="openEditCalendarModal(${item.id})" title="Chỉnh sửa">
+                      <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                    </button>
+                    <button type="button" class="daily-action-btn delete-btn" onclick="deleteCalendar(${item.id})" title="Xóa">
+                      <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+                    </button>
+                  </div>
+                </div>
+                <div class="agenda-meta-grid">
+                  ${item.location ? `<span><strong>Địa điểm:</strong> ${escapeHtml(item.location)}</span>` : ''}
+                  ${item.person_in_charge ? `<span><strong>Chủ trì:</strong> ${escapeHtml(item.person_in_charge)}</span>` : ''}
+                  ${item.ban ? `<span><strong>Ban:</strong> ${escapeHtml(item.ban)}</span>` : ''}
+                </div>
+                ${(item.tt_hv || item.tt_phong) ? `
+                  <div class="agenda-attendees-row">
+                    ${item.tt_hv ? `<span class="attendee-chip hv-chip">🎓 TT HV: ${escapeHtml(item.tt_hv)}</span>` : ''}
+                    ${item.tt_phong ? `<span class="attendee-chip phong-chip">🏢 TT Phòng: ${escapeHtml(item.tt_phong)}</span>` : ''}
+                  </div>
+                ` : ''}
+              </div>
+            </article>
+          `;
+        }).join('') : '<p class="empty">Không có lịch trong ngày này.</p>'}
+      </div>
     </div>
   `;
 
@@ -770,25 +1539,233 @@ function renderCalendarSelectedDay(eventsByDate = groupCalendarByDate()) {
   const selected = state.selectedCalendarDate || localDateString(new Date());
   const events = (eventsByDate.get(selected) || []).slice().sort(sortCalendarEvents);
   if (has('calendarDate')) el('calendarDate').value = selected;
-  if (has('calendarSelectedDate')) {
-    el('calendarSelectedDate').textContent = new Date(`${selected}T00:00:00`).toLocaleDateString('vi-VN', {
-      weekday: 'long',
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    });
+
+  const dateObj = parseDateOnly(selected) || new Date();
+  const todayStr = localDateString(new Date());
+  const isToday = selected === todayStr;
+
+  const weekdays = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+  const months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12'];
+
+  if (has('dailyDateDayNum')) el('dailyDateDayNum').textContent = String(dateObj.getDate()).padStart(2, '0');
+  if (has('dailyDateWeekday')) el('dailyDateWeekday').textContent = weekdays[dateObj.getDay()];
+  if (has('dailyDateMonthYear')) el('dailyDateMonthYear').textContent = `Tháng ${months[dateObj.getMonth()]}, ${dateObj.getFullYear()}`;
+  if (has('dailyDateTodayBadge')) el('dailyDateTodayBadge').classList.toggle('hidden', !isToday);
+
+  if (has('dailyEventCountBadge')) {
+    el('dailyEventCountBadge').textContent = events.length ? `${events.length} lịch công tác` : '0 lịch công tác';
   }
-  renderStack('calendarSelectedList', events, item => `
-    <div class="calendar-detail-item">
-      <div class="event-dot"></div>
-      <div>
-        <strong class="schedule-time">${escapeHtml([item.start_time, item.end_time].filter(Boolean).join(' - ') || 'Cả ngày')}</strong>
-        <strong>${escapeHtml(item.title)}</strong>
-        <small>${escapeHtml([item.location, item.person_in_charge, item.tt_hv, item.tt_phong, item.ban].filter(Boolean).join(' · '))}</small>
-        <div class="inline-actions">${deleteIconButton(item.id, 'Xóa lịch')}</div>
-      </div>
-    </div>
-  `, 'Không có lịch trong ngày này.');
+
+  if (has('calendarSelectedDate')) {
+    el('calendarSelectedDate').textContent = `${weekdays[dateObj.getDay()]}, ${String(dateObj.getDate()).padStart(2, '0')}/${months[dateObj.getMonth()]}/${dateObj.getFullYear()}`;
+  }
+
+  if (has('calendarSelectedList')) {
+    if (!events.length) {
+      el('calendarSelectedList').innerHTML = `
+        <div class="daily-schedule-empty">
+          <div class="empty-icon-wrap">
+            <svg viewBox="0 0 24 24" width="32" height="32" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16" y1="2" x2="16" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="8" y1="2" x2="8" y2="6" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="3" y1="10" x2="21" y2="10" stroke="currentColor" stroke-width="2"/></svg>
+          </div>
+          <strong>Không có lịch công tác</strong>
+          <p>Chưa có kế hoạch công tác nào được xếp vào ngày này.</p>
+          <button type="button" class="btn-quick-add-daily" onclick="quickAddEventForSelectedDate()">
+            <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+            <span>Tạo lịch cho ngày này</span>
+          </button>
+        </div>
+      `;
+      return;
+    }
+
+    el('calendarSelectedList').innerHTML = events.map(item => {
+      const accent = item.color || '#15803d';
+      const timeRange = [item.start_time, item.end_time].filter(Boolean).join(' - ') || 'Cả ngày';
+      return `
+        <div class="daily-event-card" style="--event-accent: ${escapeHtml(accent)};">
+          <!-- Card Top Bar: Time & Actions -->
+          <div class="daily-event-topbar">
+            <div class="daily-event-time-badge">
+              <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+              <span>${escapeHtml(timeRange)}</span>
+            </div>
+            <div class="daily-event-actions">
+              <button type="button" class="daily-action-btn edit-btn" onclick="openEditCalendarModal(${item.id})" title="Chỉnh sửa lịch">
+                <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+              </button>
+              <button type="button" class="daily-action-btn delete-btn" onclick="deleteCalendar(${item.id})" title="Xóa lịch">
+                <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Title -->
+          <h5 class="daily-event-title">${escapeHtml(item.title)}</h5>
+
+          <!-- Structured Details Grid -->
+          <div class="daily-event-meta-grid">
+            ${item.location ? `
+              <div class="daily-meta-row location-row">
+                <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 2a8 8 0 0 0-8 8c0 5.25 7 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill="currentColor"/></svg>
+                <span><strong>Địa điểm:</strong> ${escapeHtml(item.location)}</span>
+              </div>
+            ` : ''}
+
+            ${item.person_in_charge ? `
+              <div class="daily-meta-row owner-row">
+                <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                <span><strong>Chủ trì:</strong> ${escapeHtml(item.person_in_charge)}</span>
+              </div>
+            ` : ''}
+
+            ${item.duty_officer ? `
+              <div class="daily-meta-row duty-row">
+                <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                <span><strong>Trực ban:</strong> ${escapeHtml(item.duty_officer)}</span>
+              </div>
+            ` : ''}
+
+            ${item.ban ? `
+              <div class="daily-meta-row ban-row">
+                <span class="daily-tag-pill ban-tag">🏛️ ${escapeHtml(item.ban)}</span>
+              </div>
+            ` : ''}
+
+            ${(item.tt_hv || item.tt_phong) ? `
+              <div class="daily-attendees-box">
+                <div class="daily-attendees-label">Thành phần tham gia:</div>
+                <div class="daily-attendees-chips">
+                  ${item.tt_hv ? `<span class="attendee-chip hv-chip">🎓 TT HV: ${escapeHtml(item.tt_hv)}</span>` : ''}
+                  ${item.tt_phong ? `<span class="attendee-chip phong-chip">🏢 TT Phòng: ${escapeHtml(item.tt_phong)}</span>` : ''}
+                </div>
+              </div>
+            ` : ''}
+
+            ${(item.content && item.content !== item.title) ? `
+              <div class="daily-content-note">
+                <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="2" fill="none"/><polyline points="14 2 14 8 20 8" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                <p>${escapeHtml(item.content)}</p>
+              </div>
+            ` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+}
+
+function openCreateCalendarModal(prefillDate) {
+  const selectedDate = prefillDate || state.selectedCalendarDate || localDateString(new Date());
+  if (has('modalCalendarDate')) el('modalCalendarDate').value = selectedDate;
+  if (has('modalCalendarTitle')) el('modalCalendarTitle').value = '';
+  if (has('modalCalendarStart')) el('modalCalendarStart').value = '';
+  if (has('modalCalendarEnd')) el('modalCalendarEnd').value = '';
+  if (has('modalCalendarLocation')) el('modalCalendarLocation').value = '';
+  if (has('modalCalendarOwner')) el('modalCalendarOwner').value = '';
+  if (has('modalCalendarDutyOfficer')) el('modalCalendarDutyOfficer').value = '';
+  if (has('modalCalendarBan')) el('modalCalendarBan').value = '';
+  if (has('modalCalendarColor')) el('modalCalendarColor').value = '#15803d';
+  if (has('modalCalendarTtHv')) el('modalCalendarTtHv').value = '';
+  if (has('modalCalendarTtPhong')) el('modalCalendarTtPhong').value = '';
+  el('createCalendarModal')?.classList.remove('hidden');
+  setTimeout(() => el('modalCalendarTitle')?.focus(), 60);
+}
+
+function closeCreateCalendarModal() {
+  el('createCalendarModal')?.classList.add('hidden');
+}
+
+async function handleCreateCalendarSubmit(event) {
+  event.preventDefault();
+  try {
+    const taskDate = el('modalCalendarDate').value;
+    const body = {
+      title: el('modalCalendarTitle').value,
+      content: el('modalCalendarTitle').value,
+      date: taskDate,
+      startTime: el('modalCalendarStart').value,
+      endTime: el('modalCalendarEnd').value,
+      location: el('modalCalendarLocation').value,
+      ttHv: el('modalCalendarTtHv').value,
+      ttPhong: el('modalCalendarTtPhong').value,
+      ban: el('modalCalendarBan').value,
+      personInCharge: el('modalCalendarOwner').value,
+      dutyOfficer: el('modalCalendarDutyOfficer').value,
+      color: el('modalCalendarColor').value || '#15803d',
+      status: 'Published'
+    };
+    await request('/api/calendar', { method: 'POST', body: JSON.stringify(body) });
+    closeCreateCalendarModal();
+    if (body.date) {
+      state.selectedCalendarDate = body.date;
+      const date = parseDateOnly(body.date);
+      if (date) state.calendarCursor = new Date(date.getFullYear(), date.getMonth(), 1);
+    }
+    toast('Đã tạo lịch công tác mới thành công.');
+    loadData();
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function quickAddEventForSelectedDate() {
+  const selected = state.selectedCalendarDate || localDateString(new Date());
+  openCreateCalendarModal(selected);
+}
+
+function openEditCalendarModal(id, event) {
+  if (event) event.stopPropagation();
+  const item = state.calendar.find(c => Number(c.id) === Number(id));
+  if (!item) return;
+  if (has('editCalendarId')) el('editCalendarId').value = item.id;
+  if (has('editCalendarTitle')) el('editCalendarTitle').value = item.title || '';
+  if (has('editCalendarDate')) el('editCalendarDate').value = item.task_date || '';
+  if (has('editCalendarStart')) el('editCalendarStart').value = item.start_time || '';
+  if (has('editCalendarEnd')) el('editCalendarEnd').value = item.end_time || '';
+  if (has('editCalendarLocation')) el('editCalendarLocation').value = item.location || '';
+  if (has('editCalendarOwner')) el('editCalendarOwner').value = item.person_in_charge || '';
+  if (has('editCalendarDutyOfficer')) el('editCalendarDutyOfficer').value = item.duty_officer || '';
+  if (has('editCalendarBan')) el('editCalendarBan').value = item.ban || '';
+  if (has('editCalendarColor')) el('editCalendarColor').value = item.color || '#15803d';
+  if (has('editCalendarTtHv')) el('editCalendarTtHv').value = item.tt_hv || '';
+  if (has('editCalendarTtPhong')) el('editCalendarTtPhong').value = item.tt_phong || '';
+  el('editCalendarModal')?.classList.remove('hidden');
+}
+
+function closeEditCalendarModal() {
+  el('editCalendarModal')?.classList.add('hidden');
+}
+
+async function saveEditCalendar(event) {
+  event.preventDefault();
+  const id = el('editCalendarId').value;
+  if (!id) return;
+  try {
+    const body = {
+      title: el('editCalendarTitle').value,
+      content: el('editCalendarTitle').value,
+      date: el('editCalendarDate').value,
+      startTime: el('editCalendarStart').value,
+      endTime: el('editCalendarEnd').value,
+      location: el('editCalendarLocation').value,
+      personInCharge: el('editCalendarOwner').value,
+      dutyOfficer: el('editCalendarDutyOfficer').value,
+      ban: el('editCalendarBan').value,
+      color: el('editCalendarColor').value,
+      ttHv: el('editCalendarTtHv').value,
+      ttPhong: el('editCalendarTtPhong').value,
+      status: 'Published'
+    };
+    await request(`/api/calendar/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(body)
+    });
+    closeEditCalendarModal();
+    toast('Đã cập nhật lịch công tác.');
+    loadData();
+  } catch (error) {
+    toast(error.message);
+  }
 }
 
 function renderCalendarMiniStats() {
@@ -1042,22 +2019,53 @@ async function createCalendar(event) {
 }
 
 function deleteIconButton(id, label = 'Xóa') {
-  return iconButton('trash', label, `deleteCalendar(${id})`, 'danger-btn');
+  return iconButton('trash', label, `deleteCalendar(${id}, event)`, 'danger-btn');
+}
+
+function openWorkScheduleModal() {
+  const modal = el('workScheduleModal');
+  if (!modal) return;
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  const selectedDate = parseDateOnly(state.selectedCalendarDate) || new Date();
+  const weekStart = getWeekStart(selectedDate);
+  const weekEnd = new Date(weekStart.getFullYear(), weekStart.getMonth(), weekStart.getDate() + 6);
+  if (has('scheduleModalSubtitle')) {
+    el('scheduleModalSubtitle').textContent = `Tuần từ ${formatShortDate(weekStart)} đến ${formatShortDate(weekEnd)}`;
+  }
+}
+
+function closeWorkScheduleModal() {
+  const modal = el('workScheduleModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+  if (document.fullscreenElement) {
+    document.exitFullscreen?.();
+  }
+}
+
+function printWorkSchedule() {
+  window.print();
 }
 
 function toggleWorkScheduleFullscreen() {
-  const target = el('workScheduleCard');
+  const target = el('workScheduleModal') || el('workScheduleCard');
   if (!target) return;
   if (!document.fullscreenElement) {
     target.requestFullscreen?.();
     target.classList.add('fullscreen-mode');
   } else {
     document.exitFullscreen?.();
+    target.classList.remove('fullscreen-mode');
   }
 }
 
-async function deleteCalendar(id) {
-  await mutate(`/api/calendar/${id}`, { method: 'DELETE' }, 'Đã xóa lịch.');
+async function deleteCalendar(id, event) {
+  if (event) event.stopPropagation();
+  if (!confirm('Bạn có chắc chắn muốn xóa lịch công tác này khỏi hệ thống?')) return;
+  await mutate(`/api/calendar/${id}`, { method: 'DELETE' }, 'Đã xóa lịch công tác.');
 }
 
 function renderStudents() {
@@ -1114,46 +2122,466 @@ async function deleteStudent(id) {
   await mutate(`/api/students/${id}`, { method: 'DELETE' }, 'Đã xóa học viên.');
 }
 
-function renderTasks() {
-  if (!has('taskCards')) return;
-  el('taskCards').innerHTML = state.tasks.length ? state.tasks.map(item => `
-    <article class="task-card ${statusClass(item.status)}">
-      <div>
-        <strong>${escapeHtml(item.title)}</strong>
-        <p>${escapeHtml(item.description || '')}</p>
+const taskColorPresets = [
+  { hex: '#15803d', label: 'Xanh quân đội' },
+  { hex: '#2563eb', label: 'Xanh dương' },
+  { hex: '#7c3aed', label: 'Tím hoàng gia' },
+  { hex: '#dc2626', label: 'Đỏ' },
+  { hex: '#ea580c', label: 'Cam' },
+  { hex: '#0d9488', label: 'Xanh ngọc' },
+  { hex: '#d97706', label: 'Vàng' },
+  { hex: '#475569', label: 'Xám chì' }
+];
+
+function getTaskUrgency(dueDate, status) {
+  if (status === 'Completed') {
+    return { label: 'Đã hoàn thành', class: 'urgency-done', isOverdue: false };
+  }
+  if (!dueDate) {
+    return { label: 'Chưa đặt hạn', class: 'urgency-none', isOverdue: false };
+  }
+  const today = localDateString(new Date());
+  if (dueDate === today) {
+    return { label: 'Hôm nay', class: 'urgency-today', isOverdue: false };
+  }
+  const due = parseDateOnly(dueDate);
+  const now = parseDateOnly(today);
+  if (!due || !now) return { label: formatDate(dueDate), class: 'urgency-normal', isOverdue: false };
+
+  const diffDays = Math.round((due.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays < 0) {
+    return { label: `Quá hạn ${Math.abs(diffDays)} ngày`, class: 'urgency-overdue', isOverdue: true };
+  }
+  if (diffDays === 1) {
+    return { label: 'Ngày mai', class: 'urgency-tomorrow', isOverdue: false };
+  }
+  if (diffDays <= 3) {
+    return { label: `Còn ${diffDays} ngày`, class: 'urgency-soon', isOverdue: false };
+  }
+  return { label: formatDate(dueDate), class: 'urgency-normal', isOverdue: false };
+}
+
+function priorityLabel(priority) {
+  const map = {
+    Critical: 'Khẩn cấp',
+    High: 'Ưu tiên cao',
+    Normal: 'Bình thường',
+    Low: 'Ưu tiên thấp'
+  };
+  return map[priority] || priority || 'Bình thường';
+}
+
+function priorityClass(priority) {
+  const map = {
+    Critical: 'priority-critical',
+    High: 'priority-high',
+    Normal: 'priority-normal',
+    Low: 'priority-low'
+  };
+  return map[priority] || 'priority-normal';
+}
+
+function renderTaskCardItem(item) {
+  const isCompleted = item.status === 'Completed';
+  const urgency = getTaskUrgency(item.due_date, item.status);
+  const accentColor = item.color || '#15803d';
+
+  return `
+    <article class="todo-card-item ${isCompleted ? 'is-completed' : ''} ${urgency.isOverdue ? 'is-overdue' : ''}" style="--task-accent: ${escapeHtml(accentColor)};" data-task-id="${item.id}">
+      <div class="todo-card-accent-bar" style="background-color: ${escapeHtml(accentColor)};"></div>
+      
+      <!-- Interactive Circular Checkbox -->
+      <button type="button" class="todo-checkbox ${isCompleted ? 'checked' : ''}" onclick="toggleTaskComplete(${item.id})" aria-label="${isCompleted ? 'Đánh dấu chưa hoàn thành' : 'Đánh dấu đã hoàn thành'}" title="${isCompleted ? 'Nhấn để hủy hoàn thành' : 'Nhấn để đánh dấu đã xong'}">
+        <svg viewBox="0 0 24 24" class="todo-check-icon" aria-hidden="true">
+          <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+        </svg>
+      </button>
+
+      <!-- Main Todo Content -->
+      <div class="todo-card-body" onclick="onTodoCardClick(event, ${item.id})">
+        <div class="todo-card-top">
+          <strong class="todo-card-title ${isCompleted ? 'completed-strikethrough' : ''}">${escapeHtml(item.title)}</strong>
+        </div>
+
+        ${item.description ? `<p class="todo-card-desc ${isCompleted ? 'completed-muted' : ''}">${escapeHtml(item.description)}</p>` : ''}
+
+        <div class="todo-card-tags">
+          <!-- Color Dot Tag -->
+          <span class="todo-tag-color-dot" style="background-color: ${escapeHtml(accentColor)};" title="Màu: ${escapeHtml(accentColor)}"></span>
+
+          <!-- Due Date / Urgency Badge -->
+          <span class="todo-badge ${urgency.class}">
+            <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2" fill="none"/><path d="M16 2v4M8 2v4M3 10h18" stroke="currentColor" stroke-width="2"/></svg>
+            ${escapeHtml(urgency.label)}
+          </span>
+
+          <!-- Assignee Chip -->
+          ${item.assignee ? `
+            <span class="todo-badge todo-assignee-badge" title="Người phụ trách">
+              <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" fill="none"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+              ${escapeHtml(item.assignee)}
+            </span>
+          ` : ''}
+
+          <!-- Priority Badge -->
+          <span class="todo-badge ${priorityClass(item.priority)}">
+            ${escapeHtml(priorityLabel(item.priority))}
+          </span>
+        </div>
       </div>
-      <div class="task-meta">
-        <span>${escapeHtml(item.assignee || 'Chưa giao')}</span>
-        <span>${formatDate(item.due_date)}</span>
-        <span>${escapeHtml(item.priority)}</span>
-      </div>
-      <div class="progress"><span data-progress="${Math.min(100, Math.max(0, Number(item.progress) || 0))}"></span></div>
-      <div class="task-actions">
-        ${selectHtml(statusOptions.task, item.status, `updateTaskStatus(${item.id}, this.value)`)}
-        ${iconButton('bell', 'Gửi nhắc việc', `remindTask(${item.id})`)}
-        ${iconButton('trash', 'Xóa công việc', `deleteTask(${item.id})`, 'danger-btn')}
+
+      <!-- Quick Color Palette Dropdown / Switcher on Card -->
+      <div class="todo-card-controls">
+        <div class="todo-card-color-swatches" title="Đổi màu nhanh">
+          ${taskColorPresets.map(c => `
+            <button type="button" class="todo-card-mini-color ${item.color === c.hex ? 'active' : ''}" style="background-color: ${c.hex};" onclick="setTaskColor(${item.id}, '${c.hex}')" title="${c.label}"></button>
+          `).join('')}
+        </div>
+
+        <div class="todo-card-actions">
+          ${iconButton('bell', 'Gửi nhắc việc', `remindTask(${item.id})`)}
+          ${iconButton('edit', 'Chỉnh sửa', `openEditTaskModal(${item.id})`)}
+          ${iconButton('trash', 'Xóa công việc', `deleteTask(${item.id})`, 'danger-btn')}
+        </div>
       </div>
     </article>
-  `).join('') : '<p class="empty">Chưa có công việc.</p>';
-  el('taskCards').querySelectorAll('.progress span[data-progress]').forEach(span => {
-    span.style.width = `${span.dataset.progress}%`;
+  `;
+}
+
+function onTodoCardClick(event, id) {
+  // If user clicked inside a button, select, or link, don't trigger
+  if (event.target.closest('button') || event.target.closest('select') || event.target.closest('input')) return;
+}
+
+function renderTasks() {
+  const allTasks = state.tasks || [];
+  const todayStr = localDateString(new Date());
+
+  // Compute Overall Stats
+  const totalCount = allTasks.length;
+  const completedCount = allTasks.filter(t => t.status === 'Completed').length;
+  const activeCount = allTasks.filter(t => t.status !== 'Completed' && t.status !== 'Cancelled').length;
+  const overdueCount = allTasks.filter(t => t.status !== 'Completed' && t.status !== 'Cancelled' && t.due_date && t.due_date < todayStr).length;
+  const todayCount = allTasks.filter(t => t.due_date === todayStr).length;
+  const progressPercent = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+  // Update Header Progress Bar & Text
+  if (has('todoProgressPercent')) el('todoProgressPercent').textContent = `${progressPercent}%`;
+  if (has('todoProgressBar')) {
+    el('todoProgressBar').style.width = `${progressPercent}%`;
+    el('todoProgressBar').style.backgroundColor = progressPercent === 100 ? '#16a34a' : progressPercent >= 50 ? '#15803d' : '#2563eb';
+  }
+  if (has('todoRatioText')) el('todoRatioText').textContent = `${completedCount}/${totalCount} việc đã xong`;
+
+  if (has('todoStatsSummary')) {
+    if (totalCount === 0) {
+      el('todoStatsSummary').textContent = 'Chưa có công việc nào trong danh sách. Hãy tạo việc mới bên dưới.';
+    } else if (progressPercent === 100) {
+      el('todoStatsSummary').textContent = 'Tuyệt vời! Bạn đã hoàn thành xuất sắc 100% công việc hôm nay 🎉';
+    } else {
+      el('todoStatsSummary').textContent = `${activeCount} việc đang thực hiện • ${completedCount} đã xong${overdueCount > 0 ? ` • ${overdueCount} việc quá hạn` : ''}`;
+    }
+  }
+
+  if (has('todoOverdueAlert')) {
+    if (overdueCount > 0) {
+      el('todoOverdueAlert').textContent = `⚠️ ${overdueCount} việc quá hạn`;
+      el('todoOverdueAlert').classList.remove('hidden');
+    } else {
+      el('todoOverdueAlert').classList.add('hidden');
+    }
+  }
+
+  // Update Tab Badges
+  if (has('tabCountAll')) el('tabCountAll').textContent = totalCount;
+  if (has('tabCountToday')) el('tabCountToday').textContent = todayCount;
+  if (has('tabCountActive')) el('tabCountActive').textContent = activeCount;
+  if (has('tabCountOverdue')) el('tabCountOverdue').textContent = overdueCount;
+  if (has('tabCountCompleted')) el('tabCountCompleted').textContent = completedCount;
+
+  // Filter Tasks
+  const filter = state.taskFilter || 'all';
+  const query = (state.taskSearch || '').toLowerCase();
+  const priorityFilter = state.taskFilterPriority || '';
+  const colorFilter = state.taskFilterColor || '';
+
+  const filteredTasks = allTasks.filter(item => {
+    // Tab filter
+    if (filter === 'today' && item.due_date !== todayStr) return false;
+    if (filter === 'active' && (item.status === 'Completed' || item.status === 'Cancelled')) return false;
+    if (filter === 'overdue' && (item.status === 'Completed' || item.status === 'Cancelled' || !item.due_date || item.due_date >= todayStr)) return false;
+    if (filter === 'completed' && item.status !== 'Completed') return false;
+
+    // Search query
+    if (query) {
+      const matchTitle = (item.title || '').toLowerCase().includes(query);
+      const matchAssignee = (item.assignee || '').toLowerCase().includes(query);
+      const matchDesc = (item.description || '').toLowerCase().includes(query);
+      if (!matchTitle && !matchAssignee && !matchDesc) return false;
+    }
+
+    // Priority filter
+    if (priorityFilter && item.priority !== priorityFilter) return false;
+
+    // Color filter
+    if (colorFilter && (item.color || '#15803d').toLowerCase() !== colorFilter.toLowerCase()) return false;
+
+    return true;
   });
+
+  // Separate Active and Completed from filtered tasks
+  const activeList = filteredTasks.filter(t => t.status !== 'Completed');
+  const completedList = filteredTasks.filter(t => t.status === 'Completed');
+
+  // Render Active Section
+  if (has('activeTasksList')) {
+    el('activeTasksList').innerHTML = activeList.length
+      ? activeList.map(renderTaskCardItem).join('')
+      : `<p class="todo-empty-group-text">${filter === 'completed' ? 'Đang lọc xem mục đã hoàn thành' : 'Không có công việc đang thực hiện.'}</p>`;
+  }
+  if (has('activeTasksCount')) el('activeTasksCount').textContent = activeList.length;
+
+  // Render Completed Section
+  if (has('completedTasksList')) {
+    el('completedTasksList').innerHTML = completedList.length
+      ? completedList.map(renderTaskCardItem).join('')
+      : `<p class="todo-empty-group-text">Chưa có công việc nào hoàn thành.</p>`;
+  }
+  if (has('completedTasksCount')) el('completedTasksCount').textContent = completedList.length;
+
+  // Toggle Visibility of Completed Section if on 'active' tab and no completed tasks
+  if (has('completedTasksSection')) {
+    if (filter === 'active' || completedList.length === 0) {
+      el('completedTasksSection').classList.toggle('hidden', filter === 'active');
+    } else {
+      el('completedTasksSection').classList.remove('hidden');
+    }
+  }
+
+  // Handle Empty State
+  if (has('emptyTasksState')) {
+    const isEmpty = filteredTasks.length === 0;
+    el('emptyTasksState').classList.toggle('hidden', !isEmpty);
+    if (isEmpty) {
+      if (has('activeTasksList')) el('activeTasksList').innerHTML = '';
+      if (has('completedTasksList')) el('completedTasksList').innerHTML = '';
+      if (query) {
+        if (has('emptyStateTitle')) el('emptyStateTitle').textContent = 'Không tìm thấy kết quả';
+        if (has('emptyStateDesc')) el('emptyStateDesc').textContent = `Không có công việc nào khớp với từ khóa "${state.taskSearch}".`;
+      } else if (filter === 'overdue') {
+        if (has('emptyStateTitle')) el('emptyStateTitle').textContent = 'Không có việc quá hạn';
+        if (has('emptyStateDesc')) el('emptyStateDesc').textContent = 'Tất cả công việc đều đang đúng tiến độ!';
+      } else if (filter === 'today') {
+        if (has('emptyStateTitle')) el('emptyStateTitle').textContent = 'Hôm nay thảnh thơi';
+        if (has('emptyStateDesc')) el('emptyStateDesc').textContent = 'Không có hạn công việc nào cần xử lý trong ngày hôm nay.';
+      } else if (filter === 'completed') {
+        if (has('emptyStateTitle')) el('emptyStateTitle').textContent = 'Chưa có việc hoàn thành';
+        if (has('emptyStateDesc')) el('emptyStateDesc').textContent = 'Hãy tích chọn hoàn thành các công việc khi bạn làm xong nhé.';
+      } else {
+        if (has('emptyStateTitle')) el('emptyStateTitle').textContent = 'Chưa có công việc nào';
+        if (has('emptyStateDesc')) el('emptyStateDesc').textContent = 'Nhập tên công việc ở ô phía trên và nhấn "Thêm việc" để bắt đầu.';
+      }
+    }
+  }
+
+  // Fallback for legacy taskCards container if present elsewhere
+  if (has('taskCards') && !has('activeTasksList')) {
+    el('taskCards').innerHTML = allTasks.map(renderTaskCardItem).join('');
+  }
+
+  enhanceActionButtons();
+}
+
+async function toggleTaskComplete(id) {
+  const current = state.tasks.find(item => item.id === id);
+  if (!current) return;
+  const isCompleted = current.status === 'Completed';
+  const newStatus = isCompleted ? 'InProgress' : 'Completed';
+  const newProgress = isCompleted ? 0 : 100;
+
+  // Optimistic instant UI update
+  current.status = newStatus;
+  current.progress = newProgress;
+  renderTasks();
+
+  try {
+    await request(`/api/tasks/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...current,
+        status: newStatus,
+        progress: newProgress
+      })
+    });
+    toast(isCompleted ? 'Đã bỏ đánh dấu hoàn thành.' : '🎉 Đã hoàn thành công việc!');
+    loadData();
+  } catch (error) {
+    toast(error.message);
+    loadData();
+  }
+}
+
+async function setTaskColor(id, color) {
+  const current = state.tasks.find(item => item.id === id);
+  if (!current) return;
+  current.color = color;
+  renderTasks();
+  try {
+    await request(`/api/tasks/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...current,
+        color
+      })
+    });
+    toast('Đã đổi màu sắc công việc.');
+    loadData();
+  } catch (error) {
+    toast(error.message);
+    loadData();
+  }
+}
+
+function selectTaskColor(color, btn) {
+  state.selectedTaskColor = color;
+  if (has('taskColor')) el('taskColor').value = color;
+  if (has('taskCustomColorPicker')) el('taskCustomColorPicker').value = color;
+  document.querySelectorAll('#taskColorSwatches .color-swatch-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.color === color);
+  });
+}
+
+function onCustomColorPicked(color) {
+  selectTaskColor(color);
+}
+
+function selectEditTaskColor(color, btn) {
+  if (has('editTaskColor')) el('editTaskColor').value = color;
+  if (has('editTaskCustomColorPicker')) el('editTaskCustomColorPicker').value = color;
+  document.querySelectorAll('#editTaskColorSwatches .color-swatch-btn').forEach(b => {
+    b.classList.toggle('active', b.dataset.color === color);
+  });
+}
+
+function onEditCustomColorPicked(color) {
+  selectEditTaskColor(color);
+}
+
+function toggleTaskNoteField() {
+  el('taskNoteContainer')?.classList.toggle('hidden');
+}
+
+function setTaskFilter(filter) {
+  state.taskFilter = filter;
+  document.querySelectorAll('.todo-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.filter === filter);
+  });
+  renderTasks();
+}
+
+function onTaskSearch(query) {
+  state.taskSearch = String(query || '').trim().toLowerCase();
+  if (has('taskSearchClearBtn')) {
+    el('taskSearchClearBtn').classList.toggle('hidden', !state.taskSearch);
+  }
+  renderTasks();
+}
+
+function clearTaskSearch() {
+  if (has('taskSearchInput')) el('taskSearchInput').value = '';
+  onTaskSearch('');
+}
+
+function onTaskFilterChange() {
+  state.taskFilterPriority = el('taskFilterPriority')?.value || '';
+  state.taskFilterColor = el('taskFilterColor')?.value || '';
+  renderTasks();
+}
+
+function toggleCompletedSection() {
+  state.completedTasksCollapsed = !state.completedTasksCollapsed;
+  const list = el('completedTasksList');
+  const chevron = el('completedChevronIcon');
+  if (list) list.classList.toggle('hidden', state.completedTasksCollapsed);
+  if (chevron) chevron.classList.toggle('collapsed', state.completedTasksCollapsed);
 }
 
 async function createTask(event) {
   event.preventDefault();
+  const titleInput = el('taskTitle');
+  if (!titleInput || !titleInput.value.trim()) return;
+
   try {
     const body = {
-      title: el('taskTitle').value,
-      assignee: el('taskAssignee').value,
-      dueDate: el('taskDueDate').value,
-      priority: el('taskPriority').value,
-      status: el('taskStatus').value
+      title: titleInput.value.trim(),
+      description: el('taskDescription')?.value?.trim() || '',
+      assignee: el('taskAssignee')?.value?.trim() || '',
+      dueDate: el('taskDueDate')?.value || '',
+      priority: el('taskPriority')?.value || 'Normal',
+      status: 'New',
+      progress: 0,
+      color: el('taskColor')?.value || state.selectedTaskColor || '#15803d'
     };
     await request('/api/tasks', { method: 'POST', body: JSON.stringify(body) });
     event.target.reset();
     setDefaultDates();
-    toast('Đã thêm công việc.');
+    selectTaskColor('#15803d');
+    if (has('taskNoteContainer')) el('taskNoteContainer').classList.add('hidden');
+    toast('Đã thêm công việc vào danh sách.');
+    loadData();
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function openEditTaskModal(id) {
+  const item = state.tasks.find(t => t.id === id);
+  if (!item) return;
+  state.editingTaskId = id;
+  if (has('editTaskId')) el('editTaskId').value = item.id;
+  if (has('editTaskTitle')) el('editTaskTitle').value = item.title || '';
+  if (has('editTaskDescription')) el('editTaskDescription').value = item.description || '';
+  if (has('editTaskAssignee')) el('editTaskAssignee').value = item.assignee || '';
+  if (has('editTaskDueDate')) el('editTaskDueDate').value = item.due_date || '';
+  if (has('editTaskPriority')) el('editTaskPriority').value = item.priority || 'Normal';
+  if (has('editTaskStatus')) el('editTaskStatus').value = item.status || 'New';
+  if (has('editTaskColor')) el('editTaskColor').value = item.color || '#15803d';
+  if (has('editTaskCustomColorPicker')) el('editTaskCustomColorPicker').value = item.color || '#15803d';
+
+  selectEditTaskColor(item.color || '#15803d');
+  el('editTaskModal')?.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
+
+function closeEditTaskModal() {
+  state.editingTaskId = null;
+  el('editTaskModal')?.classList.add('hidden');
+  document.body.classList.remove('modal-open');
+}
+
+async function saveEditTask(event) {
+  event.preventDefault();
+  const id = state.editingTaskId || Number(el('editTaskId')?.value);
+  if (!id) return;
+  const current = state.tasks.find(t => t.id === id) || {};
+  const status = el('editTaskStatus')?.value || current.status || 'New';
+  const progress = status === 'Completed' ? 100 : current.progress;
+
+  try {
+    const body = {
+      ...current,
+      title: el('editTaskTitle')?.value?.trim() || current.title,
+      description: el('editTaskDescription')?.value?.trim() || '',
+      assignee: el('editTaskAssignee')?.value?.trim() || '',
+      dueDate: el('editTaskDueDate')?.value || '',
+      priority: el('editTaskPriority')?.value || 'Normal',
+      status,
+      progress,
+      color: el('editTaskColor')?.value || current.color || '#15803d'
+    };
+    await request(`/api/tasks/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+    closeEditTaskModal();
+    toast('Đã lưu thay đổi công việc.');
     loadData();
   } catch (error) {
     toast(error.message);
@@ -1177,10 +2605,11 @@ async function updateTaskStatus(id, status) {
 }
 
 async function remindTask(id) {
-  await mutate(`/api/tasks/${id}/remind`, { method: 'POST', body: '{}' }, 'Đã gửi nhắc việc.');
+  await mutate(`/api/tasks/${id}/remind`, { method: 'POST', body: '{}' }, 'Đã gửi thông báo nhắc việc.');
 }
 
 async function deleteTask(id) {
+  if (!confirm('Bạn có chắc chắn muốn xóa công việc này?')) return;
   await mutate(`/api/tasks/${id}`, { method: 'DELETE' }, 'Đã xóa công việc.');
 }
 

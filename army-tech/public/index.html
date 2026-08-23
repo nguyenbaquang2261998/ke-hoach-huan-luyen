@@ -73,45 +73,223 @@
       </header>
 
       <main>
-        <section id="dashboard" class="section">
-          <div class="section-title">
+        <section id="dashboard" class="section dashboard-section">
+          <!-- Top Section Header -->
+          <div class="dashboard-top-header">
             <div>
-              <h3>Tổng quan vận hành</h3>
-              <p>Theo dõi chỉ số KPI thời gian thực về lịch công tác, nhiệm vụ, học viên và kỳ thi tốt nghiệp.</p>
+              <h3>Trung tâm Điều hành & Tổng quan</h3>
+              <p class="dashboard-subtitle">Theo dõi thời tiết theo khu vực, lịch công tác và kiểm soát tiến độ công việc theo thời gian thực.</p>
             </div>
-          </div>
-          
-          <div class="kpi-grid">
-            <div class="kpi"><span id="kpiCalendar">0</span><p>Lịch hôm nay</p></div>
-            <div class="kpi"><span id="kpiTasks">0</span><p>Việc đến hạn</p></div>
-            <div class="kpi danger"><span id="kpiOverdue">0</span><p>Việc quá hạn</p></div>
-            <div class="kpi"><span id="kpiStudents">0</span><p>Học viên</p></div>
-            <div class="kpi"><span id="kpiRooms">0</span><p>Phòng thi</p></div>
-            <div class="kpi"><span id="kpiUnread">0</span><p>Thông báo mới</p></div>
           </div>
 
-          <div class="dashboard-grid">
-            <div class="data-card">
-              <h4>
-                <span>Lịch sắp tới</span>
-                <a href="calendar.html" style="font-size: 13px; color: var(--primary); font-weight: 600;">Xem tất cả &rarr;</a>
-              </h4>
-              <div id="dashboardCalendar" class="stack-list"></div>
+          <!-- 1. Google Weather Style Widget -->
+          <div id="weatherWidgetCard" class="weather-google-card">
+            <!-- Weather Header / Location Row -->
+            <div class="weather-header-row">
+              <div class="weather-location-wrap">
+                <svg class="location-pin-icon" viewBox="0 0 24 24" aria-hidden="true" width="20" height="20">
+                  <path d="M12 2a8 8 0 0 0-8 8c0 5.25 7 12 8 12s8-6.75 8-12a8 8 0 0 0-8-8zm0 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6z" fill="currentColor"/>
+                </svg>
+                <strong id="weatherLocationName">Hà Nội</strong>
+                <span class="weather-dot-sep">·</span>
+                <button type="button" class="weather-change-loc-btn" onclick="toggleWeatherLocationMenu()" aria-expanded="false" id="weatherLocBtn">
+                  <span>Chọn khu vực</span>
+                  <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path d="m6 9 6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                </button>
+
+                <!-- Location Selector Popover Menu -->
+                <div id="weatherLocationMenu" class="weather-location-dropdown hidden">
+                  <div class="weather-location-dropdown-header">Chọn địa bàn / khu vực</div>
+                  <button type="button" class="weather-loc-item active" onclick="selectWeatherLocation('hanoi')">📍 Hà Nội (Học viện Chính trị)</button>
+                  <button type="button" class="weather-loc-item" onclick="selectWeatherLocation('sontay')">📍 Sơn Tây (Hà Nội)</button>
+                  <button type="button" class="weather-loc-item" onclick="selectWeatherLocation('thainguyen')">📍 Thái Nguyên (Quân khu 1)</button>
+                  <button type="button" class="weather-loc-item" onclick="selectWeatherLocation('haiphong')">📍 Hải Phòng (Quân khu 3)</button>
+                  <button type="button" class="weather-loc-item" onclick="selectWeatherLocation('danang')">📍 Đà Nẵng (Quân khu 5)</button>
+                  <button type="button" class="weather-loc-item" onclick="selectWeatherLocation('nhatrang')">📍 Nha Trang (Khánh Hòa)</button>
+                  <button type="button" class="weather-loc-item" onclick="selectWeatherLocation('hcm')">📍 TP. Hồ Chí Minh (Quân khu 7)</button>
+                  <button type="button" class="weather-loc-item" onclick="selectWeatherLocation('cantho')">📍 Cần Thơ (Quân khu 9)</button>
+                </div>
+              </div>
+
+              <div class="weather-header-actions">
+                <button type="button" class="weather-refresh-btn" onclick="refreshWeatherData()" title="Cập nhật lại thời tiết" aria-label="Làm mới thời tiết">
+                  <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+                </button>
+              </div>
             </div>
-            <div class="data-card">
-              <h4>
-                <span>Công việc cần xử lý</span>
-                <a href="tasks.html" style="font-size: 13px; color: var(--primary); font-weight: 600;">Xem tất cả &rarr;</a>
-              </h4>
-              <div id="dashboardTasks" class="stack-list"></div>
+
+            <!-- Current Weather Overview -->
+            <div class="weather-current-grid">
+              <!-- Left: Big Icon & Main Temp -->
+              <div class="weather-main-temp-wrap">
+                <div id="weatherCurrentIconWrap" class="weather-current-icon">
+                  <!-- Rendered via JS -->
+                </div>
+                <div class="weather-temp-number-box">
+                  <span id="weatherCurrentTemp" class="weather-temp-val">--</span>
+                  <div class="weather-unit-toggle">
+                    <button type="button" class="unit-btn active" id="unitBtnC" onclick="setWeatherUnit('C')">°C</button>
+                    <span class="unit-divider">|</span>
+                    <button type="button" class="unit-btn" id="unitBtnF" onclick="setWeatherUnit('F')">°F</button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Middle: Detailed Metrics -->
+              <div class="weather-metrics-col">
+                <div class="weather-metric-row">
+                  <span>Khả năng có mưa:</span>
+                  <strong id="weatherRainProb">--%</strong>
+                </div>
+                <div class="weather-metric-row">
+                  <span>Độ ẩm:</span>
+                  <strong id="weatherHumidity">--%</strong>
+                </div>
+                <div class="weather-metric-row">
+                  <span>Gió:</span>
+                  <strong id="weatherWindSpeed">-- km/h</strong>
+                </div>
+              </div>
+
+              <!-- Right: Timestamp & Condition Text -->
+              <div class="weather-condition-col">
+                <span class="weather-label-title">Thời tiết</span>
+                <strong id="weatherTimestamp" class="weather-time-text">--:--</strong>
+                <p id="weatherConditionText" class="weather-cond-desc">Đang tải dữ liệu thời tiết...</p>
+              </div>
             </div>
-            <div class="data-card">
-              <h4>
-                <span>Thông báo hệ thống</span>
-                <span class="status-pill status-ok" style="font-size: 11px;">Mới nhất</span>
-              </h4>
-              <div id="dashboardNotifications" class="stack-list"></div>
+
+            <!-- Interactive Metric Tabs (Nhiệt độ / Lượng mưa / Gió) -->
+            <div class="weather-tabs-bar">
+              <div class="weather-tabs-nav" role="tablist">
+                <button type="button" class="weather-tab-btn active" id="wtab-temp" onclick="switchWeatherTab('temperature')">Nhiệt độ</button>
+                <button type="button" class="weather-tab-btn" id="wtab-rain" onclick="switchWeatherTab('precipitation')">Lượng mưa</button>
+                <button type="button" class="weather-tab-btn" id="wtab-wind" onclick="switchWeatherTab('wind')">Gió</button>
+              </div>
             </div>
+
+            <!-- Hourly Chart / Forecast Curve -->
+            <div class="weather-hourly-container">
+              <div id="weatherHourlyChart" class="weather-hourly-chart"></div>
+            </div>
+
+            <!-- 7-Day / Daily Forecast Row -->
+            <div class="weather-daily-scroll-wrap">
+              <div id="weatherDailyForecast" class="weather-daily-forecast-row"></div>
+            </div>
+          </div>
+
+          <!-- 2. KPI Metrics Grid -->
+          <div class="kpi-grid dashboard-kpi-grid">
+            <div class="kpi" onclick="location.href='calendar.html'" style="cursor: pointer;" title="Xem Lịch công tác hôm nay">
+              <span id="kpiCalendar">0</span>
+              <p>Lịch hôm nay</p>
+            </div>
+            <div class="kpi ok" onclick="location.href='tasks.html'" style="cursor: pointer;" title="Tổng công việc hôm nay">
+              <span id="kpiTasksToday">0</span>
+              <p>Việc hôm nay</p>
+            </div>
+            <div class="kpi danger" onclick="location.href='tasks.html'" style="cursor: pointer;" title="Công việc quá hạn cần xử lý">
+              <span id="kpiOverdue">0</span>
+              <p>Việc quá hạn</p>
+            </div>
+            <div class="kpi warning" onclick="location.href='tasks.html'" style="cursor: pointer;" title="Công việc sắp đến hạn (1-3 ngày)">
+              <span id="kpiUpcomingDue">0</span>
+              <p>Việc đến hạn</p>
+            </div>
+            <div class="kpi" onclick="location.href='students.html'" style="cursor: pointer;" title="Tổng số học viên">
+              <span id="kpiStudents">0</span>
+              <p>Học viên</p>
+            </div>
+            <div class="kpi" onclick="location.href='index.html'" style="cursor: pointer;" title="Thông báo chưa đọc">
+              <span id="kpiUnread">0</span>
+              <p>Thông báo mới</p>
+            </div>
+          </div>
+
+          <!-- 3. Main Dashboard Operations Center (3 Main Functional Cards) -->
+          <div class="dashboard-grid main-ops-grid">
+            
+            <!-- Card 1: Tổng quan công việc hôm nay (Progress + Interactive Checklist) -->
+            <div class="data-card dashboard-feature-card">
+              <div class="dashboard-card-header">
+                <div class="dashboard-card-title-group">
+                  <span class="dashboard-card-badge success">Hôm nay</span>
+                  <h4>Tổng quan công việc hôm nay</h4>
+                </div>
+                <a href="tasks.html" class="dashboard-card-link">Xem sổ tay &rarr;</a>
+              </div>
+
+              <!-- Today Progress Box -->
+              <div class="dashboard-today-progress-wrap">
+                <div class="dashboard-progress-labels">
+                  <span class="progress-lbl-text">Tiến độ hoàn thành hôm nay</span>
+                  <span id="dashboardTodayPercent" class="progress-lbl-val">0%</span>
+                </div>
+                <div class="dashboard-progress-track">
+                  <div id="dashboardTodayProgressBar" class="dashboard-progress-fill" style="width: 0%;"></div>
+                </div>
+                <div class="dashboard-progress-meta">
+                  <span id="dashboardTodayRatio">0/0 việc đã xong</span>
+                  <span id="dashboardTodayOverdueWarn" class="dashboard-overdue-tag hidden">0 việc quá hạn</span>
+                </div>
+              </div>
+
+              <!-- Today Tasks Interactive Checklist -->
+              <div id="dashboardTodayTasksList" class="dashboard-tasks-checklist">
+                <p class="empty-hint">Đang tải danh sách công việc hôm nay...</p>
+              </div>
+            </div>
+
+            <!-- Card 2: Lịch sắp tới (Upcoming Calendar Timeline) -->
+            <div class="data-card dashboard-feature-card">
+              <div class="dashboard-card-header">
+                <div class="dashboard-card-title-group">
+                  <span class="dashboard-card-badge info">Kế hoạch</span>
+                  <h4>Lịch công tác sắp tới</h4>
+                </div>
+                <a href="calendar.html" class="dashboard-card-link">Xem lịch tuần &rarr;</a>
+              </div>
+
+              <!-- Upcoming Calendar Timeline List -->
+              <div id="dashboardCalendar" class="dashboard-timeline-list">
+                <p class="empty-hint">Đang tải lịch sắp tới...</p>
+              </div>
+            </div>
+
+            <!-- Card 3: Công việc quá hạn & Đến hạn (Urgent / Deadlines) -->
+            <div class="data-card dashboard-feature-card">
+              <div class="dashboard-card-header">
+                <div class="dashboard-card-title-group">
+                  <span class="dashboard-card-badge danger">Cần lưu ý</span>
+                  <h4>Nhiệm vụ & Hạn chót</h4>
+                </div>
+                <a href="tasks.html" class="dashboard-card-link">Tất cả việc &rarr;</a>
+              </div>
+
+              <!-- Sub-tab switcher for Overdue & Upcoming Deadlines -->
+              <div class="dashboard-subtabs">
+                <button type="button" class="dashboard-subtab-btn active" id="btnTabOverdue" onclick="switchDashboardDeadlineTab('overdue')">
+                  <span>Quá hạn</span>
+                  <span id="badgeOverdueTasksCount" class="subtab-badge danger">0</span>
+                </button>
+                <button type="button" class="dashboard-subtab-btn" id="btnTabUpcomingDue" onclick="switchDashboardDeadlineTab('upcomingDue')">
+                  <span>Sắp đến hạn (1-3 ngày)</span>
+                  <span id="badgeUpcomingDueCount" class="subtab-badge warning">0</span>
+                </button>
+              </div>
+
+              <!-- Overdue Tasks List Container -->
+              <div id="dashboardOverdueTasksList" class="dashboard-deadline-list">
+                <p class="empty-hint">Không có công việc quá hạn.</p>
+              </div>
+
+              <!-- Upcoming Due Tasks List Container (Hidden by default) -->
+              <div id="dashboardUpcomingDueTasksList" class="dashboard-deadline-list hidden">
+                <p class="empty-hint">Không có công việc nào sắp đến hạn.</p>
+              </div>
+            </div>
+
           </div>
         </section>
       </main>
