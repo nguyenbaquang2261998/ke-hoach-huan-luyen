@@ -1,0 +1,76 @@
+{
+  "name": "ArmyTech - Hệ thống Điều hành Huấn luyện",
+  "short_name": "ArmyTech",
+  "description": "Hệ thống Điều hành Nội bộ & Quản lý Huấn luyện - Học viện Chính trị",
+  "start_url": "/index.html",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0f172a",
+  "theme_color": "#166534",
+  "lang": "vi",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "img/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "img/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "img/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "img/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "img/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Lịch tuần công tác",
+      "short_name": "Lịch tuần",
+      "description": "Xem lịch công tác và kế hoạch tuần",
+      "url": "/calendar.html",
+      "icons": [{ "src": "img/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Nhắc việc & Tiến độ",
+      "short_name": "Nhắc việc",
+      "description": "Quản lý công việc và tiến độ",
+      "url": "/tasks.html",
+      "icons": [{ "src": "img/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Thi tốt nghiệp",
+      "short_name": "Thi cử",
+      "description": "Bốc thăm giám thị và phòng thi",
+      "url": "/exam.html",
+      "icons": [{ "src": "img/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Trợ lý AI",
+      "short_name": "AI",
+      "description": "Tra cứu nhanh quy chế và tài liệu",
+      "url": "/ai.html",
+      "icons": [{ "src": "img/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "categories": ["productivity", "education", "utilities"]
+}

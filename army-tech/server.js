@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const crypto = require('crypto');
-const Database = require('better-sqlite3');
 const JSZip = require('jszip');
+const db = require('./db/sqlserver');
 
 function loadLocalEnv() {
   const envPath = path.join(__dirname, '.env');
@@ -31,298 +31,22 @@ loadLocalEnv();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
+
 function resolveRuntimePath(value, fallback) {
   const text = String(value || '').trim();
   return text ? path.resolve(text) : fallback;
 }
 
 const DATA_DIR = resolveRuntimePath(process.env.DATA_DIR, __dirname);
-const DB_PATH = resolveRuntimePath(process.env.DB_PATH, path.join(DATA_DIR, 'exam-draw.db'));
 const UPLOAD_ROOT = resolveRuntimePath(process.env.UPLOAD_DIR, path.join(DATA_DIR, 'uploads'));
-
-fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
-fs.mkdirSync(UPLOAD_ROOT, { recursive: true });
-
-const db = new Database(DB_PATH);
 const EXAM_UPLOAD_ROOT = path.join(UPLOAD_ROOT, 'exams');
+
+fs.mkdirSync(UPLOAD_ROOT, { recursive: true });
+fs.mkdirSync(EXAM_UPLOAD_ROOT, { recursive: true });
 
 app.use(cors());
 app.use(express.json({ limit: '30mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT NOT NULL UNIQUE,
-  password_hash TEXT NOT NULL,
-  google_sub TEXT UNIQUE,
-  full_name TEXT NOT NULL,
-  rank TEXT,
-  unit TEXT,
-  role TEXT NOT NULL CHECK(role IN ('admin','manager','viewer')) DEFAULT 'viewer',
-  email TEXT,
-  phone TEXT,
-  avatar_url TEXT,
-  auth_provider TEXT NOT NULL DEFAULT 'password',
-  permissions TEXT NOT NULL DEFAULT '{}',
-  note TEXT,
-  is_active INTEGER DEFAULT 1,
-  last_login_at TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS teachers (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('examiner1','examiner2','supervisor')),
-  unit TEXT,
-  note TEXT,
-  is_active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS exam_rooms (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  capacity INTEGER,
-  note TEXT,
-  is_active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS exam_sessions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  target_name TEXT NOT NULL,
-  student_count INTEGER DEFAULT 0,
-  note TEXT,
-  is_active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS exam_subjects (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  exam_session_id INTEGER NOT NULL,
-  exam_date TEXT NOT NULL,
-  subject_name TEXT NOT NULL,
-  note TEXT,
-  is_active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(exam_session_id) REFERENCES exam_sessions(id)
-);
-
-CREATE TABLE IF NOT EXISTS exam_documents (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  exam_session_id INTEGER NOT NULL,
-  document_type TEXT NOT NULL CHECK(document_type IN ('plan','decision')),
-  original_name TEXT NOT NULL,
-  stored_name TEXT NOT NULL,
-  file_type TEXT,
-  size INTEGER DEFAULT 0,
-  relative_path TEXT NOT NULL,
-  is_active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY(exam_session_id) REFERENCES exam_sessions(id)
-);
-
-CREATE TABLE IF NOT EXISTS draw_sessions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  plan_name TEXT NOT NULL,
-  result_hash TEXT NOT NULL,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS draw_results (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id INTEGER NOT NULL,
-  room_id INTEGER NOT NULL,
-  room_name TEXT NOT NULL,
-  examiner1_id INTEGER NOT NULL,
-  examiner1_name TEXT NOT NULL,
-  examiner2_id INTEGER NOT NULL,
-  examiner2_name TEXT NOT NULL,
-  supervisor_id INTEGER NOT NULL,
-  supervisor_name TEXT NOT NULL,
-  FOREIGN KEY(session_id) REFERENCES draw_sessions(id)
-);
-
-CREATE TABLE IF NOT EXISTS draw_reserves (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  session_id INTEGER NOT NULL,
-  role TEXT NOT NULL CHECK(role IN ('examiner1','examiner2','supervisor')),
-  staff_id INTEGER NOT NULL,
-  staff_name TEXT NOT NULL,
-  FOREIGN KEY(session_id) REFERENCES draw_sessions(id)
-);
-
-CREATE TABLE IF NOT EXISTS weekly_tasks (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  task_date TEXT NOT NULL,
-  start_time TEXT,
-  end_time TEXT,
-  content TEXT,
-  location TEXT,
-  tt_hv TEXT,
-  tt_phong TEXT,
-  ban TEXT,
-  person_in_charge TEXT,
-  duty_officer TEXT,
-  color TEXT DEFAULT '#166534',
-  status TEXT DEFAULT 'Draft',
-  is_active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS weekly_schedule_meta (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  week_start TEXT NOT NULL UNIQUE,
-  duty_summary TEXT,
-  room_summary TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS students (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  student_code TEXT NOT NULL UNIQUE,
-  full_name TEXT NOT NULL,
-  birthday TEXT,
-  rank TEXT,
-  unit TEXT,
-  phone TEXT,
-  email TEXT,
-  class_name TEXT,
-  admission_date TEXT,
-  status TEXT DEFAULT 'Created',
-  is_active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS daily_tasks (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  description TEXT,
-  assignee TEXT,
-  due_date TEXT,
-  priority TEXT DEFAULT 'Normal',
-  status TEXT DEFAULT 'New',
-  progress INTEGER DEFAULT 0,
-  is_active INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS notifications (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT NOT NULL,
-  message TEXT,
-  channel TEXT DEFAULT 'In App',
-  priority TEXT DEFAULT 'Normal',
-  status TEXT DEFAULT 'Pending',
-  entity_name TEXT,
-  entity_id INTEGER,
-  is_read INTEGER DEFAULT 0,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-  read_at TEXT
-);
-
-CREATE TABLE IF NOT EXISTS ai_documents (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  file_name TEXT NOT NULL,
-  file_type TEXT,
-  scope TEXT DEFAULT 'Công khai',
-  uploaded_by TEXT,
-  status TEXT DEFAULT 'Indexed',
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS ai_conversations (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  question TEXT NOT NULL,
-  answer TEXT NOT NULL,
-  sources TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE IF NOT EXISTS audit_logs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT DEFAULT 'system',
-  action TEXT NOT NULL,
-  entity_name TEXT NOT NULL,
-  entity_id TEXT,
-  old_value TEXT,
-  new_value TEXT,
-  ip TEXT,
-  device TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP
-);
-`);
-
-const userColumns = db.prepare('PRAGMA table_info(users)').all().map(column => column.name);
-function addUserColumn(name, definition) {
-  if (!userColumns.includes(name)) {
-    db.prepare(`ALTER TABLE users ADD COLUMN ${name} ${definition}`).run();
-  }
-}
-addUserColumn('google_sub', 'TEXT');
-addUserColumn('rank', 'TEXT');
-addUserColumn('unit', 'TEXT');
-addUserColumn('avatar_url', 'TEXT');
-addUserColumn('auth_provider', "TEXT NOT NULL DEFAULT 'password'");
-addUserColumn('last_login_at', 'TEXT');
-addUserColumn('permissions', "TEXT NOT NULL DEFAULT '{}'");
-db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_users_google_sub ON users(google_sub) WHERE google_sub IS NOT NULL');
-
-const teacherColumns = db.prepare('PRAGMA table_info(teachers)').all().map(column => column.name);
-if (!teacherColumns.includes('exam_session_id')) {
-  db.prepare('ALTER TABLE teachers ADD COLUMN exam_session_id INTEGER').run();
-}
-
-const roomColumns = db.prepare('PRAGMA table_info(exam_rooms)').all().map(column => column.name);
-if (!roomColumns.includes('exam_session_id')) {
-  db.prepare('ALTER TABLE exam_rooms ADD COLUMN exam_session_id INTEGER').run();
-}
-if (!roomColumns.includes('allow_supervisor_pair')) {
-  db.prepare('ALTER TABLE exam_rooms ADD COLUMN allow_supervisor_pair INTEGER DEFAULT 0').run();
-}
-
-const drawSessionColumns = db.prepare('PRAGMA table_info(draw_sessions)').all().map(column => column.name);
-if (!drawSessionColumns.includes('exam_session_id')) {
-  db.prepare('ALTER TABLE draw_sessions ADD COLUMN exam_session_id INTEGER').run();
-}
-if (!drawSessionColumns.includes('exam_subject_id')) {
-  db.prepare('ALTER TABLE draw_sessions ADD COLUMN exam_subject_id INTEGER').run();
-}
-db.exec(`
-CREATE INDEX IF NOT EXISTS idx_exam_subjects_session ON exam_subjects(exam_session_id);
-CREATE INDEX IF NOT EXISTS idx_exam_documents_session ON exam_documents(exam_session_id);
-CREATE INDEX IF NOT EXISTS idx_draw_sessions_subject ON draw_sessions(exam_subject_id);
-CREATE INDEX IF NOT EXISTS idx_teachers_exam_session ON teachers(exam_session_id, role, is_active);
-CREATE INDEX IF NOT EXISTS idx_exam_rooms_session ON exam_rooms(exam_session_id, is_active);
-`);
-
-const weeklyTaskColumns = db.prepare('PRAGMA table_info(weekly_tasks)').all().map(column => column.name);
-function addWeeklyTaskColumn(name, definition) {
-  if (!weeklyTaskColumns.includes(name)) {
-    db.prepare(`ALTER TABLE weekly_tasks ADD COLUMN ${name} ${definition}`).run();
-  }
-}
-addWeeklyTaskColumn('tt_hv', 'TEXT');
-addWeeklyTaskColumn('tt_phong', 'TEXT');
-addWeeklyTaskColumn('ban', 'TEXT');
-
-const dailyTaskColumns = db.prepare('PRAGMA table_info(daily_tasks)').all().map(column => column.name);
-function addDailyTaskColumn(name, definition) {
-  if (!dailyTaskColumns.includes(name)) {
-    db.prepare(`ALTER TABLE daily_tasks ADD COLUMN ${name} ${definition}`).run();
-  }
-}
-addDailyTaskColumn('color', "TEXT DEFAULT '#15803d'");
 
 const ROLES = ['examiner1', 'examiner2', 'supervisor'];
 const USER_ROLES = ['admin', 'manager', 'viewer'];
@@ -364,19 +88,19 @@ const EXAM_DOCUMENT_TYPE_LABELS = {
 const EXAM_DOCUMENT_EXTENSIONS = new Set(['.pdf', '.doc', '.docx']);
 const EXAM_DOCUMENT_MAX_BYTES = Number(process.env.EXAM_DOCUMENT_MAX_BYTES || 20 * 1024 * 1024);
 
-function listByRole(role, examSessionId = null) {
+async function listByRole(role, examSessionId = null) {
   if (examSessionId) {
-    return db.prepare(`
+    return db.all(`
       SELECT * FROM teachers
       WHERE role = ? AND exam_session_id = ? AND is_active = 1
       ORDER BY id DESC
-    `).all(role, examSessionId);
+    `, [role, examSessionId]);
   }
-  return db.prepare(`
+  return db.all(`
     SELECT * FROM teachers
     WHERE role = ? AND exam_session_id IS NULL AND is_active = 1
     ORDER BY id DESC
-  `).all(role);
+  `, [role]);
 }
 
 function cleanText(value) {
@@ -401,12 +125,12 @@ function verifyPassword(password, storedHash) {
   return expected.length === actualHash.length && crypto.timingSafeEqual(actualHash, expected);
 }
 
-function auditLog(action, entityName, entityId, newValue = null, oldValue = null, req = null) {
+async function auditLog(action, entityName, entityId, newValue = null, oldValue = null, req = null) {
   try {
-    db.prepare(`
+    await db.run(`
       INSERT INTO audit_logs(username, action, entity_name, entity_id, old_value, new_value, ip, device)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       req?.headers?.['x-user'] || 'system',
       action,
       entityName,
@@ -415,7 +139,7 @@ function auditLog(action, entityName, entityId, newValue = null, oldValue = null
       newValue == null ? null : JSON.stringify(newValue),
       req?.ip || null,
       req?.headers?.['user-agent'] || null
-    );
+    ]);
   } catch (error) {
     // Audit logging must not block the primary workflow.
   }
@@ -480,16 +204,19 @@ function serializeUser(row) {
   };
 }
 
-function getPublicUser(id, includeInactive = false) {
+async function getPublicUser(id, includeInactive = false) {
   const where = includeInactive ? 'id = ?' : 'id = ? AND is_active = 1';
-  return serializeUser(db.prepare(`SELECT ${USER_PUBLIC_COLUMNS} FROM users WHERE ${where}`).get(id));
+  const row = await db.get(`SELECT ${USER_PUBLIC_COLUMNS} FROM users WHERE ${where}`, [id]);
+  return serializeUser(row);
 }
 
-function usernameExists(username, exceptId = null) {
+async function usernameExists(username, exceptId = null) {
   if (exceptId) {
-    return Boolean(db.prepare('SELECT id FROM users WHERE username = ? AND id != ?').get(username, exceptId));
+    const row = await db.get('SELECT id FROM users WHERE username = ? AND id != ?', [username, exceptId]);
+    return Boolean(row);
   }
-  return Boolean(db.prepare('SELECT id FROM users WHERE username = ?').get(username));
+  const row = await db.get('SELECT id FROM users WHERE username = ?', [username]);
+  return Boolean(row);
 }
 
 function normalizeUserPayload(body) {
@@ -507,8 +234,8 @@ function normalizeUserPayload(body) {
   return { username, fullName, rank, unit, role, email, phone, note, permissions };
 }
 
-function ensureDefaultAdminAccount() {
-  const activeAdmin = db.prepare("SELECT id FROM users WHERE role = 'admin' AND is_active = 1 LIMIT 1").get();
+async function ensureDefaultAdminAccount() {
+  const activeAdmin = await db.get("SELECT TOP 1 id FROM users WHERE role = 'admin' AND is_active = 1");
   if (activeAdmin) return;
 
   const baseUsername = (cleanEnv(process.env.DEFAULT_ADMIN_USERNAME) || 'admin').toLowerCase();
@@ -516,21 +243,21 @@ function ensureDefaultAdminAccount() {
   const password = configuredPassword.length >= 6 ? configuredPassword : 'admin123';
   let username = baseUsername;
   let counter = 1;
-  while (usernameExists(username)) {
+  while (await usernameExists(username)) {
     username = `${baseUsername}-${counter}`;
     counter++;
   }
 
-  db.prepare(`
+  await db.run(`
     INSERT INTO users(username, password_hash, full_name, role, permissions, note)
     VALUES (?, ?, ?, 'admin', ?, ?)
-  `).run(
+  `, [
     username,
     hashPassword(password),
     'Quản trị hệ thống',
     JSON.stringify(defaultPermissionsForRole('admin')),
     'Tài khoản quản trị khởi tạo tự động khi hệ thống chưa có người dùng.'
-  );
+  ]);
 }
 
 function validateUserPayload(payload, options = {}) {
@@ -555,8 +282,6 @@ function validatePassword(password) {
   }
   return null;
 }
-
-ensureDefaultAdminAccount();
 
 let googleCertCache = { keys: [], expiresAt: 0 };
 
@@ -612,52 +337,63 @@ function normalizeExamSessionPayload(body, current = {}, options = {}) {
   };
 }
 
-function drawSummaryForSubject(subjectId) {
-  const row = db.prepare(`
+async function drawSummaryForSubject(subjectId) {
+  const row = await db.get(`
     SELECT COUNT(*) AS draw_count, MAX(created_at) AS latest_draw_at
     FROM draw_sessions
     WHERE exam_subject_id = ?
-  `).get(subjectId);
+  `, [subjectId]);
   return {
     draw_count: row?.draw_count || 0,
     latest_draw_at: row?.latest_draw_at || null
   };
 }
 
-function listExamSubjects(examSessionId, includeInactive = false) {
+async function listExamSubjects(examSessionId, includeInactive = false) {
   const where = includeInactive ? 'exam_session_id = ?' : 'exam_session_id = ? AND is_active = 1';
-  return db.prepare(`
+  const rows = await db.all(`
     SELECT * FROM exam_subjects
     WHERE ${where}
     ORDER BY exam_date ASC, id ASC
-  `).all(examSessionId).map(row => ({
+  `, [examSessionId]);
+
+  return Promise.all(rows.map(async row => ({
     ...row,
-    ...drawSummaryForSubject(row.id)
-  }));
+    ...(await drawSummaryForSubject(row.id))
+  })));
 }
 
-function listExamDocuments(examSessionId, includeInactive = false) {
+async function listExamDocuments(examSessionId, includeInactive = false) {
   const where = includeInactive ? 'exam_session_id = ?' : 'exam_session_id = ? AND is_active = 1';
-  return db.prepare(`
+  const rows = await db.all(`
     SELECT * FROM exam_documents
     WHERE ${where}
     ORDER BY id DESC
-  `).all(examSessionId).map(row => ({
+  `, [examSessionId]);
+
+  return rows.map(row => ({
     ...row,
     document_type_label: EXAM_DOCUMENT_TYPE_LABELS[row.document_type] || row.document_type
   }));
 }
 
-function serializeExamSession(row, includeInactiveChildren = false) {
+async function serializeExamSession(row, includeInactiveChildren = false) {
   if (!row) return null;
+  const [ex1, ex2, sup, rooms, subjects, documents] = await Promise.all([
+    listByRole('examiner1', row.id),
+    listByRole('examiner2', row.id),
+    listByRole('supervisor', row.id),
+    listRooms(row.id),
+    listExamSubjects(row.id, includeInactiveChildren),
+    listExamDocuments(row.id, includeInactiveChildren)
+  ]);
+
   const teachers = {
-    examiner1: listByRole('examiner1', row.id).length,
-    examiner2: listByRole('examiner2', row.id).length,
-    supervisor: listByRole('supervisor', row.id).length
+    examiner1: ex1.length,
+    examiner2: ex2.length,
+    supervisor: sup.length
   };
-  const rooms = listRooms(row.id).length;
-  const subjects = listExamSubjects(row.id, includeInactiveChildren);
-  const documents = listExamDocuments(row.id, includeInactiveChildren);
+
   return {
     ...row,
     student_count: Number(row.student_count) || 0,
@@ -666,40 +402,41 @@ function serializeExamSession(row, includeInactiveChildren = false) {
     summary: {
       subjects: subjects.length,
       documents: documents.length,
-      rooms,
+      rooms: rooms.length,
       teachers
     }
   };
 }
 
-function getExamSession(id, includeInactive = false) {
+async function getExamSession(id, includeInactive = false) {
   const where = includeInactive ? 'id = ?' : 'id = ? AND is_active = 1';
-  const row = db.prepare(`SELECT * FROM exam_sessions WHERE ${where}`).get(id);
+  const row = await db.get(`SELECT * FROM exam_sessions WHERE ${where}`, [id]);
   return serializeExamSession(row, includeInactive);
 }
 
-function normalizeExamSessionId(value, { required = false } = {}) {
+async function normalizeExamSessionId(value, { required = false } = {}) {
   const id = Number(value);
   if (!Number.isInteger(id) || id <= 0) {
     if (required) throw httpError(400, 'Vui lòng chọn kỳ thi.');
     return null;
   }
-  const exam = getExamSession(id);
+  const exam = await getExamSession(id);
   if (!exam) throw httpError(404, 'Không tìm thấy kỳ thi.');
   return exam.id;
 }
 
-function listExamSessions(includeInactive = false) {
+async function listExamSessions(includeInactive = false) {
   const where = includeInactive ? '' : 'WHERE is_active = 1';
-  return db.prepare(`
+  const rows = await db.all(`
     SELECT * FROM exam_sessions
     ${where}
     ORDER BY id DESC
-  `).all().map(row => serializeExamSession(row, includeInactive));
+  `);
+  return Promise.all(rows.map(row => serializeExamSession(row, includeInactive)));
 }
 
-function getExamSubjectContext(subjectId) {
-  const row = db.prepare(`
+async function getExamSubjectContext(subjectId) {
+  const row = await db.get(`
     SELECT
       s.id AS subject_id,
       s.exam_session_id,
@@ -712,39 +449,37 @@ function getExamSubjectContext(subjectId) {
     FROM exam_subjects s
     JOIN exam_sessions e ON e.id = s.exam_session_id
     WHERE s.id = ? AND s.is_active = 1 AND e.is_active = 1
-  `).get(subjectId);
+  `, [subjectId]);
   if (!row) throw httpError(404, 'Không tìm thấy ngày thi - môn thi.');
   return row;
 }
 
-function syncExamSubjects(examSessionId, subjects) {
-  const existing = db.prepare('SELECT * FROM exam_subjects WHERE exam_session_id = ?').all(examSessionId);
+async function syncExamSubjects(examSessionId, subjects, tx = null) {
+  const runner = tx || db;
+  const existing = await runner.all('SELECT * FROM exam_subjects WHERE exam_session_id = ?', [examSessionId]);
   const existingIds = new Set(existing.map(row => row.id));
   const incomingIds = new Set(subjects.filter(item => item.id && existingIds.has(item.id)).map(item => item.id));
 
-  existing.forEach(row => {
+  for (const row of existing) {
     if (!incomingIds.has(row.id)) {
-      db.prepare('UPDATE exam_subjects SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(row.id);
+      await runner.run('UPDATE exam_subjects SET is_active = 0, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE id = ?', [row.id]);
     }
-  });
+  }
 
-  const insert = db.prepare(`
-    INSERT INTO exam_subjects(exam_session_id, exam_date, subject_name, note)
-    VALUES (?, ?, ?, ?)
-  `);
-  const update = db.prepare(`
-    UPDATE exam_subjects
-    SET exam_date = ?, subject_name = ?, note = ?, is_active = 1, updated_at = CURRENT_TIMESTAMP
-    WHERE id = ? AND exam_session_id = ?
-  `);
-
-  subjects.forEach(item => {
+  for (const item of subjects) {
     if (item.id && existingIds.has(item.id)) {
-      update.run(item.examDate, item.subjectName, item.note, item.id, examSessionId);
+      await runner.run(`
+        UPDATE exam_subjects
+        SET exam_date = ?, subject_name = ?, note = ?, is_active = 1, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
+        WHERE id = ? AND exam_session_id = ?
+      `, [item.examDate, item.subjectName, item.note, item.id, examSessionId]);
     } else {
-      insert.run(examSessionId, item.examDate, item.subjectName, item.note);
+      await runner.run(`
+        INSERT INTO exam_subjects(exam_session_id, exam_date, subject_name, note)
+        VALUES (?, ?, ?, ?)
+      `, [examSessionId, item.examDate, item.subjectName, item.note]);
     }
-  });
+  }
 }
 
 function ensureExamFolder(examSessionId) {
@@ -986,9 +721,9 @@ function hasMenuPermission(user, permissionKey) {
   return Boolean(permissions[permissionKey]);
 }
 
-function getAuthenticatedUser(req) {
+async function getAuthenticatedUser(req) {
   const payload = getBearerPayload(req);
-  const record = getUserRecordById(payload.sub);
+  const record = await getUserRecordById(payload.sub);
   ensureActiveUser(record);
   return getPublicUser(record.id, true);
 }
@@ -1013,10 +748,10 @@ function permissionForApi(req) {
   return null;
 }
 
-function requireApiAccess(req, res, next) {
+async function requireApiAccess(req, res, next) {
   try {
     if (String(req.path || '').startsWith('/auth')) return next();
-    const user = getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req);
     const permissionKey = permissionForApi(req);
     if (!hasMenuPermission(user, permissionKey)) {
       throw httpError(403, 'Khong co quyen truy cap chuc nang nay.');
@@ -1028,16 +763,16 @@ function requireApiAccess(req, res, next) {
   }
 }
 
-function getUserRecordById(id) {
-  return db.prepare('SELECT * FROM users WHERE id = ?').get(id) || null;
+async function getUserRecordById(id) {
+  return db.get('SELECT * FROM users WHERE id = ?', [id]);
 }
 
-function getUserRecordByGoogleSub(googleSub) {
-  return db.prepare('SELECT * FROM users WHERE google_sub = ?').get(googleSub) || null;
+async function getUserRecordByGoogleSub(googleSub) {
+  return db.get('SELECT * FROM users WHERE google_sub = ?', [googleSub]);
 }
 
-function getUserRecordByEmail(email) {
-  return db.prepare('SELECT * FROM users WHERE lower(email) = ? ORDER BY id ASC LIMIT 1').get(String(email).toLowerCase()) || null;
+async function getUserRecordByEmail(email) {
+  return db.get('SELECT TOP 1 * FROM users WHERE lower(email) = ? ORDER BY id ASC', [String(email).toLowerCase()]);
 }
 
 function ensureActiveUser(user) {
@@ -1045,13 +780,13 @@ function ensureActiveUser(user) {
   if (Number(user.is_active) !== 1) throw httpError(403, 'Tai khoan da bi khoa.');
 }
 
-function usernameFromEmail(email) {
+async function usernameFromEmail(email) {
   const localPart = String(email).split('@')[0].toLowerCase();
   const base = localPart.replace(/[^a-z0-9._-]/g, '').replace(/^[._-]+|[._-]+$/g, '') || 'user';
   let username = base.slice(0, 50);
   let counter = 1;
 
-  while (usernameExists(username)) {
+  while (await usernameExists(username)) {
     const suffix = `-${counter}`;
     username = `${base.slice(0, 50 - suffix.length)}${suffix}`;
     counter++;
@@ -1060,52 +795,55 @@ function usernameFromEmail(email) {
   return username;
 }
 
-function touchGoogleUser(user, profile) {
-  db.prepare(`
+async function touchGoogleUser(user, profile) {
+  await db.run(`
     UPDATE users
     SET google_sub = COALESCE(google_sub, ?),
         email = ?,
         avatar_url = ?,
         auth_provider = 'google',
-        last_login_at = CURRENT_TIMESTAMP,
-        updated_at = CURRENT_TIMESTAMP
+        last_login_at = CONVERT(VARCHAR(19), GETDATE(), 120),
+        updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
     WHERE id = ?
-  `).run(profile.sub, profile.email, profile.picture, user.id);
+  `, [profile.sub, profile.email, profile.picture, user.id]);
   return getPublicUser(user.id, true);
 }
 
-function registerGoogleUser(profile) {
-  let user = getUserRecordByGoogleSub(profile.sub);
-  if (!user) user = getUserRecordByEmail(profile.email);
+async function registerGoogleUser(profile) {
+  let user = await getUserRecordByGoogleSub(profile.sub);
+  if (!user) user = await getUserRecordByEmail(profile.email);
 
   if (user) {
     if (user.google_sub && user.google_sub !== profile.sub) {
       throw httpError(409, 'Email nay da lien ket voi tai khoan Google khac.');
     }
     ensureActiveUser(user);
-    return { user: touchGoogleUser(user, profile), isNewUser: false };
+    const touched = await touchGoogleUser(user, profile);
+    return { user: touched, isNewUser: false };
   }
 
-  const info = db.prepare(`
+  const generatedUsername = await usernameFromEmail(profile.email);
+  const info = await db.run(`
     INSERT INTO users(username, password_hash, google_sub, full_name, role, email, avatar_url, auth_provider, last_login_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, 'google', CURRENT_TIMESTAMP)
-  `).run(
-    usernameFromEmail(profile.email),
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'google', CONVERT(VARCHAR(19), GETDATE(), 120))
+  `, [
+    generatedUsername,
     hashPassword(crypto.randomBytes(32).toString('hex')),
     profile.sub,
     profile.name,
     GOOGLE_DEFAULT_ROLE,
     profile.email,
     profile.picture
-  );
+  ]);
 
-  return { user: getPublicUser(info.lastInsertRowid, true), isNewUser: true };
+  const created = await getPublicUser(info.lastInsertRowid, true);
+  return { user: created, isNewUser: true };
 }
 
-function loginGoogleUser(profile) {
-  let user = getUserRecordByGoogleSub(profile.sub);
+async function loginGoogleUser(profile) {
+  let user = await getUserRecordByGoogleSub(profile.sub);
   if (!user) {
-    user = getUserRecordByEmail(profile.email);
+    user = await getUserRecordByEmail(profile.email);
     if (!user) throw httpError(404, 'Tai khoan Google chua duoc dang ky.');
     if (user.google_sub && user.google_sub !== profile.sub) {
       throw httpError(409, 'Email nay da lien ket voi tai khoan Google khac.');
@@ -1113,7 +851,8 @@ function loginGoogleUser(profile) {
   }
 
   ensureActiveUser(user);
-  return { user: touchGoogleUser(user, profile), isNewUser: false };
+  const touched = await touchGoogleUser(user, profile);
+  return { user: touched, isNewUser: false };
 }
 
 async function handleGoogleAuth(req, res, mode) {
@@ -1123,7 +862,7 @@ async function handleGoogleAuth(req, res, mode) {
     if (!idToken) throw httpError(400, 'Thieu Google idToken.');
 
     const profile = await verifyGoogleIdToken(idToken);
-    const result = mode === 'login' ? loginGoogleUser(profile) : registerGoogleUser(profile);
+    const result = mode === 'login' ? await loginGoogleUser(profile) : await registerGoogleUser(profile);
     res.status(result.isNewUser ? 201 : 200).json(buildAuthResponse(result.user, {
       authProvider: 'google',
       isNewUser: result.isNewUser
@@ -1214,7 +953,6 @@ function renderApiDocsHtml(docs) {
 </html>`;
 }
 
-
 function roomNumber(name) {
   const text = String(name || '');
   const match = text.match(/(?:phòng\s*thi\s*số|phòng\s*số|phòng|pt)\s*0*(\d+)/i) || text.match(/0*(\d+)/);
@@ -1230,21 +968,22 @@ function sortRooms(rooms) {
   });
 }
 
-function listRooms(examSessionId = null) {
+async function listRooms(examSessionId = null) {
   if (examSessionId) {
-    return sortRooms(db.prepare(`
+    const rows = await db.all(`
       SELECT * FROM exam_rooms
       WHERE exam_session_id = ? AND is_active = 1
       ORDER BY id ASC
-    `).all(examSessionId));
+    `, [examSessionId]);
+    return sortRooms(rows);
   }
-  return sortRooms(db.prepare(`
+  const rows = await db.all(`
     SELECT * FROM exam_rooms
     WHERE exam_session_id IS NULL AND is_active = 1
     ORDER BY id ASC
-  `).all());
+  `);
+  return sortRooms(rows);
 }
-
 
 function shuffle(array) {
   const arr = [...array];
@@ -1280,27 +1019,27 @@ function addRecentRoom(map, staffId, roomId) {
   map.get(staffId).add(roomId);
 }
 
-function getRecentDrawConstraints(limit = 2, examSubjectId = null, examSessionId = null) {
-  // If an examSessionId is provided, use all previous draw_sessions within that exam session.
-    const sessions = examSessionId
-      ? db.prepare('SELECT id, plan_name FROM draw_sessions WHERE exam_session_id = ? ORDER BY id DESC LIMIT ?').all(examSessionId, limit)
-      : (examSubjectId
-        ? db.prepare('SELECT id, plan_name FROM draw_sessions WHERE exam_subject_id = ? ORDER BY id DESC LIMIT ?').all(examSubjectId, limit)
-        : db.prepare('SELECT id, plan_name FROM draw_sessions WHERE exam_subject_id IS NULL ORDER BY id DESC LIMIT ?').all(limit));
+async function getRecentDrawConstraints(limit = 2, examSubjectId = null, examSessionId = null) {
+  const sessions = examSessionId
+    ? await db.all('SELECT TOP (?) id, plan_name FROM draw_sessions WHERE exam_session_id = ? ORDER BY id DESC', [limit, examSessionId])
+    : (examSubjectId
+      ? await db.all('SELECT TOP (?) id, plan_name FROM draw_sessions WHERE exam_subject_id = ? ORDER BY id DESC', [limit, examSubjectId])
+      : await db.all('SELECT TOP (?) id, plan_name FROM draw_sessions WHERE exam_subject_id IS NULL ORDER BY id DESC', [limit]));
+
   const recentRooms = {
     examiner1: new Map(),
     examiner2: new Map(),
     supervisor: new Map()
   };
 
-  sessions.forEach(session => {
-    const rows = db.prepare('SELECT room_id, examiner1_id, examiner2_id, supervisor_id FROM draw_results WHERE session_id = ?').all(session.id);
+  for (const session of sessions) {
+    const rows = await db.all('SELECT room_id, examiner1_id, examiner2_id, supervisor_id FROM draw_results WHERE session_id = ?', [session.id]);
     rows.forEach(row => {
       addRecentRoom(recentRooms.examiner1, row.examiner1_id, row.room_id);
       addRecentRoom(recentRooms.examiner2, row.examiner2_id, row.room_id);
       addRecentRoom(recentRooms.supervisor, row.supervisor_id, row.room_id);
     });
-  });
+  }
 
   return {
     recentPlanNames: new Set(sessions.map(session => session.plan_name)),
@@ -1385,45 +1124,6 @@ function assignStaffToGroups(groups, staff, blockedRoomsByStaff = new Map(), err
   };
 }
 
-function assignSupervisors(rooms, supervisors) {
-  if (supervisors.length >= rooms.length) {
-    const assigned = new Map(rooms.map((room, index) => [room.id, supervisors[index]]));
-    return {
-      assigned,
-      reserves: supervisors.slice(rooms.length)
-    };
-  }
-
-  const deficit = rooms.length - supervisors.length;
-  if (supervisors.length < Math.ceil(rooms.length / 2)) {
-    throw httpError(400, 'Số cán bộ giám sát thi không đủ. Mỗi cán bộ giám sát chỉ được ghép tối đa 2 phòng thi.');
-  }
-
-  const pairableRooms = rooms.filter(room => Number(room.allow_supervisor_pair) === 1);
-  if (pairableRooms.length < deficit * 2) {
-    throw httpError(400, 'Chưa tích đủ phòng thi được ghép cán bộ giám sát thi.');
-  }
-
-  const roomsInPairs = new Set();
-  const groups = [];
-  for (let i = 0; i < deficit * 2; i += 2) {
-    const first = pairableRooms[i];
-    const second = pairableRooms[i + 1];
-    roomsInPairs.add(first.id);
-    roomsInPairs.add(second.id);
-    groups.push([first, second]);
-  }
-  rooms.forEach(room => {
-    if (!roomsInPairs.has(room.id)) groups.push([room]);
-  });
-
-  const assigned = new Map();
-  groups.forEach((group, index) => {
-    group.forEach(room => assigned.set(room.id, supervisors[index]));
-  });
-  return { assigned, reserves: [] };
-}
-
 function assignSupervisorsV2(rooms, supervisors, blockedRoomsByStaff = new Map()) {
   const groups = groupRoomsForSupervisors(rooms);
   if (supervisors.length < groups.length) {
@@ -1438,43 +1138,13 @@ function assignSupervisorsV2(rooms, supervisors, blockedRoomsByStaff = new Map()
   );
 }
 
-function buildDraw(examSessionId = null) {
-  const rooms = listRooms(examSessionId);
-  const examiner1 = listByRole('examiner1', examSessionId);
-  const examiner2 = listByRole('examiner2', examSessionId);
-  const supervisors = listByRole('supervisor', examSessionId);
-
-  if (!rooms.length) throw httpError(400, 'Chưa có danh sách phòng thi.');
-  if (examiner1.length < rooms.length) throw httpError(400, 'Số cán bộ coi thi 1 ít hơn số phòng thi.');
-  if (examiner2.length < rooms.length) throw httpError(400, 'Số cán bộ coi thi 2 ít hơn số phòng thi.');
-  if (supervisors.length < rooms.length) throw httpError(400, 'Số cán bộ giám sát thi ít hơn số phòng thi.');
-
-  // Phòng thi luôn giữ đúng thứ tự: Phòng thi số 1, 2, 3...; chỉ cán bộ được đảo ngẫu nhiên.
-  const sRooms = sortRooms(rooms);
-  const sExaminer1 = shuffle(examiner1);
-  const sExaminer2 = shuffle(examiner2);
-  const sSupervisors = shuffle(supervisors);
-  const planName = PLANS[Math.floor(Math.random() * PLANS.length)];
-
-  const rows = sRooms.map((room, index) => ({
-    roomId: room.id,
-    roomName: room.name,
-    examiner1Id: sExaminer1[index].id,
-    examiner1Name: sExaminer1[index].name,
-    examiner2Id: sExaminer2[index].id,
-    examiner2Name: sExaminer2[index].name,
-    supervisorId: sSupervisors[index].id,
-    supervisorName: sSupervisors[index].name
-  }));
-
-  return { planName, rows };
-}
-
-function buildDrawV2(constraints = getRecentDrawConstraints(), examSessionId = null) {
-  const rooms = listRooms(examSessionId);
-  const examiner1 = listByRole('examiner1', examSessionId);
-  const examiner2 = listByRole('examiner2', examSessionId);
-  const supervisors = listByRole('supervisor', examSessionId);
+async function buildDrawV2(constraints, examSessionId = null) {
+  const [rooms, examiner1, examiner2, supervisors] = await Promise.all([
+    listRooms(examSessionId),
+    listByRole('examiner1', examSessionId),
+    listByRole('examiner2', examSessionId),
+    listByRole('supervisor', examSessionId)
+  ]);
 
   if (!rooms.length) throw httpError(400, 'Chưa có danh sách phòng thi.');
   if (examiner1.length < rooms.length) throw httpError(400, 'Số cán bộ coi thi 1 ít hơn số phòng thi.');
@@ -1522,14 +1192,14 @@ function buildDrawV2(constraints = getRecentDrawConstraints(), examSessionId = n
   return { planName, rows, reserves };
 }
 
-function createNotification(payload, req = null) {
+async function createNotification(payload, req = null) {
   const title = cleanText(payload.title);
   if (!title) throw httpError(400, 'Tieu de thong bao khong hop le.');
 
-  const info = db.prepare(`
+  const info = await db.run(`
     INSERT INTO notifications(title, message, channel, priority, status, entity_name, entity_id)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(
+  `, [
     title,
     cleanText(payload.message),
     cleanText(payload.channel || 'In App') || 'In App',
@@ -1537,69 +1207,86 @@ function createNotification(payload, req = null) {
     normalizeStatus(payload.status, NOTIFICATION_STATUSES, 'Pending'),
     cleanText(payload.entity_name ?? payload.entityName),
     payload.entity_id ?? payload.entityId ?? null
-  );
+  ]);
 
-  const row = db.prepare('SELECT * FROM notifications WHERE id = ?').get(info.lastInsertRowid);
-  auditLog('Create', 'Notifications', row.id, row, null, req);
+  const row = await db.get('SELECT * FROM notifications WHERE id = ?', [info.lastInsertRowid]);
+  await auditLog('Create', 'Notifications', row.id, row, null, req);
   return row;
 }
 
-function getDashboardSummary() {
+async function getDashboardSummary() {
   const today = getToday();
-  const calendarToday = db.prepare(`
-    SELECT COUNT(*) AS total FROM weekly_tasks
-    WHERE is_active = 1 AND task_date = ?
-  `).get(today).total;
-  
-  const tasksToday = db.prepare(`
-    SELECT COUNT(*) AS total FROM daily_tasks
-    WHERE is_active = 1 AND due_date = ? AND status NOT IN ('Completed','Cancelled')
-  `).get(today).total;
-  
-  const overdueTasks = db.prepare(`
-    SELECT COUNT(*) AS total FROM daily_tasks
-    WHERE is_active = 1 AND due_date < ? AND status NOT IN ('Completed','Cancelled')
-  `).get(today).total;
+  const [
+    calendarTodayRow,
+    tasksTodayRow,
+    overdueTasksRow,
+    upcomingDueCountRow,
+    newStudentsRow,
+    activeStudentsRow,
+    unreadNotificationsRow,
+    allRooms,
+    ex1,
+    ex2,
+    sups,
+    todayTasks,
+    overdueTasksList,
+    upcomingDueTasks,
+    upcomingCalendar,
+    dueTasks,
+    notifications,
+    latestDrawSession
+  ] = await Promise.all([
+    db.get('SELECT COUNT(*) AS total FROM weekly_tasks WHERE is_active = 1 AND task_date = ?', [today]),
+    db.get("SELECT COUNT(*) AS total FROM daily_tasks WHERE is_active = 1 AND due_date = ? AND status NOT IN ('Completed','Cancelled')", [today]),
+    db.get("SELECT COUNT(*) AS total FROM daily_tasks WHERE is_active = 1 AND due_date < ? AND status NOT IN ('Completed','Cancelled')", [today]),
+    db.get("SELECT COUNT(*) AS total FROM daily_tasks WHERE is_active = 1 AND due_date > ? AND due_date <= CONVERT(VARCHAR(10), DATEADD(day, 3, CAST(? AS DATE)), 120) AND status NOT IN ('Completed','Cancelled')", [today, today]),
+    db.get("SELECT COUNT(*) AS total FROM students WHERE is_active = 1 AND created_at >= CONVERT(VARCHAR(10), DATEADD(day, -7, GETDATE()), 120)"),
+    db.get('SELECT COUNT(*) AS total FROM students WHERE is_active = 1'),
+    db.get('SELECT COUNT(*) AS total FROM notifications WHERE is_read = 0'),
+    listRooms(),
+    listByRole('examiner1'),
+    listByRole('examiner2'),
+    listByRole('supervisor'),
+    db.all(`
+      SELECT TOP 20 * FROM daily_tasks
+      WHERE is_active = 1 AND due_date = ?
+      ORDER BY (CASE WHEN status = 'Completed' THEN 1 ELSE 0 END) ASC, (CASE WHEN priority = 'Critical' THEN 2 WHEN priority = 'High' THEN 1 ELSE 0 END) DESC, id DESC
+    `, [today]),
+    db.all(`
+      SELECT TOP 10 * FROM daily_tasks
+      WHERE is_active = 1 AND due_date < ? AND status NOT IN ('Completed','Cancelled')
+      ORDER BY due_date ASC, (CASE WHEN priority = 'Critical' THEN 2 WHEN priority = 'High' THEN 1 ELSE 0 END) DESC, id DESC
+    `, [today]),
+    db.all(`
+      SELECT TOP 10 * FROM daily_tasks
+      WHERE is_active = 1 AND due_date > ? AND due_date <= CONVERT(VARCHAR(10), DATEADD(day, 3, CAST(? AS DATE)), 120) AND status NOT IN ('Completed','Cancelled')
+      ORDER BY due_date ASC, (CASE WHEN priority = 'Critical' THEN 2 WHEN priority = 'High' THEN 1 ELSE 0 END) DESC, id DESC
+    `, [today, today]),
+    db.all(`
+      SELECT TOP 8 * FROM weekly_tasks
+      WHERE is_active = 1 AND task_date >= ?
+      ORDER BY task_date ASC, start_time ASC, id DESC
+    `, [today]),
+    db.all(`
+      SELECT TOP 8 * FROM daily_tasks
+      WHERE is_active = 1 AND status NOT IN ('Completed','Cancelled')
+      ORDER BY (CASE WHEN due_date IS NULL THEN 1 ELSE 0 END) ASC, due_date ASC, id DESC
+    `),
+    db.all('SELECT TOP 5 * FROM notifications ORDER BY id DESC'),
+    db.get('SELECT TOP 1 * FROM draw_sessions ORDER BY id DESC')
+  ]);
 
-  const upcomingDueCount = db.prepare(`
-    SELECT COUNT(*) AS total FROM daily_tasks
-    WHERE is_active = 1 AND due_date > ? AND due_date <= date(?, '+3 day') AND status NOT IN ('Completed','Cancelled')
-  `).get(today, today).total;
-
-  const newStudents = db.prepare(`
-    SELECT COUNT(*) AS total FROM students
-    WHERE is_active = 1 AND date(created_at) >= date('now', '-7 day')
-  `).get().total;
-  const activeStudents = db.prepare('SELECT COUNT(*) AS total FROM students WHERE is_active = 1').get().total;
-  const unreadNotifications = db.prepare('SELECT COUNT(*) AS total FROM notifications WHERE is_read = 0').get().total;
-
-  // All tasks due today (including completed for checklist & progress calculation)
-  const todayTasks = db.prepare(`
-    SELECT * FROM daily_tasks
-    WHERE is_active = 1 AND due_date = ?
-    ORDER BY status = 'Completed' ASC, priority = 'Critical' DESC, priority = 'High' DESC, id DESC
-    LIMIT 20
-  `).all(today);
+  const calendarToday = calendarTodayRow?.total || 0;
+  const tasksToday = tasksTodayRow?.total || 0;
+  const overdueTasks = overdueTasksRow?.total || 0;
+  const upcomingDueCount = upcomingDueCountRow?.total || 0;
+  const newStudents = newStudentsRow?.total || 0;
+  const activeStudents = activeStudentsRow?.total || 0;
+  const unreadNotifications = unreadNotificationsRow?.total || 0;
 
   const todayCompletedCount = todayTasks.filter(t => t.status === 'Completed').length;
   const todayTotalCount = todayTasks.length;
   const todayPercent = todayTotalCount > 0 ? Math.round((todayCompletedCount / todayTotalCount) * 100) : 0;
-
-  // Overdue tasks list
-  const overdueTasksList = db.prepare(`
-    SELECT * FROM daily_tasks
-    WHERE is_active = 1 AND due_date < ? AND status NOT IN ('Completed','Cancelled')
-    ORDER BY due_date ASC, priority = 'Critical' DESC, id DESC
-    LIMIT 10
-  `).all(today);
-
-  // Upcoming due tasks in next 3 days
-  const upcomingDueTasks = db.prepare(`
-    SELECT * FROM daily_tasks
-    WHERE is_active = 1 AND due_date > ? AND due_date <= date(?, '+3 day') AND status NOT IN ('Completed','Cancelled')
-    ORDER BY due_date ASC, priority = 'Critical' DESC, id DESC
-    LIMIT 10
-  `).all(today, today);
 
   return {
     date: today,
@@ -1611,9 +1298,9 @@ function getDashboardSummary() {
       activeStudents,
       newStudents,
       unreadNotifications,
-      rooms: listRooms().length,
-      examiners: listByRole('examiner1').length + listByRole('examiner2').length,
-      supervisors: listByRole('supervisor').length
+      rooms: allRooms.length,
+      examiners: ex1.length + ex2.length,
+      supervisors: sups.length
     },
     todayTasks,
     todayProgress: {
@@ -1623,20 +1310,10 @@ function getDashboardSummary() {
     },
     overdueTasksList,
     upcomingDueTasks,
-    upcomingCalendar: db.prepare(`
-      SELECT * FROM weekly_tasks
-      WHERE is_active = 1 AND task_date >= ?
-      ORDER BY task_date ASC, start_time ASC, id DESC
-      LIMIT 8
-    `).all(today),
-    dueTasks: db.prepare(`
-      SELECT * FROM daily_tasks
-      WHERE is_active = 1 AND status NOT IN ('Completed','Cancelled')
-      ORDER BY due_date IS NULL, due_date ASC, id DESC
-      LIMIT 8
-    `).all(),
-    notifications: db.prepare('SELECT * FROM notifications ORDER BY id DESC LIMIT 5').all(),
-    latestDrawSession: db.prepare('SELECT * FROM draw_sessions ORDER BY id DESC LIMIT 1').get() || null
+    upcomingCalendar,
+    dueTasks,
+    notifications,
+    latestDrawSession: latestDrawSession || null
   };
 }
 
@@ -1991,43 +1668,46 @@ async function aiAnswer(question) {
   }
 }
 
-app.post('/api/auth/login', (req, res) => {
+// -------------------------------------------------------------
+// ROUTES
+// -------------------------------------------------------------
+
+app.post('/api/auth/login', async (req, res) => {
   try {
     const username = cleanText(req.body?.username).toLowerCase();
     const password = req.body?.password;
     if (!username || !password) throw httpError(400, 'Thieu username hoac mat khau.');
 
-    const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
+    const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
     if (!user || !verifyPassword(password, user.password_hash)) throw httpError(401, 'Thong tin dang nhap khong hop le.');
     ensureActiveUser(user);
 
-    db.prepare('UPDATE users SET last_login_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
-    const publicUser = getPublicUser(user.id, true);
-    auditLog('Login', 'Users', user.id, { username }, null, req);
+    await db.run('UPDATE users SET last_login_at = CONVERT(VARCHAR(19), GETDATE(), 120), updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE id = ?', [user.id]);
+    const publicUser = await getPublicUser(user.id, true);
+    await auditLog('Login', 'Users', user.id, { username }, null, req);
     res.json(buildAuthResponse(publicUser, { authProvider: publicUser.auth_provider }));
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.post('/api/auth/logout', (req, res) => {
-  auditLog('Logout', 'Users', null, null, null, req);
+app.post('/api/auth/logout', async (req, res) => {
+  await auditLog('Logout', 'Users', null, null, null, req);
   res.json({ ok: true });
 });
 
-app.post('/api/auth/refresh', (req, res) => {
+app.post('/api/auth/refresh', async (req, res) => {
   try {
-    const payload = getBearerPayload(req);
-    const user = getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req);
     res.json(buildAuthResponse(user));
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.get('/api/auth/profile', (req, res) => {
+app.get('/api/auth/profile', async (req, res) => {
   try {
-    const user = getAuthenticatedUser(req);
+    const user = await getAuthenticatedUser(req);
     res.json(user);
   } catch (error) {
     sendError(res, error);
@@ -2036,37 +1716,49 @@ app.get('/api/auth/profile', (req, res) => {
 
 app.use('/api', requireApiAccess);
 
-app.get('/api/dashboard', (req, res) => {
-  res.json(getDashboardSummary());
-});
-
-app.get('/api/calendar', (req, res) => {
-  const limit = parseLimit(req.query.limit, 100, 200);
-  const rows = db.prepare(`
-    SELECT * FROM weekly_tasks
-    WHERE is_active = 1
-    ORDER BY task_date ASC, start_time ASC, id DESC
-    LIMIT ?
-  `).all(limit);
-  res.json(rows);
-});
-
-app.get('/api/calendar/week-meta', (req, res) => {
-  const weekStart = cleanText(req.query.weekStart);
-  if (weekStart) {
-    const row = db.prepare('SELECT * FROM weekly_schedule_meta WHERE week_start = ?').get(weekStart);
-    return res.json(row || {
-      week_start: weekStart,
-      duty_summary: '',
-      room_summary: ''
-    });
+app.get('/api/dashboard', async (req, res) => {
+  try {
+    const summary = await getDashboardSummary();
+    res.json(summary);
+  } catch (error) {
+    sendError(res, error);
   }
-
-  const rows = db.prepare('SELECT * FROM weekly_schedule_meta ORDER BY week_start ASC').all();
-  res.json(rows);
 });
 
-app.put('/api/calendar/week-meta', (req, res) => {
+app.get('/api/calendar', async (req, res) => {
+  try {
+    const limit = parseLimit(req.query.limit, 100, 200);
+    const rows = await db.all(`
+      SELECT TOP (?) * FROM weekly_tasks
+      WHERE is_active = 1
+      ORDER BY task_date ASC, start_time ASC, id DESC
+    `, [limit]);
+    res.json(rows);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.get('/api/calendar/week-meta', async (req, res) => {
+  try {
+    const weekStart = cleanText(req.query.weekStart);
+    if (weekStart) {
+      const row = await db.get('SELECT * FROM weekly_schedule_meta WHERE week_start = ?', [weekStart]);
+      return res.json(row || {
+        week_start: weekStart,
+        duty_summary: '',
+        room_summary: ''
+      });
+    }
+
+    const rows = await db.all('SELECT * FROM weekly_schedule_meta ORDER BY week_start ASC');
+    res.json(rows);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.put('/api/calendar/week-meta', async (req, res) => {
   try {
     const weekStart = ensureDate(req.body?.weekStart ?? req.body?.week_start);
     const payload = {
@@ -2075,41 +1767,51 @@ app.put('/api/calendar/week-meta', (req, res) => {
       roomSummary: cleanText(req.body?.roomSummary ?? req.body?.room_summary)
     };
 
-    db.prepare(`
-      INSERT INTO weekly_schedule_meta(week_start, duty_summary, room_summary)
-      VALUES (?, ?, ?)
-      ON CONFLICT(week_start) DO UPDATE SET
-        duty_summary = excluded.duty_summary,
-        room_summary = excluded.room_summary,
-        updated_at = CURRENT_TIMESTAMP
-    `).run(payload.weekStart, payload.dutySummary, payload.roomSummary);
+    const existing = await db.get('SELECT id FROM weekly_schedule_meta WHERE week_start = ?', [payload.weekStart]);
+    if (existing) {
+      await db.run(`
+        UPDATE weekly_schedule_meta
+        SET duty_summary = ?, room_summary = ?, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
+        WHERE week_start = ?
+      `, [payload.dutySummary, payload.roomSummary, payload.weekStart]);
+    } else {
+      await db.run(`
+        INSERT INTO weekly_schedule_meta(week_start, duty_summary, room_summary)
+        VALUES (?, ?, ?)
+      `, [payload.weekStart, payload.dutySummary, payload.roomSummary]);
+    }
 
-    const row = db.prepare('SELECT * FROM weekly_schedule_meta WHERE week_start = ?').get(payload.weekStart);
-    auditLog('Update', 'WeeklyScheduleMeta', payload.weekStart, row, null, req);
+    const row = await db.get('SELECT * FROM weekly_schedule_meta WHERE week_start = ?', [payload.weekStart]);
+    await auditLog('Update', 'WeeklyScheduleMeta', payload.weekStart, row, null, req);
     res.json(row);
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.get('/api/calendar/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM weekly_tasks WHERE id = ? AND is_active = 1').get(req.params.id);
-  if (!row) return res.status(404).json({ message: 'Khong tim thay lich.' });
-  res.json(row);
+app.get('/api/calendar/:id', async (req, res) => {
+  try {
+    const row = await db.get('SELECT * FROM weekly_tasks WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!row) return res.status(404).json({ message: 'Khong tim thay lich.' });
+    res.json(row);
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post('/api/calendar', (req, res) => {
+app.post('/api/calendar', async (req, res) => {
   try {
     const payload = normalizeCalendarPayload(req.body || {});
     if (!payload.title) throw httpError(400, 'Tieu de lich khong hop le.');
 
-    const info = db.prepare(`
+    const info = await db.run(`
       INSERT INTO weekly_tasks(title, task_date, start_time, end_time, content, location, tt_hv, tt_phong, ban, person_in_charge, duty_officer, color, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(payload.title, payload.taskDate, payload.startTime, payload.endTime, payload.content, payload.location, payload.ttHv, payload.ttPhong, payload.ban, payload.personInCharge, payload.dutyOfficer, payload.color, payload.status);
-    const row = db.prepare('SELECT * FROM weekly_tasks WHERE id = ?').get(info.lastInsertRowid);
-    auditLog('Create', 'WeeklyCalendar', row.id, row, null, req);
-    createNotification({
+    `, [payload.title, payload.taskDate, payload.startTime, payload.endTime, payload.content, payload.location, payload.ttHv, payload.ttPhong, payload.ban, payload.personInCharge, payload.dutyOfficer, payload.color, payload.status]);
+    
+    const row = await db.get('SELECT * FROM weekly_tasks WHERE id = ?', [info.lastInsertRowid]);
+    await auditLog('Create', 'WeeklyCalendar', row.id, row, null, req);
+    await createNotification({
       title: 'Lịch tuần mới',
       message: `${row.title} - ${row.task_date}`,
       priority: row.status === 'Published' ? 'High' : 'Normal',
@@ -2123,73 +1825,86 @@ app.post('/api/calendar', (req, res) => {
   }
 });
 
-app.put('/api/calendar/:id', (req, res) => {
+app.put('/api/calendar/:id', async (req, res) => {
   try {
-    const current = db.prepare('SELECT * FROM weekly_tasks WHERE id = ? AND is_active = 1').get(req.params.id);
+    const current = await db.get('SELECT * FROM weekly_tasks WHERE id = ? AND is_active = 1', [req.params.id]);
     if (!current) throw httpError(404, 'Khong tim thay lich.');
     const payload = normalizeCalendarPayload(req.body || {}, current);
     if (!payload.title) throw httpError(400, 'Tieu de lich khong hop le.');
 
-    db.prepare(`
+    await db.run(`
       UPDATE weekly_tasks
       SET title = ?, task_date = ?, start_time = ?, end_time = ?, content = ?, location = ?,
-          tt_hv = ?, tt_phong = ?, ban = ?, person_in_charge = ?, duty_officer = ?, color = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+          tt_hv = ?, tt_phong = ?, ban = ?, person_in_charge = ?, duty_officer = ?, color = ?, status = ?, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
       WHERE id = ?
-    `).run(payload.title, payload.taskDate, payload.startTime, payload.endTime, payload.content, payload.location, payload.ttHv, payload.ttPhong, payload.ban, payload.personInCharge, payload.dutyOfficer, payload.color, payload.status, current.id);
-    const row = db.prepare('SELECT * FROM weekly_tasks WHERE id = ?').get(current.id);
-    auditLog('Update', 'WeeklyCalendar', row.id, row, current, req);
+    `, [payload.title, payload.taskDate, payload.startTime, payload.endTime, payload.content, payload.location, payload.ttHv, payload.ttPhong, payload.ban, payload.personInCharge, payload.dutyOfficer, payload.color, payload.status, current.id]);
+    
+    const row = await db.get('SELECT * FROM weekly_tasks WHERE id = ?', [current.id]);
+    await auditLog('Update', 'WeeklyCalendar', row.id, row, current, req);
     res.json(row);
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.delete('/api/calendar/:id', (req, res) => {
-  const current = db.prepare('SELECT * FROM weekly_tasks WHERE id = ? AND is_active = 1').get(req.params.id);
-  if (!current) return res.status(404).json({ message: 'Khong tim thay lich.' });
-  db.prepare('UPDATE weekly_tasks SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(current.id);
-  auditLog('Delete', 'WeeklyCalendar', current.id, null, current, req);
-  res.json({ ok: true });
+app.delete('/api/calendar/:id', async (req, res) => {
+  try {
+    const current = await db.get('SELECT * FROM weekly_tasks WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!current) return res.status(404).json({ message: 'Khong tim thay lich.' });
+    await db.run('UPDATE weekly_tasks SET is_active = 0, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE id = ?', [current.id]);
+    await auditLog('Delete', 'WeeklyCalendar', current.id, null, current, req);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.get('/api/students', (req, res) => {
-  const limit = parseLimit(req.query.limit, 100, 500);
-  const rows = db.prepare(`
-    SELECT * FROM students
-    WHERE is_active = 1
-    ORDER BY id DESC
-    LIMIT ?
-  `).all(limit);
-  res.json(rows);
+app.get('/api/students', async (req, res) => {
+  try {
+    const limit = parseLimit(req.query.limit, 100, 500);
+    const rows = await db.all(`
+      SELECT TOP (?) * FROM students
+      WHERE is_active = 1
+      ORDER BY id DESC
+    `, [limit]);
+    res.json(rows);
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.get('/api/students/:id', (req, res) => {
-  const row = db.prepare('SELECT * FROM students WHERE id = ? AND is_active = 1').get(req.params.id);
-  if (!row) return res.status(404).json({ message: 'Khong tim thay hoc vien.' });
-  res.json(row);
+app.get('/api/students/:id', async (req, res) => {
+  try {
+    const row = await db.get('SELECT * FROM students WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!row) return res.status(404).json({ message: 'Khong tim thay hoc vien.' });
+    res.json(row);
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post('/api/students', (req, res) => {
+app.post('/api/students', async (req, res) => {
   try {
     const payload = normalizeStudentPayload(req.body || {});
     if (!payload.studentCode || !payload.fullName) throw httpError(400, 'Ma hoc vien va ho ten khong duoc de trong.');
-    if (db.prepare('SELECT id FROM students WHERE student_code = ?').get(payload.studentCode)) {
+    const duplicate = await db.get('SELECT id FROM students WHERE student_code = ?', [payload.studentCode]);
+    if (duplicate) {
       throw httpError(409, 'Ma hoc vien da ton tai.');
     }
 
-    const info = db.prepare(`
+    const info = await db.run(`
       INSERT INTO students(student_code, full_name, birthday, rank, unit, phone, email, class_name, admission_date, status)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(payload.studentCode, payload.fullName, payload.birthday, payload.rank, payload.unit, payload.phone, payload.email, payload.className, payload.admissionDate, payload.status);
-    const row = db.prepare('SELECT * FROM students WHERE id = ?').get(info.lastInsertRowid);
-    auditLog('Create', 'Students', row.id, row, null, req);
+    `, [payload.studentCode, payload.fullName, payload.birthday, payload.rank, payload.unit, payload.phone, payload.email, payload.className, payload.admissionDate, payload.status]);
+    const row = await db.get('SELECT * FROM students WHERE id = ?', [info.lastInsertRowid]);
+    await auditLog('Create', 'Students', row.id, row, null, req);
     res.status(201).json(row);
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.post('/api/students/import', (req, res) => {
+app.post('/api/students/import', async (req, res) => {
   try {
     const lines = cleanText(req.body?.text || req.body?.names).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
     if (!lines.length && !Array.isArray(req.body?.students)) throw httpError(400, 'Chua co du lieu import.');
@@ -2201,119 +1916,131 @@ app.post('/api/students/import', (req, res) => {
       });
 
     let inserted = 0;
-    const insert = db.prepare(`
-      INSERT INTO students(student_code, full_name, rank, unit, class_name, admission_date, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    const trx = db.transaction(rows => {
-      rows.forEach(item => {
+    await db.transaction(async (tx) => {
+      for (const item of items) {
         const payload = normalizeStudentPayload(item);
-        if (!payload.studentCode || !payload.fullName) return;
-        if (db.prepare('SELECT id FROM students WHERE student_code = ?').get(payload.studentCode)) return;
-        insert.run(payload.studentCode, payload.fullName, payload.rank, payload.unit, payload.className, payload.admissionDate, payload.status);
+        if (!payload.studentCode || !payload.fullName) continue;
+        const exists = await tx.get('SELECT id FROM students WHERE student_code = ?', [payload.studentCode]);
+        if (exists) continue;
+        await tx.run(`
+          INSERT INTO students(student_code, full_name, rank, unit, class_name, admission_date, status)
+          VALUES (?, ?, ?, ?, ?, ?, ?)
+        `, [payload.studentCode, payload.fullName, payload.rank, payload.unit, payload.className, payload.admissionDate, payload.status]);
         inserted++;
-      });
+      }
     });
-    trx(items);
-    auditLog('Import', 'Students', null, { inserted }, null, req);
+
+    await auditLog('Import', 'Students', null, { inserted }, null, req);
     res.json({ inserted });
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.put('/api/students/:id', (req, res) => {
+app.put('/api/students/:id', async (req, res) => {
   try {
-    const current = db.prepare('SELECT * FROM students WHERE id = ? AND is_active = 1').get(req.params.id);
+    const current = await db.get('SELECT * FROM students WHERE id = ? AND is_active = 1', [req.params.id]);
     if (!current) throw httpError(404, 'Khong tim thay hoc vien.');
     const payload = normalizeStudentPayload(req.body || {}, current);
     if (!payload.studentCode || !payload.fullName) throw httpError(400, 'Ma hoc vien va ho ten khong duoc de trong.');
-    const duplicate = db.prepare('SELECT id FROM students WHERE student_code = ? AND id != ?').get(payload.studentCode, current.id);
+    const duplicate = await db.get('SELECT id FROM students WHERE student_code = ? AND id != ?', [payload.studentCode, current.id]);
     if (duplicate) throw httpError(409, 'Ma hoc vien da ton tai.');
 
-    db.prepare(`
+    await db.run(`
       UPDATE students
       SET student_code = ?, full_name = ?, birthday = ?, rank = ?, unit = ?, phone = ?, email = ?,
-          class_name = ?, admission_date = ?, status = ?, updated_at = CURRENT_TIMESTAMP
+          class_name = ?, admission_date = ?, status = ?, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
       WHERE id = ?
-    `).run(payload.studentCode, payload.fullName, payload.birthday, payload.rank, payload.unit, payload.phone, payload.email, payload.className, payload.admissionDate, payload.status, current.id);
-    const row = db.prepare('SELECT * FROM students WHERE id = ?').get(current.id);
-    auditLog('Update', 'Students', row.id, row, current, req);
+    `, [payload.studentCode, payload.fullName, payload.birthday, payload.rank, payload.unit, payload.phone, payload.email, payload.className, payload.admissionDate, payload.status, current.id]);
+    
+    const row = await db.get('SELECT * FROM students WHERE id = ?', [current.id]);
+    await auditLog('Update', 'Students', row.id, row, current, req);
     res.json(row);
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.delete('/api/students/:id', (req, res) => {
-  const current = db.prepare('SELECT * FROM students WHERE id = ? AND is_active = 1').get(req.params.id);
-  if (!current) return res.status(404).json({ message: 'Khong tim thay hoc vien.' });
-  db.prepare('UPDATE students SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(current.id);
-  auditLog('Delete', 'Students', current.id, null, current, req);
-  res.json({ ok: true });
+app.delete('/api/students/:id', async (req, res) => {
+  try {
+    const current = await db.get('SELECT * FROM students WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!current) return res.status(404).json({ message: 'Khong tim thay hoc vien.' });
+    await db.run('UPDATE students SET is_active = 0, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE id = ?', [current.id]);
+    await auditLog('Delete', 'Students', current.id, null, current, req);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.get('/api/tasks', (req, res) => {
-  const limit = parseLimit(req.query.limit, 100, 300);
-  const rows = db.prepare(`
-    SELECT * FROM daily_tasks
-    WHERE is_active = 1
-    ORDER BY due_date IS NULL, due_date ASC, id DESC
-    LIMIT ?
-  `).all(limit);
-  res.json(rows);
+app.get('/api/tasks', async (req, res) => {
+  try {
+    const limit = parseLimit(req.query.limit, 100, 300);
+    const rows = await db.all(`
+      SELECT TOP (?) * FROM daily_tasks
+      WHERE is_active = 1
+      ORDER BY (CASE WHEN due_date IS NULL THEN 1 ELSE 0 END) ASC, due_date ASC, id DESC
+    `, [limit]);
+    res.json(rows);
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post('/api/tasks', (req, res) => {
+app.post('/api/tasks', async (req, res) => {
   try {
     const payload = normalizeTaskPayload(req.body || {});
     if (!payload.title) throw httpError(400, 'Tieu de cong viec khong hop le.');
-    const info = db.prepare(`
+    const info = await db.run(`
       INSERT INTO daily_tasks(title, description, assignee, due_date, priority, status, progress, color)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(payload.title, payload.description, payload.assignee, payload.dueDate, payload.priority, payload.status, payload.progress, payload.color);
-    const row = db.prepare('SELECT * FROM daily_tasks WHERE id = ?').get(info.lastInsertRowid);
-    auditLog('Create', 'Tasks', row.id, row, null, req);
+    `, [payload.title, payload.description, payload.assignee, payload.dueDate, payload.priority, payload.status, payload.progress, payload.color]);
+    const row = await db.get('SELECT * FROM daily_tasks WHERE id = ?', [info.lastInsertRowid]);
+    await auditLog('Create', 'Tasks', row.id, row, null, req);
     res.status(201).json(row);
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.put('/api/tasks/:id', (req, res) => {
+app.put('/api/tasks/:id', async (req, res) => {
   try {
-    const current = db.prepare('SELECT * FROM daily_tasks WHERE id = ? AND is_active = 1').get(req.params.id);
+    const current = await db.get('SELECT * FROM daily_tasks WHERE id = ? AND is_active = 1', [req.params.id]);
     if (!current) throw httpError(404, 'Khong tim thay cong viec.');
     const payload = normalizeTaskPayload(req.body || {}, current);
     if (!payload.title) throw httpError(400, 'Tieu de cong viec khong hop le.');
-    db.prepare(`
+    await db.run(`
       UPDATE daily_tasks
       SET title = ?, description = ?, assignee = ?, due_date = ?, priority = ?, status = ?,
-          progress = ?, color = ?, updated_at = CURRENT_TIMESTAMP
+          progress = ?, color = ?, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
       WHERE id = ?
-    `).run(payload.title, payload.description, payload.assignee, payload.dueDate, payload.priority, payload.status, payload.progress, payload.color, current.id);
-    const row = db.prepare('SELECT * FROM daily_tasks WHERE id = ?').get(current.id);
-    auditLog('Update', 'Tasks', row.id, row, current, req);
+    `, [payload.title, payload.description, payload.assignee, payload.dueDate, payload.priority, payload.status, payload.progress, payload.color, current.id]);
+    const row = await db.get('SELECT * FROM daily_tasks WHERE id = ?', [current.id]);
+    await auditLog('Update', 'Tasks', row.id, row, current, req);
     res.json(row);
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.delete('/api/tasks/:id', (req, res) => {
-  const current = db.prepare('SELECT * FROM daily_tasks WHERE id = ? AND is_active = 1').get(req.params.id);
-  if (!current) return res.status(404).json({ message: 'Khong tim thay cong viec.' });
-  db.prepare('UPDATE daily_tasks SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(current.id);
-  auditLog('Delete', 'Tasks', current.id, null, current, req);
-  res.json({ ok: true });
+app.delete('/api/tasks/:id', async (req, res) => {
+  try {
+    const current = await db.get('SELECT * FROM daily_tasks WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!current) return res.status(404).json({ message: 'Khong tim thay cong viec.' });
+    await db.run('UPDATE daily_tasks SET is_active = 0, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE id = ?', [current.id]);
+    await auditLog('Delete', 'Tasks', current.id, null, current, req);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post(['/api/tasks/remind', '/api/tasks/:id/remind'], (req, res) => {
+app.post(['/api/tasks/remind', '/api/tasks/:id/remind'], async (req, res) => {
   try {
     const id = req.params.id || req.body?.id;
-    const task = id ? db.prepare('SELECT * FROM daily_tasks WHERE id = ? AND is_active = 1').get(id) : null;
+    const task = id ? await db.get('SELECT * FROM daily_tasks WHERE id = ? AND is_active = 1', [id]) : null;
     if (!task) throw httpError(404, 'Khong tim thay cong viec de nhac.');
-    const notification = createNotification({
+    const notification = await createNotification({
       title: `Nhắc việc: ${task.title}`,
       message: `${task.assignee || 'Người phụ trách'} cần xử lý trước hạn ${task.due_date || 'chưa đặt'}.`,
       priority: task.priority,
@@ -2321,73 +2048,90 @@ app.post(['/api/tasks/remind', '/api/tasks/:id/remind'], (req, res) => {
       entity_name: 'Tasks',
       entity_id: task.id
     }, req);
-    auditLog('Remind', 'Tasks', task.id, notification, task, req);
+    await auditLog('Remind', 'Tasks', task.id, notification, task, req);
     res.json({ ok: true, notification });
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.get('/api/notifications', (req, res) => {
-  const limit = parseLimit(req.query.limit, 50, 200);
-  const rows = db.prepare('SELECT * FROM notifications ORDER BY id DESC LIMIT ?').all(limit);
-  res.json(rows);
-});
-
-app.post(['/api/notifications', '/api/notifications/send'], (req, res) => {
+app.get('/api/notifications', async (req, res) => {
   try {
-    res.status(201).json(createNotification(req.body || {}, req));
+    const limit = parseLimit(req.query.limit, 50, 200);
+    const rows = await db.all('SELECT TOP (?) * FROM notifications ORDER BY id DESC', [limit]);
+    res.json(rows);
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.put(['/api/notifications/read', '/api/notifications/:id/read'], (req, res) => {
-  const id = req.params.id || req.body?.id;
-  if (!id) return res.status(400).json({ message: 'Thieu id thong bao.' });
-  const current = db.prepare('SELECT * FROM notifications WHERE id = ?').get(id);
-  if (!current) return res.status(404).json({ message: 'Khong tim thay thong bao.' });
-  db.prepare(`
-    UPDATE notifications
-    SET is_read = 1, status = 'Read', read_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `).run(id);
-  const row = db.prepare('SELECT * FROM notifications WHERE id = ?').get(id);
-  auditLog('Read', 'Notifications', row.id, row, current, req);
-  res.json(row);
+app.post(['/api/notifications', '/api/notifications/send'], async (req, res) => {
+  try {
+    const created = await createNotification(req.body || {}, req);
+    res.status(201).json(created);
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.get('/api/ai/documents', (req, res) => {
-  const rows = db.prepare('SELECT * FROM ai_documents ORDER BY id DESC LIMIT 100').all();
-  const docsFolder = listMarkdownDocuments().map(({ content, ...document }) => ({
-    ...document,
-    created_at: null
-  }));
-  res.json([...docsFolder, ...rows]);
+app.put(['/api/notifications/read', '/api/notifications/:id/read'], async (req, res) => {
+  try {
+    const id = req.params.id || req.body?.id;
+    if (!id) return res.status(400).json({ message: 'Thieu id thong bao.' });
+    const current = await db.get('SELECT * FROM notifications WHERE id = ?', [id]);
+    if (!current) return res.status(404).json({ message: 'Khong tim thay thong bao.' });
+    await db.run(`
+      UPDATE notifications
+      SET is_read = 1, status = 'Read', read_at = CONVERT(VARCHAR(19), GETDATE(), 120)
+      WHERE id = ?
+    `, [id]);
+    const row = await db.get('SELECT * FROM notifications WHERE id = ?', [id]);
+    await auditLog('Read', 'Notifications', row.id, row, current, req);
+    res.json(row);
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post('/api/ai/upload', (req, res) => {
+app.get('/api/ai/documents', async (req, res) => {
+  try {
+    const rows = await db.all('SELECT TOP 100 * FROM ai_documents ORDER BY id DESC');
+    const docsFolder = listMarkdownDocuments().map(({ content, ...document }) => ({
+      ...document,
+      created_at: null
+    }));
+    res.json([...docsFolder, ...rows]);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.post('/api/ai/upload', async (req, res) => {
   try {
     const fileName = cleanText(req.body?.file_name ?? req.body?.fileName);
     if (!fileName) throw httpError(400, 'Ten tai lieu khong hop le.');
-    const info = db.prepare(`
+    const info = await db.run(`
       INSERT INTO ai_documents(file_name, file_type, scope, uploaded_by, status)
       VALUES (?, ?, ?, ?, ?)
-    `).run(fileName, cleanText(req.body?.file_type ?? req.body?.fileType), cleanText(req.body?.scope || 'Công khai'), cleanText(req.body?.uploaded_by ?? req.body?.uploadedBy), 'Indexed');
-    const row = db.prepare('SELECT * FROM ai_documents WHERE id = ?').get(info.lastInsertRowid);
-    auditLog('Upload', 'AiDocuments', row.id, row, null, req);
+    `, [fileName, cleanText(req.body?.file_type ?? req.body?.fileType), cleanText(req.body?.scope || 'Công khai'), cleanText(req.body?.uploaded_by ?? req.body?.uploadedBy), 'Indexed']);
+    const row = await db.get('SELECT * FROM ai_documents WHERE id = ?', [info.lastInsertRowid]);
+    await auditLog('Upload', 'AiDocuments', row.id, row, null, req);
     res.status(201).json(row);
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.delete('/api/ai/documents/:id', (req, res) => {
-  const current = db.prepare('SELECT * FROM ai_documents WHERE id = ?').get(req.params.id);
-  if (!current) return res.status(404).json({ message: 'Khong tim thay tai lieu AI.' });
-  db.prepare('DELETE FROM ai_documents WHERE id = ?').run(req.params.id);
-  auditLog('Delete', 'AiDocuments', req.params.id, null, current, req);
-  res.json({ ok: true });
+app.delete('/api/ai/documents/:id', async (req, res) => {
+  try {
+    const current = await db.get('SELECT * FROM ai_documents WHERE id = ?', [req.params.id]);
+    if (!current) return res.status(404).json({ message: 'Khong tim thay tai lieu AI.' });
+    await db.run('DELETE FROM ai_documents WHERE id = ?', [req.params.id]);
+    await auditLog('Delete', 'AiDocuments', req.params.id, null, current, req);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
 app.post('/api/ai/chat', async (req, res) => {
@@ -2395,11 +2139,11 @@ app.post('/api/ai/chat', async (req, res) => {
     const question = cleanText(req.body?.question ?? req.body?.message);
     if (!question) throw httpError(400, 'Cau hoi khong duoc de trong.');
     const result = await aiAnswer(question);
-    const info = db.prepare(`
+    const info = await db.run(`
       INSERT INTO ai_conversations(question, answer, sources)
       VALUES (?, ?, ?)
-    `).run(question, result.answer, JSON.stringify(result.sources));
-    auditLog('AI Chat', 'AiConversation', info.lastInsertRowid, { question, sources: result.sources, provider: result.provider, model: result.model }, null, req);
+    `, [question, result.answer, JSON.stringify(result.sources)]);
+    await auditLog('AI Chat', 'AiConversation', info.lastInsertRowid, { question, sources: result.sources, provider: result.provider, model: result.model }, null, req);
     res.json({
       id: info.lastInsertRowid,
       answer: result.answer,
@@ -2413,95 +2157,111 @@ app.post('/api/ai/chat', async (req, res) => {
   }
 });
 
-app.get('/api/ai/history', (req, res) => {
-  const rows = db.prepare('SELECT * FROM ai_conversations ORDER BY id DESC LIMIT ?').all(parseLimit(req.query.limit, 20, 100));
-  res.json(rows.map(row => ({ ...row, sources: JSON.parse(row.sources || '[]') })));
+app.get('/api/ai/history', async (req, res) => {
+  try {
+    const limit = parseLimit(req.query.limit, 20, 100);
+    const rows = await db.all('SELECT TOP (?) * FROM ai_conversations ORDER BY id DESC', [limit]);
+    res.json(rows.map(row => ({ ...row, sources: JSON.parse(row.sources || '[]') })));
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.get('/api/audit-logs', (req, res) => {
-  const rows = db.prepare('SELECT * FROM audit_logs ORDER BY id DESC LIMIT ?').all(parseLimit(req.query.limit, 50, 200));
-  res.json(rows);
+app.get('/api/audit-logs', async (req, res) => {
+  try {
+    const limit = parseLimit(req.query.limit, 50, 200);
+    const rows = await db.all('SELECT TOP (?) * FROM audit_logs ORDER BY id DESC', [limit]);
+    res.json(rows);
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.get('/api/exam-sessions', (req, res) => {
-  res.json(listExamSessions(req.query.includeInactive === '1' || req.query.includeInactive === 'true'));
+app.get('/api/exam-sessions', async (req, res) => {
+  try {
+    const sessions = await listExamSessions(req.query.includeInactive === '1' || req.query.includeInactive === 'true');
+    res.json(sessions);
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.get('/api/exam-sessions/:id', (req, res) => {
-  const row = getExamSession(req.params.id, req.query.includeInactive === '1' || req.query.includeInactive === 'true');
-  if (!row) return res.status(404).json({ message: 'Không tìm thấy kỳ thi.' });
-  res.json(row);
+app.get('/api/exam-sessions/:id', async (req, res) => {
+  try {
+    const row = await getExamSession(req.params.id, req.query.includeInactive === '1' || req.query.includeInactive === 'true');
+    if (!row) return res.status(404).json({ message: 'Không tìm thấy kỳ thi.' });
+    res.json(row);
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post('/api/exam-sessions', (req, res) => {
+app.post('/api/exam-sessions', async (req, res) => {
   try {
     const payload = normalizeExamSessionPayload(req.body || {}, {}, { requireAny: true });
-    const insertSession = db.prepare(`
-      INSERT INTO exam_sessions(target_name, student_count, note)
-      VALUES (?, ?, ?)
-    `);
-
-    const trx = db.transaction(() => {
-      const info = insertSession.run(payload.targetName, payload.studentCount, payload.note);
-      syncExamSubjects(info.lastInsertRowid, payload.subjects);
-      return info.lastInsertRowid;
+    
+    let createdId;
+    await db.transaction(async (tx) => {
+      const info = await tx.run(`
+        INSERT INTO exam_sessions(target_name, student_count, note)
+        VALUES (?, ?, ?)
+      `, [payload.targetName, payload.studentCount, payload.note]);
+      createdId = info.lastInsertRowid;
+      await syncExamSubjects(createdId, payload.subjects, tx);
     });
 
-    const id = trx();
-    const created = getExamSession(id);
-    auditLog('Create', 'ExamSession', id, created, null, req);
+    const created = await getExamSession(createdId);
+    await auditLog('Create', 'ExamSession', createdId, created, null, req);
     res.status(201).json(created);
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.put('/api/exam-sessions/:id', (req, res) => {
+app.put('/api/exam-sessions/:id', async (req, res) => {
   try {
-    const current = getExamSession(req.params.id, true);
+    const current = await getExamSession(req.params.id, true);
     if (!current || Number(current.is_active) !== 1) throw httpError(404, 'Không tìm thấy kỳ thi.');
     const payload = normalizeExamSessionPayload(req.body || {}, current, { requireAny: true });
 
-    const trx = db.transaction(() => {
-      db.prepare(`
+    await db.transaction(async (tx) => {
+      await tx.run(`
         UPDATE exam_sessions
-        SET target_name = ?, student_count = ?, note = ?, updated_at = CURRENT_TIMESTAMP
+        SET target_name = ?, student_count = ?, note = ?, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
         WHERE id = ?
-      `).run(payload.targetName, payload.studentCount, payload.note, current.id);
-      syncExamSubjects(current.id, payload.subjects);
+      `, [payload.targetName, payload.studentCount, payload.note, current.id]);
+      await syncExamSubjects(current.id, payload.subjects, tx);
     });
-    trx();
 
-    const updated = getExamSession(current.id);
-    auditLog('Update', 'ExamSession', current.id, updated, current, req);
+    const updated = await getExamSession(current.id);
+    await auditLog('Update', 'ExamSession', current.id, updated, current, req);
     res.json(updated);
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.delete('/api/exam-sessions/:id', (req, res) => {
+app.delete('/api/exam-sessions/:id', async (req, res) => {
   try {
-    const current = getExamSession(req.params.id, true);
+    const current = await getExamSession(req.params.id, true);
     if (!current || Number(current.is_active) !== 1) throw httpError(404, 'Không tìm thấy kỳ thi.');
 
-    const trx = db.transaction(() => {
-      db.prepare('UPDATE exam_sessions SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(current.id);
-      db.prepare('UPDATE exam_subjects SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE exam_session_id = ?').run(current.id);
-      db.prepare('UPDATE exam_documents SET is_active = 0 WHERE exam_session_id = ?').run(current.id);
+    await db.transaction(async (tx) => {
+      await tx.run('UPDATE exam_sessions SET is_active = 0, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE id = ?', [current.id]);
+      await tx.run('UPDATE exam_subjects SET is_active = 0, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE exam_session_id = ?', [current.id]);
+      await tx.run('UPDATE exam_documents SET is_active = 0 WHERE exam_session_id = ?', [current.id]);
     });
-    trx();
 
-    auditLog('Delete', 'ExamSession', current.id, null, current, req);
+    await auditLog('Delete', 'ExamSession', current.id, null, current, req);
     res.json({ ok: true });
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.post('/api/exam-sessions/:id/documents', (req, res) => {
+app.post('/api/exam-sessions/:id/documents', async (req, res) => {
   try {
-    const exam = getExamSession(req.params.id);
+    const exam = await getExamSession(req.params.id);
     if (!exam) throw httpError(404, 'Không tìm thấy kỳ thi.');
     const payload = normalizeExamDocumentPayload(req.body || {});
     const relativePath = `exam-${exam.id}/${payload.storedName}`;
@@ -2509,10 +2269,10 @@ app.post('/api/exam-sessions/:id/documents', (req, res) => {
     ensureExamFolder(exam.id);
     fs.writeFileSync(fullPath, payload.buffer);
 
-    const info = db.prepare(`
+    const info = await db.run(`
       INSERT INTO exam_documents(exam_session_id, document_type, original_name, stored_name, file_type, size, relative_path)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run(
+    `, [
       exam.id,
       payload.documentType,
       payload.originalName,
@@ -2520,67 +2280,82 @@ app.post('/api/exam-sessions/:id/documents', (req, res) => {
       payload.fileType,
       payload.buffer.length,
       relativePath
-    );
+    ]);
 
-    const created = listExamDocuments(exam.id).find(item => item.id === info.lastInsertRowid);
-    auditLog('Upload', 'ExamDocument', info.lastInsertRowid, created, null, req);
+    const docs = await listExamDocuments(exam.id);
+    const created = docs.find(item => item.id === info.lastInsertRowid);
+    await auditLog('Upload', 'ExamDocument', info.lastInsertRowid, created, null, req);
     res.status(201).json(created);
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.get('/api/exam-sessions/:id/documents/:documentId/download', (req, res) => {
+app.get('/api/exam-sessions/:id/documents/:documentId/download', async (req, res) => {
   try {
-    const exam = getExamSession(req.params.id);
+    const exam = await getExamSession(req.params.id);
     if (!exam) throw httpError(404, 'Không tìm thấy kỳ thi.');
-    const document = db.prepare(`
+    const document = await db.get(`
       SELECT * FROM exam_documents
       WHERE id = ? AND exam_session_id = ? AND is_active = 1
-    `).get(req.params.documentId, exam.id);
+    `, [req.params.documentId, exam.id]);
     if (!document) throw httpError(404, 'Không tìm thấy tài liệu.');
 
     const fullPath = getDocumentFullPath(document.relative_path);
     if (!fs.existsSync(fullPath)) throw httpError(404, 'File tài liệu không còn tồn tại trên máy chủ.');
-    auditLog('Download', 'ExamDocument', document.id, { original_name: document.original_name }, null, req);
+    await auditLog('Download', 'ExamDocument', document.id, { original_name: document.original_name }, null, req);
     res.download(fullPath, document.original_name);
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.delete('/api/exam-sessions/:id/documents/:documentId', (req, res) => {
+app.delete('/api/exam-sessions/:id/documents/:documentId', async (req, res) => {
   try {
-    const exam = getExamSession(req.params.id);
+    const exam = await getExamSession(req.params.id);
     if (!exam) throw httpError(404, 'Không tìm thấy kỳ thi.');
-    const document = db.prepare(`
+    const document = await db.get(`
       SELECT * FROM exam_documents
       WHERE id = ? AND exam_session_id = ? AND is_active = 1
-    `).get(req.params.documentId, exam.id);
+    `, [req.params.documentId, exam.id]);
     if (!document) throw httpError(404, 'Không tìm thấy tài liệu.');
 
-    db.prepare('UPDATE exam_documents SET is_active = 0 WHERE id = ?').run(document.id);
-    auditLog('Delete', 'ExamDocument', document.id, null, document, req);
+    await db.run('UPDATE exam_documents SET is_active = 0 WHERE id = ?', [document.id]);
+    await auditLog('Delete', 'ExamDocument', document.id, null, document, req);
     res.json({ ok: true });
   } catch (error) {
     sendError(res, error);
   }
 });
 
-app.get('/api/exams', (req, res) => {
-  const examSessionId = normalizeExamSessionId(req.query.examSessionId ?? req.query.exam_session_id);
-  res.json({
-    examSessionId,
-    examSessions: listExamSessions(),
-    rooms: listRooms(examSessionId),
-    teachers: {
-      examiner1: listByRole('examiner1', examSessionId),
-      examiner2: listByRole('examiner2', examSessionId),
-      supervisor: listByRole('supervisor', examSessionId)
-    },
-    latestSession: db.prepare('SELECT * FROM draw_sessions ORDER BY id DESC LIMIT 1').get() || null,
-    recentHistory: db.prepare('SELECT * FROM draw_sessions ORDER BY id DESC LIMIT 5').all()
-  });
+app.get('/api/exams', async (req, res) => {
+  try {
+    const examSessionId = await normalizeExamSessionId(req.query.examSessionId ?? req.query.exam_session_id);
+    const [examSessions, rooms, ex1, ex2, sups, latestSession, recentHistory] = await Promise.all([
+      listExamSessions(),
+      listRooms(examSessionId),
+      listByRole('examiner1', examSessionId),
+      listByRole('examiner2', examSessionId),
+      listByRole('supervisor', examSessionId),
+      db.get('SELECT TOP 1 * FROM draw_sessions ORDER BY id DESC'),
+      db.all('SELECT TOP 5 * FROM draw_sessions ORDER BY id DESC')
+    ]);
+
+    res.json({
+      examSessionId,
+      examSessions,
+      rooms,
+      teachers: {
+        examiner1: ex1,
+        examiner2: ex2,
+        supervisor: sups
+      },
+      latestSession: latestSession || null,
+      recentHistory
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
 app.get('/api/docs.json', (req, res) => {
@@ -2615,231 +2390,305 @@ app.post('/api/auth/google', (req, res) => {
   handleGoogleAuth(req, res, 'register');
 });
 
-app.get('/api/users', (req, res) => {
-  const includeInactive = req.query.includeInactive === '1' || req.query.includeInactive === 'true';
-  const where = includeInactive ? '' : 'WHERE is_active = 1';
-  const users = db.prepare(`SELECT ${USER_PUBLIC_COLUMNS} FROM users ${where} ORDER BY id DESC`).all().map(serializeUser);
-  res.json(users);
+app.get('/api/users', async (req, res) => {
+  try {
+    const includeInactive = req.query.includeInactive === '1' || req.query.includeInactive === 'true';
+    const where = includeInactive ? '' : 'WHERE is_active = 1';
+    const users = await db.all(`SELECT ${USER_PUBLIC_COLUMNS} FROM users ${where} ORDER BY id DESC`);
+    res.json(users.map(serializeUser));
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
 app.get('/api/users/menu-permissions', (req, res) => {
   res.json(USER_MENU_PERMISSIONS);
 });
 
-app.get('/api/users/:id', (req, res) => {
-  const includeInactive = req.query.includeInactive === '1' || req.query.includeInactive === 'true';
-  const user = getPublicUser(req.params.id, includeInactive);
-  if (!user) return res.status(404).json({ message: 'Khong tim thay user.' });
-  res.json(user);
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const includeInactive = req.query.includeInactive === '1' || req.query.includeInactive === 'true';
+    const user = await getPublicUser(req.params.id, includeInactive);
+    if (!user) return res.status(404).json({ message: 'Khong tim thay user.' });
+    res.json(user);
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post('/api/users', (req, res) => {
-  const body = req.body || {};
-  const payload = normalizeUserPayload(body);
-  const passwordError = validatePassword(body.password);
-  if (passwordError) return res.status(400).json({ message: passwordError });
+app.post('/api/users', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const payload = normalizeUserPayload(body);
+    const passwordError = validatePassword(body.password);
+    if (passwordError) return res.status(400).json({ message: passwordError });
 
-  const payloadError = validateUserPayload(payload, { requireUsername: true, requireFullName: true });
-  if (payloadError) return res.status(400).json({ message: payloadError });
+    const payloadError = validateUserPayload(payload, { requireUsername: true, requireFullName: true });
+    if (payloadError) return res.status(400).json({ message: payloadError });
 
-  if (usernameExists(payload.username)) {
-    return res.status(409).json({ message: 'Username da ton tai.' });
+    if (await usernameExists(payload.username)) {
+      return res.status(409).json({ message: 'Username da ton tai.' });
+    }
+
+    const hasIsActive = Object.prototype.hasOwnProperty.call(body, 'is_active') || Object.prototype.hasOwnProperty.call(body, 'isActive');
+    const isActiveValue = body.is_active ?? body.isActive;
+    const isActive = hasIsActive ? (isActiveValue ? 1 : 0) : 1;
+
+    const info = await db.run(`
+      INSERT INTO users(username, password_hash, full_name, rank, unit, role, email, phone, permissions, note, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [
+      payload.username,
+      hashPassword(body.password),
+      payload.fullName,
+      payload.rank,
+      payload.unit,
+      payload.role,
+      payload.email,
+      payload.phone,
+      JSON.stringify(payload.permissions || defaultPermissionsForRole(payload.role)),
+      payload.note,
+      isActive
+    ]);
+
+    const created = await getPublicUser(info.lastInsertRowid, true);
+    await auditLog('Create', 'Users', created.id, created, null, req);
+    res.status(201).json(created);
+  } catch (error) {
+    sendError(res, error);
   }
-
-  const hasIsActive = Object.prototype.hasOwnProperty.call(body, 'is_active') || Object.prototype.hasOwnProperty.call(body, 'isActive');
-  const isActiveValue = body.is_active ?? body.isActive;
-  const isActive = hasIsActive ? (isActiveValue ? 1 : 0) : 1;
-
-  const info = db.prepare(`
-    INSERT INTO users(username, password_hash, full_name, rank, unit, role, email, phone, permissions, note, is_active)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    payload.username,
-    hashPassword(body.password),
-    payload.fullName,
-    payload.rank,
-    payload.unit,
-    payload.role,
-    payload.email,
-    payload.phone,
-    JSON.stringify(payload.permissions || defaultPermissionsForRole(payload.role)),
-    payload.note,
-    isActive
-  );
-
-  const created = getPublicUser(info.lastInsertRowid, true);
-  auditLog('Create', 'Users', created.id, created, null, req);
-  res.status(201).json(created);
 });
 
-function updateUser(req, res) {
-  const body = req.body || {};
-  const current = getPublicUser(req.params.id, true);
-  if (!current) return res.status(404).json({ message: 'Khong tim thay user.' });
+async function updateUser(req, res) {
+  try {
+    const body = req.body || {};
+    const current = await getPublicUser(req.params.id, true);
+    if (!current) return res.status(404).json({ message: 'Khong tim thay user.' });
 
-  const payload = normalizeUserPayload({
-    username: body.username ?? current.username,
-    full_name: body.full_name ?? body.fullName ?? current.full_name,
-    rank: body.rank ?? current.rank,
-    unit: body.unit ?? current.unit,
-    role: body.role ?? current.role,
-    email: body.email ?? current.email,
-    phone: body.phone ?? current.phone,
-    permissions: body.permissions ?? current.permissions,
-    note: body.note ?? current.note
-  });
-  const payloadError = validateUserPayload(payload, { requireUsername: true, requireFullName: true });
-  if (payloadError) return res.status(400).json({ message: payloadError });
+    const payload = normalizeUserPayload({
+      username: body.username ?? current.username,
+      full_name: body.full_name ?? body.fullName ?? current.full_name,
+      rank: body.rank ?? current.rank,
+      unit: body.unit ?? current.unit,
+      role: body.role ?? current.role,
+      email: body.email ?? current.email,
+      phone: body.phone ?? current.phone,
+      permissions: body.permissions ?? current.permissions,
+      note: body.note ?? current.note
+    });
+    const payloadError = validateUserPayload(payload, { requireUsername: true, requireFullName: true });
+    if (payloadError) return res.status(400).json({ message: payloadError });
 
-  if (usernameExists(payload.username, current.id)) {
-    return res.status(409).json({ message: 'Username da ton tai.' });
+    if (await usernameExists(payload.username, current.id)) {
+      return res.status(409).json({ message: 'Username da ton tai.' });
+    }
+
+    const hasIsActive = Object.prototype.hasOwnProperty.call(body, 'is_active') || Object.prototype.hasOwnProperty.call(body, 'isActive');
+    const isActiveValue = body.is_active ?? body.isActive;
+    const isActive = hasIsActive ? (isActiveValue ? 1 : 0) : current.is_active;
+
+    await db.run(`
+      UPDATE users
+      SET username = ?,
+          full_name = ?,
+          rank = ?,
+          unit = ?,
+          role = ?,
+          email = ?,
+          phone = ?,
+          permissions = ?,
+          note = ?,
+          is_active = ?,
+          updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
+      WHERE id = ?
+    `, [
+      payload.username,
+      payload.fullName,
+      payload.rank,
+      payload.unit,
+      payload.role,
+      payload.email,
+      payload.phone,
+      JSON.stringify(payload.permissions || defaultPermissionsForRole(payload.role)),
+      payload.note,
+      isActive,
+      current.id
+    ]);
+
+    const updated = await getPublicUser(current.id, true);
+    await auditLog('Update', 'Users', current.id, updated, current, req);
+    res.json(updated);
+  } catch (error) {
+    sendError(res, error);
   }
-
-  const hasIsActive = Object.prototype.hasOwnProperty.call(body, 'is_active') || Object.prototype.hasOwnProperty.call(body, 'isActive');
-  const isActiveValue = body.is_active ?? body.isActive;
-  const isActive = hasIsActive ? (isActiveValue ? 1 : 0) : current.is_active;
-
-  db.prepare(`
-    UPDATE users
-    SET username = ?,
-        full_name = ?,
-        rank = ?,
-        unit = ?,
-        role = ?,
-        email = ?,
-        phone = ?,
-        permissions = ?,
-        note = ?,
-        is_active = ?,
-        updated_at = CURRENT_TIMESTAMP
-    WHERE id = ?
-  `).run(
-    payload.username,
-    payload.fullName,
-    payload.rank,
-    payload.unit,
-    payload.role,
-    payload.email,
-    payload.phone,
-    JSON.stringify(payload.permissions || defaultPermissionsForRole(payload.role)),
-    payload.note,
-    isActive,
-    current.id
-  );
-
-  const updated = getPublicUser(current.id, true);
-  auditLog('Update', 'Users', current.id, updated, current, req);
-  res.json(updated);
 }
 
-app.patch('/api/users/:id/password', (req, res) => {
-  const body = req.body || {};
-  const current = getPublicUser(req.params.id, true);
-  if (!current) return res.status(404).json({ message: 'Khong tim thay user.' });
+app.patch('/api/users/:id/password', async (req, res) => {
+  try {
+    const body = req.body || {};
+    const current = await getPublicUser(req.params.id, true);
+    if (!current) return res.status(404).json({ message: 'Khong tim thay user.' });
 
-  const passwordError = validatePassword(body.password);
-  if (passwordError) return res.status(400).json({ message: passwordError });
+    const passwordError = validatePassword(body.password);
+    if (passwordError) return res.status(400).json({ message: passwordError });
 
-  db.prepare('UPDATE users SET password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(hashPassword(body.password), current.id);
-  auditLog('UpdatePassword', 'Users', current.id, { username: current.username }, null, req);
-  res.json({ ok: true });
+    await db.run('UPDATE users SET password_hash = ?, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE id = ?', [hashPassword(body.password), current.id]);
+    await auditLog('UpdatePassword', 'Users', current.id, { username: current.username }, null, req);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
 app.put('/api/users/:id', updateUser);
 app.patch('/api/users/:id', updateUser);
 
-app.delete('/api/users/:id', (req, res) => {
-  const current = getPublicUser(req.params.id, true);
-  if (!current) return res.status(404).json({ message: 'Khong tim thay user.' });
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    const current = await getPublicUser(req.params.id, true);
+    if (!current) return res.status(404).json({ message: 'Khong tim thay user.' });
 
-  db.prepare('UPDATE users SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(current.id);
-  auditLog('Lock', 'Users', current.id, { username: current.username, is_active: 0 }, current, req);
-  res.json({ ok: true });
+    await db.run('UPDATE users SET is_active = 0, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE id = ?', [current.id]);
+    await auditLog('Lock', 'Users', current.id, { username: current.username, is_active: 0 }, current, req);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.get('/api/bootstrap', (req, res) => {
-  const examSessionId = normalizeExamSessionId(req.query.examSessionId ?? req.query.exam_session_id);
-  res.json({
-    plans: PLANS,
-    examSessionId,
-    examSessions: listExamSessions(),
-    teachers: {
-      examiner1: listByRole('examiner1', examSessionId),
-      examiner2: listByRole('examiner2', examSessionId),
-      supervisor: listByRole('supervisor', examSessionId)
-    },
-    rooms: listRooms(examSessionId),
-    latestSession: db.prepare('SELECT * FROM draw_sessions ORDER BY id DESC LIMIT 1').get() || null
-  });
+app.get('/api/bootstrap', async (req, res) => {
+  try {
+    const examSessionId = await normalizeExamSessionId(req.query.examSessionId ?? req.query.exam_session_id);
+    const [examSessions, ex1, ex2, sups, rooms, latestSession] = await Promise.all([
+      listExamSessions(),
+      listByRole('examiner1', examSessionId),
+      listByRole('examiner2', examSessionId),
+      listByRole('supervisor', examSessionId),
+      listRooms(examSessionId),
+      db.get('SELECT TOP 1 * FROM draw_sessions ORDER BY id DESC')
+    ]);
+
+    res.json({
+      plans: PLANS,
+      examSessionId,
+      examSessions,
+      teachers: {
+        examiner1: ex1,
+        examiner2: ex2,
+        supervisor: sups
+      },
+      rooms,
+      latestSession: latestSession || null
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post('/api/teachers', (req, res) => {
-  const { name, role, unit = '', note = '' } = req.body;
-  if (!name || !ROLES.includes(role)) return res.status(400).json({ message: 'Tên hoặc vai trò không hợp lệ.' });
-  const examSessionId = normalizeExamSessionId(req.body?.examSessionId ?? req.body?.exam_session_id);
-  const info = db.prepare('INSERT INTO teachers(name, role, unit, note, exam_session_id) VALUES (?, ?, ?, ?, ?)').run(name.trim(), role, unit.trim(), note.trim(), examSessionId);
-  res.json({ id: info.lastInsertRowid, name, role, unit, note, exam_session_id: examSessionId });
+app.post('/api/teachers', async (req, res) => {
+  try {
+    const { name, role, unit = '', note = '' } = req.body;
+    if (!name || !ROLES.includes(role)) return res.status(400).json({ message: 'Tên hoặc vai trò không hợp lệ.' });
+    const examSessionId = await normalizeExamSessionId(req.body?.examSessionId ?? req.body?.exam_session_id);
+    const info = await db.run('INSERT INTO teachers(name, role, unit, note, exam_session_id) VALUES (?, ?, ?, ?, ?)', [name.trim(), role, unit.trim(), note.trim(), examSessionId]);
+    res.json({ id: info.lastInsertRowid, name, role, unit, note, exam_session_id: examSessionId });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post('/api/teachers/import', (req, res) => {
-  const { role, names = '' } = req.body;
-  if (!ROLES.includes(role)) return res.status(400).json({ message: 'Vai trò không hợp lệ.' });
-  const examSessionId = normalizeExamSessionId(req.body?.examSessionId ?? req.body?.exam_session_id);
-  const lines = names.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-  const insert = db.prepare('INSERT INTO teachers(name, role, exam_session_id) VALUES (?, ?, ?)');
-  const trx = db.transaction(items => items.forEach(name => insert.run(name, role, examSessionId)));
-  trx(lines);
-  res.json({ inserted: lines.length });
+app.post('/api/teachers/import', async (req, res) => {
+  try {
+    const { role, names = '' } = req.body;
+    if (!ROLES.includes(role)) return res.status(400).json({ message: 'Vai trò không hợp lệ.' });
+    const examSessionId = await normalizeExamSessionId(req.body?.examSessionId ?? req.body?.exam_session_id);
+    const lines = names.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+
+    await db.transaction(async (tx) => {
+      for (const name of lines) {
+        await tx.run('INSERT INTO teachers(name, role, exam_session_id) VALUES (?, ?, ?)', [name, role, examSessionId]);
+      }
+    });
+
+    res.json({ inserted: lines.length });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.delete('/api/teachers/:id', (req, res) => {
-  db.prepare('UPDATE teachers SET is_active = 0 WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
+app.delete('/api/teachers/:id', async (req, res) => {
+  try {
+    await db.run('UPDATE teachers SET is_active = 0 WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post('/api/rooms', (req, res) => {
-  const { name, capacity = null, note = '' } = req.body;
-  if (!name) return res.status(400).json({ message: 'Tên phòng thi không hợp lệ.' });
-  const examSessionId = normalizeExamSessionId(req.body?.examSessionId ?? req.body?.exam_session_id);
-  const info = db.prepare('INSERT INTO exam_rooms(name, capacity, note, exam_session_id) VALUES (?, ?, ?, ?)').run(name.trim(), capacity, note.trim(), examSessionId);
-  res.json({ id: info.lastInsertRowid, name, capacity, note, exam_session_id: examSessionId });
+app.post('/api/rooms', async (req, res) => {
+  try {
+    const { name, capacity = null, note = '' } = req.body;
+    if (!name) return res.status(400).json({ message: 'Tên phòng thi không hợp lệ.' });
+    const examSessionId = await normalizeExamSessionId(req.body?.examSessionId ?? req.body?.exam_session_id);
+    const info = await db.run('INSERT INTO exam_rooms(name, capacity, note, exam_session_id) VALUES (?, ?, ?, ?)', [name.trim(), capacity, note.trim(), examSessionId]);
+    res.json({ id: info.lastInsertRowid, name, capacity, note, exam_session_id: examSessionId });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post('/api/rooms/import', (req, res) => {
-  const { names = '' } = req.body;
-  const examSessionId = normalizeExamSessionId(req.body?.examSessionId ?? req.body?.exam_session_id);
-  const lines = names.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
-  const insert = db.prepare('INSERT INTO exam_rooms(name, exam_session_id) VALUES (?, ?)');
-  const trx = db.transaction(items => items.forEach(name => insert.run(name, examSessionId)));
-  trx(lines);
-  res.json({ inserted: lines.length });
+app.post('/api/rooms/import', async (req, res) => {
+  try {
+    const { names = '' } = req.body;
+    const examSessionId = await normalizeExamSessionId(req.body?.examSessionId ?? req.body?.exam_session_id);
+    const lines = names.split(/\r?\n/).map(x => x.trim()).filter(Boolean);
+
+    await db.transaction(async (tx) => {
+      for (const name of lines) {
+        await tx.run('INSERT INTO exam_rooms(name, exam_session_id) VALUES (?, ?)', [name, examSessionId]);
+      }
+    });
+
+    res.json({ inserted: lines.length });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.delete('/api/rooms/:id', (req, res) => {
-  db.prepare('UPDATE exam_rooms SET is_active = 0 WHERE id = ?').run(req.params.id);
-  res.json({ ok: true });
+app.delete('/api/rooms/:id', async (req, res) => {
+  try {
+    await db.run('UPDATE exam_rooms SET is_active = 0 WHERE id = ?', [req.params.id]);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.patch('/api/rooms/:id/supervisor-pair', (req, res) => {
-  const allow = req.body.allow ? 1 : 0;
-  db.prepare('UPDATE exam_rooms SET allow_supervisor_pair = ? WHERE id = ?').run(allow, req.params.id);
-  res.json({ ok: true });
+app.patch('/api/rooms/:id/supervisor-pair', async (req, res) => {
+  try {
+    const allow = req.body.allow ? 1 : 0;
+    await db.run('UPDATE exam_rooms SET allow_supervisor_pair = ? WHERE id = ?', [allow, req.params.id]);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
 });
 
-app.post('/api/draw', (req, res) => {
+app.post('/api/draw', async (req, res) => {
   try {
     const examSubjectId = Number(req.body?.examSubjectId ?? req.body?.exam_subject_id) || null;
-    const subjectContext = examSubjectId ? getExamSubjectContext(examSubjectId) : null;
-    const constraints = getRecentDrawConstraints(2, subjectContext?.subject_id || null, subjectContext?.exam_session_id || null);
+    const subjectContext = examSubjectId ? await getExamSubjectContext(examSubjectId) : null;
+    const constraints = await getRecentDrawConstraints(2, subjectContext?.subject_id || null, subjectContext?.exam_session_id || null);
     const last = subjectContext
-      ? db.prepare('SELECT result_hash FROM draw_sessions WHERE exam_subject_id = ? ORDER BY id DESC LIMIT 1').get(subjectContext.subject_id)
-      : db.prepare('SELECT result_hash FROM draw_sessions WHERE exam_subject_id IS NULL ORDER BY id DESC LIMIT 1').get();
+      ? await db.get('SELECT TOP 1 result_hash FROM draw_sessions WHERE exam_subject_id = ? ORDER BY id DESC', [subjectContext.subject_id])
+      : await db.get('SELECT TOP 1 result_hash FROM draw_sessions WHERE exam_subject_id IS NULL ORDER BY id DESC');
+    
     let draw;
     let resultHash;
     let attempts = 0;
 
     do {
-      draw = buildDrawV2(constraints, subjectContext?.exam_session_id || null);
+      draw = await buildDrawV2(constraints, subjectContext?.exam_session_id || null);
       resultHash = hashResult(draw.planName, draw.rows);
       attempts++;
     } while (last && resultHash === last.result_hash && attempts < 50);
@@ -2848,50 +2697,51 @@ app.post('/api/draw', (req, res) => {
       return res.status(409).json({ message: 'Không tạo được kết quả khác các lần bốc thăm trước. Vui lòng bổ sung thêm cán bộ/phòng thi.' });
     }
 
-    const insertSession = db.prepare('INSERT INTO draw_sessions(plan_name, result_hash, exam_session_id, exam_subject_id) VALUES (?, ?, ?, ?)');
-    const insertResult = db.prepare(`
-      INSERT INTO draw_results(session_id, room_id, room_name, examiner1_id, examiner1_name, examiner2_id, examiner2_name, supervisor_id, supervisor_name)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    const insertReserve = db.prepare(`
-      INSERT INTO draw_reserves(session_id, role, staff_id, staff_name)
-      VALUES (?, ?, ?, ?)
-    `);
-
-    const trx = db.transaction(() => {
-      const session = insertSession.run(
-        draw.planName,
-        resultHash,
-        subjectContext?.exam_session_id || null,
-        subjectContext?.subject_id || null
+    let sessionId;
+    await db.transaction(async (tx) => {
+      const session = await tx.run(
+        'INSERT INTO draw_sessions(plan_name, result_hash, exam_session_id, exam_subject_id) VALUES (?, ?, ?, ?)',
+        [draw.planName, resultHash, subjectContext?.exam_session_id || null, subjectContext?.subject_id || null]
       );
-      draw.rows.forEach(row => insertResult.run(
-        session.lastInsertRowid,
-        row.roomId,
-        row.roomName,
-        row.examiner1Id,
-        row.examiner1Name,
-        row.examiner2Id,
-        row.examiner2Name,
-        row.supervisorId,
-        row.supervisorName
-      ));
-      draw.reserves.forEach(row => insertReserve.run(
-        session.lastInsertRowid,
-        row.role,
-        row.staffId,
-        row.staffName
-      ));
-      return session.lastInsertRowid;
+      sessionId = session.lastInsertRowid;
+
+      for (const row of draw.rows) {
+        await tx.run(`
+          INSERT INTO draw_results(session_id, room_id, room_name, examiner1_id, examiner1_name, examiner2_id, examiner2_name, supervisor_id, supervisor_name)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `, [
+          sessionId,
+          row.roomId,
+          row.roomName,
+          row.examiner1Id,
+          row.examiner1Name,
+          row.examiner2Id,
+          row.examiner2Name,
+          row.supervisorId,
+          row.supervisorName
+        ]);
+      }
+
+      for (const row of draw.reserves) {
+        await tx.run(`
+          INSERT INTO draw_reserves(session_id, role, staff_id, staff_name)
+          VALUES (?, ?, ?, ?)
+        `, [
+          sessionId,
+          row.role,
+          row.staffId,
+          row.staffName
+        ]);
+      }
     });
 
-    const sessionId = trx();
-    auditLog('Create', 'DrawSession', sessionId, {
+    await auditLog('Create', 'DrawSession', sessionId, {
       planName: draw.planName,
       rooms: draw.rows.length,
       examSessionId: subjectContext?.exam_session_id || null,
       examSubjectId: subjectContext?.subject_id || null
     }, null, req);
+
     res.json({
       sessionId,
       planName: draw.planName,
@@ -2908,47 +2758,31 @@ app.post('/api/draw', (req, res) => {
   }
 });
 
-app.get('/api/history', (req, res) => {
-  const examSubjectId = Number(req.query.examSubjectId ?? req.query.exam_subject_id) || null;
-  const baseQuery = `
-    SELECT
-      d.*,
-      e.target_name,
-      s.exam_date,
-      s.subject_name
-    FROM draw_sessions d
-    LEFT JOIN exam_sessions e ON e.id = d.exam_session_id
-    LEFT JOIN exam_subjects s ON s.id = d.exam_subject_id
-  `;
-  const sessions = examSubjectId
-    ? db.prepare(`${baseQuery} WHERE d.exam_subject_id = ? ORDER BY d.id DESC LIMIT 5`).all(examSubjectId)
-    : db.prepare(`${baseQuery} ORDER BY d.id DESC LIMIT 5`).all();
-  res.json(sessions);
-});
-
-app.get('/api/history/:id', (req, res) => {
-  const session = db.prepare(`
-    SELECT
-      d.*,
-      e.target_name,
-      e.student_count,
-      s.exam_date,
-      s.subject_name
-    FROM draw_sessions d
-    LEFT JOIN exam_sessions e ON e.id = d.exam_session_id
-    LEFT JOIN exam_subjects s ON s.id = d.exam_subject_id
-    WHERE d.id = ?
-  `).get(req.params.id);
-  if (!session) return res.status(404).json({ message: 'Không tìm thấy phiên bốc thăm.' });
-  const rows = sortRooms(db.prepare('SELECT * FROM draw_results WHERE session_id = ? ORDER BY id ASC').all(req.params.id).map(r => ({ ...r, name: r.room_name })));
-  const reserves = db.prepare('SELECT * FROM draw_reserves WHERE session_id = ? ORDER BY id ASC').all(req.params.id);
-  rows.forEach(r => delete r.name);
-  res.json({ session, rows, reserves });
-});
-
-app.delete('/api/history/:id', (req, res) => {
+app.get('/api/history', async (req, res) => {
   try {
-    const session = db.prepare(`
+    const examSubjectId = Number(req.query.examSubjectId ?? req.query.exam_subject_id) || null;
+    const baseQuery = `
+      SELECT TOP 5
+        d.*,
+        e.target_name,
+        s.exam_date,
+        s.subject_name
+      FROM draw_sessions d
+      LEFT JOIN exam_sessions e ON e.id = d.exam_session_id
+      LEFT JOIN exam_subjects s ON s.id = d.exam_subject_id
+    `;
+    const sessions = examSubjectId
+      ? await db.all(`${baseQuery} WHERE d.exam_subject_id = ? ORDER BY d.id DESC`, [examSubjectId])
+      : await db.all(`${baseQuery} ORDER BY d.id DESC`);
+    res.json(sessions);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.get('/api/history/:id', async (req, res) => {
+  try {
+    const session = await db.get(`
       SELECT
         d.*,
         e.target_name,
@@ -2959,19 +2793,48 @@ app.delete('/api/history/:id', (req, res) => {
       LEFT JOIN exam_sessions e ON e.id = d.exam_session_id
       LEFT JOIN exam_subjects s ON s.id = d.exam_subject_id
       WHERE d.id = ?
-    `).get(req.params.id);
+    `, [req.params.id]);
+    if (!session) return res.status(404).json({ message: 'Không tìm thấy phiên bốc thăm.' });
+    
+    const dbRows = await db.all('SELECT * FROM draw_results WHERE session_id = ? ORDER BY id ASC', [req.params.id]);
+    const rows = sortRooms(dbRows.map(r => ({ ...r, name: r.room_name })));
+    rows.forEach(r => delete r.name);
+
+    const reserves = await db.all('SELECT * FROM draw_reserves WHERE session_id = ? ORDER BY id ASC', [req.params.id]);
+    res.json({ session, rows, reserves });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.delete('/api/history/:id', async (req, res) => {
+  try {
+    const session = await db.get(`
+      SELECT
+        d.*,
+        e.target_name,
+        e.student_count,
+        s.exam_date,
+        s.subject_name
+      FROM draw_sessions d
+      LEFT JOIN exam_sessions e ON e.id = d.exam_session_id
+      LEFT JOIN exam_subjects s ON s.id = d.exam_subject_id
+      WHERE d.id = ?
+    `, [req.params.id]);
     if (!session) throw httpError(404, 'Không tìm thấy phiên bốc thăm.');
 
-    const rows = db.prepare('SELECT * FROM draw_results WHERE session_id = ? ORDER BY id ASC').all(session.id);
-    const reserves = db.prepare('SELECT * FROM draw_reserves WHERE session_id = ? ORDER BY id ASC').all(session.id);
-    const deleteSession = db.transaction(() => {
-      db.prepare('DELETE FROM draw_reserves WHERE session_id = ?').run(session.id);
-      db.prepare('DELETE FROM draw_results WHERE session_id = ?').run(session.id);
-      db.prepare('DELETE FROM draw_sessions WHERE id = ?').run(session.id);
+    const [rows, reserves] = await Promise.all([
+      db.all('SELECT * FROM draw_results WHERE session_id = ? ORDER BY id ASC', [session.id]),
+      db.all('SELECT * FROM draw_reserves WHERE session_id = ? ORDER BY id ASC', [session.id])
+    ]);
+
+    await db.transaction(async (tx) => {
+      await tx.run('DELETE FROM draw_reserves WHERE session_id = ?', [session.id]);
+      await tx.run('DELETE FROM draw_results WHERE session_id = ?', [session.id]);
+      await tx.run('DELETE FROM draw_sessions WHERE id = ?', [session.id]);
     });
 
-    deleteSession();
-    auditLog('Delete', 'DrawSession', session.id, null, {
+    await auditLog('Delete', 'DrawSession', session.id, null, {
       session,
       rows_count: rows.length,
       reserves_count: reserves.length
@@ -2981,7 +2844,6 @@ app.delete('/api/history/:id', (req, res) => {
     sendError(res, error);
   }
 });
-
 
 function xmlEscape(value) {
   return String(value ?? '').replace(/[<>&"']/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;', "'": '&apos;' }[c]));
@@ -3060,7 +2922,7 @@ async function buildExportDocx(session, rows) {
 
 app.get('/api/history/:id/export', async (req, res) => {
   try {
-    const session = db.prepare(`
+    const session = await db.get(`
       SELECT
         d.*,
         e.target_name,
@@ -3071,12 +2933,14 @@ app.get('/api/history/:id/export', async (req, res) => {
       LEFT JOIN exam_sessions e ON e.id = d.exam_session_id
       LEFT JOIN exam_subjects s ON s.id = d.exam_subject_id
       WHERE d.id = ?
-    `).get(req.params.id);
+    `, [req.params.id]);
     if (!session) return res.status(404).json({ message: 'Không tìm thấy phiên bốc thăm.' });
-    let rows = db.prepare('SELECT * FROM draw_results WHERE session_id = ? ORDER BY id ASC').all(req.params.id);
+    
+    let rows = await db.all('SELECT * FROM draw_results WHERE session_id = ? ORDER BY id ASC', [req.params.id]);
     rows = sortRooms(rows.map(r => ({ ...r, name: r.room_name }))).map(({ name, ...r }) => r);
+    
     const buffer = await buildExportDocx(session, rows);
-    auditLog('Export', 'DrawSession', session.id, { file: `ket-qua-boc-tham-${session.id}.docx` }, null, req);
+    await auditLog('Export', 'DrawSession', session.id, { file: `ket-qua-boc-tham-${session.id}.docx` }, null, req);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     res.setHeader('Content-Disposition', `attachment; filename="ket-qua-boc-tham-${session.id}.docx"`);
     res.send(buffer);
@@ -3085,6 +2949,16 @@ app.get('/api/history/:id/export', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Exam draw website running at http://localhost:${PORT}`);
-});
+async function startServer() {
+  try {
+    await ensureDefaultAdminAccount();
+    app.listen(PORT, () => {
+      console.log(`🚀 ArmyTech Website running on SQL Server at http://localhost:${PORT}`);
+    });
+  } catch (err) {
+    console.error('❌ Failed to initialize server:', err);
+    process.exit(1);
+  }
+}
+
+startServer();

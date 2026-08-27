@@ -136,18 +136,6 @@ const navItems = [
     category: 'ops'
   },
   { 
-    key: 'students', 
-    label: 'Tiếp nhận học viên', 
-    shortLabel: 'Học viên', 
-    desc: 'Quản lý hồ sơ & biên chế', 
-    href: 'students.html', 
-    permission: 'students', 
-    icon: 'students', 
-    color: '#3b82f6', 
-    gradient: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
-    category: 'ops'
-  },
-  { 
     key: 'ai', 
     label: 'AI Assistant', 
     shortLabel: 'Trợ lý AI', 
@@ -376,6 +364,12 @@ function renderNavigation() {
           <span class="nav-label">${escapeHtml(item.label)}</span>
         </a>
       `).join('') + `
+        <button class="nav-install-btn" onclick="triggerPwaInstall()" title="Cài đặt App / Thêm vào màn hình chính">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          </span>
+          <span class="nav-label">Cài đặt App</span>
+        </button>
         <button class="nav-logout" onclick="logout()" title="Đăng xuất">
           <span class="nav-icon-box logout-box" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);">${navIcon('logout')}</span>
           <span class="nav-label">Đăng xuất</span>
@@ -457,6 +451,18 @@ function renderNavigation() {
           `).join('')}
         </div>
       </div>
+
+      <!-- Install App Button in drawer -->
+      <button type="button" class="drawer-install-btn" onclick="triggerPwaInstall()" title="Cài đặt ứng dụng / Thêm vào màn hình chính">
+        <div class="drawer-item-icon" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        </div>
+        <div class="drawer-item-content">
+          <strong class="drawer-item-title" style="color: #0284c7;">Cài đặt ứng dụng</strong>
+          <span class="drawer-item-desc">Thêm vào màn hình chính (Web App)</span>
+        </div>
+        <span class="drawer-install-pill">Cài đặt</span>
+      </button>
 
       <!-- Logout button in drawer -->
       <button type="button" class="drawer-logout-btn" onclick="logout()" title="Đăng xuất">
@@ -3865,9 +3871,224 @@ function setDefaultDates() {
 }
 
 document.addEventListener('DOMContentLoaded', async () => {
+  initPwaEngine();
   const authenticated = await initializeAuth();
   if (!authenticated) return;
   setDefaultDates();
   resetUserForm();
   loadData();
 });
+
+/* ==========================================================================
+   PWA & ADD TO HOME SCREEN ENGINE
+   ========================================================================== */
+
+let deferredInstallPrompt = null;
+const isPwaInstalled = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+function registerPwaServiceWorker() {
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => {
+          console.log('[PWA] Service Worker đăng ký thành công:', reg.scope);
+        })
+        .catch(err => {
+          console.warn('[PWA] Service Worker đăng ký thất bại:', err);
+        });
+    });
+  }
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  renderPwaInstallBanner();
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredInstallPrompt = null;
+  dismissPwaBanner();
+  showToast('🎉 Đã cài đặt ArmyTech vào màn hình chính thành công!');
+});
+
+function initPwaEngine() {
+  registerPwaServiceWorker();
+  // Nếu chưa cài đặt, hiển thị banner nhắc nhở thông minh sau 2.5 giây
+  if (!isPwaInstalled) {
+    setTimeout(() => {
+      renderPwaInstallBanner();
+    }, 2500);
+  }
+}
+
+async function triggerPwaInstall() {
+  if (isPwaInstalled) {
+    showToast('Ứng dụng đã được cài đặt trên thiết bị của bạn.');
+    return;
+  }
+
+  if (deferredInstallPrompt) {
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    if (outcome === 'accepted') {
+      dismissPwaBanner();
+    }
+    deferredInstallPrompt = null;
+    return;
+  }
+
+  // Nếu là iOS Safari
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+  if (isIos) {
+    showIosInstallModal();
+    return;
+  }
+
+  showGeneralInstallModal();
+}
+
+function renderPwaInstallBanner() {
+  if (isPwaInstalled || document.getElementById('pwaInstallBanner')) return;
+  const dismissedTime = localStorage.getItem('armyTechPwaDismissed');
+  if (dismissedTime && Date.now() - Number(dismissedTime) < 3 * 86400000) return; // Ẩn 3 ngày nếu đã bấm để sau
+
+  const banner = document.createElement('div');
+  banner.id = 'pwaInstallBanner';
+  banner.className = 'pwa-install-banner';
+  banner.innerHTML = `
+    <div class="pwa-banner-header">
+      <div class="pwa-banner-icon">
+        <img src="img/logo-removebg-preview.png" alt="Logo">
+      </div>
+      <div class="pwa-banner-info">
+        <div class="pwa-banner-title">
+          <span>Cài đặt ArmyTech</span>
+          <span class="pwa-badge">Web App</span>
+        </div>
+        <p class="pwa-banner-desc">Thêm vào màn hình chính để mở nhanh, mượt mà như app điện thoại.</p>
+      </div>
+      <button class="pwa-banner-close" onclick="dismissPwaBanner()" aria-label="Đóng">
+        <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="pwa-banner-actions">
+      <button class="pwa-banner-btn-install" onclick="triggerPwaInstall()">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Cài đặt ngay
+      </button>
+      <button class="pwa-banner-btn-later" onclick="dismissPwaBanner()">Để sau</button>
+    </div>
+  `;
+  document.body.appendChild(banner);
+}
+
+function dismissPwaBanner() {
+  const banner = document.getElementById('pwaInstallBanner');
+  if (banner) {
+    banner.remove();
+    localStorage.setItem('armyTechPwaDismissed', Date.now());
+  }
+}
+
+function showIosInstallModal() {
+  closePwaModal();
+  const modal = document.createElement('div');
+  modal.id = 'pwaInstallModal';
+  modal.className = 'pwa-modal-overlay';
+  modal.innerHTML = `
+    <div class="pwa-modal-card">
+      <div class="pwa-modal-header">
+        <button class="pwa-modal-close-btn" onclick="closePwaModal()" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <div class="pwa-modal-header-icon">
+          <img src="img/logo-removebg-preview.png" alt="Logo">
+        </div>
+        <h3>Thêm vào Màn hình chính</h3>
+        <p>Cài đặt ArmyTech trên iPhone / iPad</p>
+      </div>
+      <div class="pwa-modal-body">
+        <div class="pwa-step-item">
+          <span class="pwa-step-num">1</span>
+          <div class="pwa-step-text">
+            Chạm vào biểu tượng <strong>Chia sẻ (Share)</strong>
+            <span class="inline-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8M16 6l-4-4-4 4M12 2v13"/></svg>
+            </span>
+            ở thanh dưới cùng trình duyệt Safari.
+          </div>
+        </div>
+        <div class="pwa-step-item">
+          <span class="pwa-step-num">2</span>
+          <div class="pwa-step-text">
+            Cuộn menu xuống và chọn <strong>"Thêm vào MH chính" (Add to Home Screen)</strong>
+            <span class="inline-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 8v8M8 12h8"/></svg>
+            </span>.
+          </div>
+        </div>
+        <div class="pwa-step-item">
+          <span class="pwa-step-num">3</span>
+          <div class="pwa-step-text">
+            Nhấn <strong>"Thêm" (Add)</strong> ở góc trên bên phải để hoàn tất. Biểu tượng ứng dụng sẽ xuất hiện ngay trên màn hình chính!
+          </div>
+        </div>
+      </div>
+      <div class="pwa-modal-footer">
+        <button class="pwa-modal-btn-done" onclick="closePwaModal()">Đã hiểu</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function showGeneralInstallModal() {
+  closePwaModal();
+  const modal = document.createElement('div');
+  modal.id = 'pwaInstallModal';
+  modal.className = 'pwa-modal-overlay';
+  modal.innerHTML = `
+    <div class="pwa-modal-card">
+      <div class="pwa-modal-header">
+        <button class="pwa-modal-close-btn" onclick="closePwaModal()" aria-label="Đóng">
+          <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2" fill="none"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+        <div class="pwa-modal-header-icon">
+          <img src="img/logo-removebg-preview.png" alt="Logo">
+        </div>
+        <h3>Cài đặt Ứng dụng ArmyTech</h3>
+        <p>Thêm vào màn hình chính để truy cập tức thì</p>
+      </div>
+      <div class="pwa-modal-body">
+        <div class="pwa-step-item">
+          <span class="pwa-step-num">1</span>
+          <div class="pwa-step-text">
+            Trên thanh địa chỉ trình duyệt (Chrome / Edge / Cốc Cốc), nhấn vào biểu tượng <strong>Cài đặt ứng dụng ⊕</strong> hoặc mở menu <strong>⋮ (3 chấm)</strong>.
+          </div>
+        </div>
+        <div class="pwa-step-item">
+          <span class="pwa-step-num">2</span>
+          <div class="pwa-step-text">
+            Chọn <strong>"Cài đặt ArmyTech..."</strong> hoặc <strong>"Thêm vào màn hình chính" (Add to Home Screen)</strong>.
+          </div>
+        </div>
+        <div class="pwa-step-item">
+          <span class="pwa-step-num">3</span>
+          <div class="pwa-step-text">
+            Xác nhận <strong>Cài đặt</strong> để mở ứng dụng toàn màn hình không có thanh địa chỉ web.
+          </div>
+        </div>
+      </div>
+      <div class="pwa-modal-footer">
+        <button class="pwa-modal-btn-done" onclick="closePwaModal()">Đã hiểu</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+function closePwaModal() {
+  document.getElementById('pwaInstallModal')?.remove();
+}
+
