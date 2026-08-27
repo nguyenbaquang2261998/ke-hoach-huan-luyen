@@ -23,6 +23,9 @@ RUN mkdir -p /app/data \
 COPY --from=deps --chown=node:node /app/node_modules ./node_modules
 COPY --chown=node:node package*.json server.js template.docx ./
 COPY --chown=node:node public ./public
+COPY --chown=node:node db ./db
+COPY --chown=node:node entities ./entities
+COPY --chown=node:node scripts ./scripts
 COPY --chown=node:node docs ./docs
 
 USER node
