@@ -913,7 +913,6 @@
       @page { size: A4 portrait; margin: 10mm; }
       body, html { margin: 0; padding: 0; background: #fff; }
       .shell { display: block; height: auto; }
-      body.print-receipt-mode .shell { display: none !important; }
       .sidebar, .topbar, .tab-bar, .filter-bar, .modal-header, .modal-footer, .banner-buttons, .detail-action-banner, #toast, .btn { display: none !important; }
       .modal-backdrop { position: static !important; background: none !important; padding: 0 !important; overflow: visible !important; }
       .modal-dialog { box-shadow: none !important; max-width: none !important; margin: 0 !important; animation: none !important; }
@@ -1142,13 +1141,9 @@
               </select>
             </div>
             <div class="filter-actions">
-              <button class="btn btn-secondary" onclick="resetStudentFilters()" title="Tải lại danh sách (giữ nguyên bộ lọc)">
+              <button class="btn btn-secondary" onclick="resetStudentFilters()" title="Làm mới bộ lọc">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 2v6h6M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.3"/></svg>
                 Làm mới
-              </button>
-              <button class="btn btn-secondary" onclick="clearStudentFilters()" title="Xóa toàn bộ bộ lọc">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-                Xóa lọc
               </button>
               <button class="btn btn-secondary" onclick="exportStudentsExcel()" title="Xuất Excel">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
@@ -1385,7 +1380,7 @@
       <div class="modal-header no-print">
         <h3>Bản in Phiếu tiếp nhận học viên</h3>
         <div class="modal-header-actions">
-          <button class="btn btn-primary" onclick="printElement('admissionReceiptPrintArea')">
+          <button class="btn btn-primary" onclick="window.print()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             In ngay (A4)
           </button>
@@ -1480,7 +1475,7 @@
             <div class="form-group full-col"><label>Đơn vị (Trực thuộc Bộ) *</label><input id="editUnit" required placeholder="VD: Quân khu 1, Quân đoàn 12,..." /></div>
             <div class="form-group full-col"><label>Trình độ học vấn (Các văn bằng đã có) *</label><input id="editEducationLevel" required placeholder="VD: Đại học Chính trị phân đội; Thạc sĩ Chính trị học" /></div>
             <div class="form-group"><label>Số điện thoại *</label><input id="editPhone" required placeholder="VD: 0978819885" /></div>
-            <div class="form-group"><label>Số CCCD / CMND</label><input id="editIdCard" placeholder="VD: 019085001234" /></div>
+            <div class="form-group"><label>CMT SQ</label><input id="editIdCard" placeholder="VD: 019085001234" /></div>
             <div class="form-group"><label>Đợt tiếp nhận</label>
               <select id="editBatchId" onchange="onEditBatchChange()">
                 <option value="">-- Chọn đợt --</option>
@@ -1598,34 +1593,26 @@
   <div id="qrModal" class="modal-backdrop hidden" onclick="if(event.target===this) closeQrModal()">
     <div class="modal-dialog modal-md">
       <div class="modal-header">
-        <h3 id="qrModalTitle">Link &amp; Mã QR Đợt tiếp nhận</h3>
+        <h3>Cổng Tiếp nhận Học viên (Mobile)</h3>
         <button class="icon-action-btn" onclick="closeQrModal()" aria-label="Đóng">
           <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
         </button>
       </div>
       <div class="modal-body" style="text-align:center">
-        <p style="color:#64748b; margin-bottom:14px; font-size:13px;">Học viên quét mã QR bằng điện thoại — hệ thống sẽ tự điền đúng đợt tiếp nhận, không cần chọn lại.</p>
+        <p style="color:#64748b; margin-bottom:16px; font-size:13px;">Học viên dùng điện thoại quét mã QR để điền phiếu tiếp nhận và chụp/tải văn bằng chứng chỉ trực tiếp.</p>
         <div class="qr-container"><canvas id="qrCanvas" width="220" height="220"></canvas></div>
-        <div style="display:flex;gap:8px;margin:10px 0;">
-          <button class="btn btn-secondary" style="flex:1;font-size:12px;" onclick="downloadBatchQr()">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            Tải ảnh QR (.png)
-          </button>
-          <a id="btnOpenBatchLink" href="#" target="_blank" class="btn btn-secondary" style="flex:1;font-size:12px;text-decoration:none;">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-            Mở thử
+        <div class="qr-link-copy-box">
+          <input id="qrPublicUrlInput" readonly value="" />
+          <button class="btn btn-primary" onclick="copyPublicUrl()">Sao chép liên kết</button>
+        </div>
+        <div style="margin-top:16px">
+          <a id="btnOpenMobileTest" href="tiep-nhan.html" target="_blank" class="btn btn-secondary btn-full">
+            Mở thử giao diện điện thoại ngay
           </a>
         </div>
-        <div class="qr-link-copy-box">
-          <input id="qrPublicUrlInput" readonly value="" onclick="this.select()" />
-          <button class="btn btn-primary" onclick="copyPublicUrl()">Sao chép</button>
-        </div>
-        <!-- Phần link theo đối tượng — được JS điền vào -->
-        <div id="batchQrTargetLinks"></div>
       </div>
     </div>
   </div>
-
 
   <!-- =================================================
        MODAL: NHẬP EXCEL/CSV
