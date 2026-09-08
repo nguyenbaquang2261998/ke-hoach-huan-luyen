@@ -1,7 +1,7 @@
 # Tapluyen CI/CD
 
 GitHub Actions builds `army-tech` as a Docker image, pushes it to Docker Hub, then deploys it to the VPS with Docker Compose. The Node container binds to `127.0.0.1:3016`; the host Nginx proxies `khhl.vmeta.vn` to that local port.
-
+TEST CICD
 Required GitHub repository secrets:
 
 - `VPS_HOST`
