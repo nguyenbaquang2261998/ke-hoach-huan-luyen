@@ -74,6 +74,7 @@
       <nav class="nav">
         <a href="index.html">Dashboard</a>
         <a class="active" href="calendar.html">Lịch tuần</a>
+        <a href="students.html">Tiếp nhận học viên</a>
         <a href="exam.html">Thi tốt nghiệp</a>
         <a href="tasks.html">Nhắc việc</a>
         <a href="ai.html">AI Assistant</a>
@@ -156,13 +157,13 @@
               </div>
 
               <div id="calendarWeekdays" class="calendar-weekdays">
-                <span>Thứ 2</span>
-                <span>Thứ 3</span>
-                <span>Thứ 4</span>
-                <span>Thứ 5</span>
-                <span>Thứ 6</span>
-                <span>Thứ 7</span>
-                <span>Chủ Nhật</span>
+                <span><span class="wd-full">Thứ 2</span><span class="wd-short">T2</span></span>
+                <span><span class="wd-full">Thứ 3</span><span class="wd-short">T3</span></span>
+                <span><span class="wd-full">Thứ 4</span><span class="wd-short">T4</span></span>
+                <span><span class="wd-full">Thứ 5</span><span class="wd-short">T5</span></span>
+                <span><span class="wd-full">Thứ 6</span><span class="wd-short">T6</span></span>
+                <span><span class="wd-full">Thứ 7</span><span class="wd-short">T7</span></span>
+                <span><span class="wd-full">Chủ Nhật</span><span class="wd-short">CN</span></span>
               </div>
               <div id="calendarGrid" class="calendar-grid"></div>
             </div>
@@ -440,6 +441,12 @@
         </div>
       </form>
   </div>
+
+  <!-- Floating Action Button for Mobile Quick Add -->
+  <button type="button" class="mobile-calendar-fab" onclick="openCreateCalendarModal()" aria-label="Tạo lịch công tác mới" title="Tạo lịch công tác mới">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+    <span>Tạo lịch</span>
+  </button>
 
   <!-- Bottom Navigation Bar (Mobile <1024px) -->
   <nav class="bottom-nav"></nav>

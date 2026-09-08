@@ -256,7 +256,45 @@ BEGIN
 END
 GO
 
--- 12. Bảng [students] - Hồ sơ học viên tiếp nhận
+-- 12. Bảng [admission_targets] - Đối tượng tiếp nhận
+IF OBJECT_ID('dbo.admission_targets', 'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.admission_targets (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    code NVARCHAR(100) NOT NULL UNIQUE,
+    name NVARCHAR(500) NOT NULL,
+    default_class NVARCHAR(255) NULL,
+    quota INT DEFAULT 0,
+    required_documents NVARCHAR(MAX) NULL,
+    description NVARCHAR(MAX) NULL,
+    is_active INT DEFAULT 1,
+    created_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120),
+    updated_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120)
+  )
+END
+GO
+
+-- 13. Bảng [admission_batches] - Đợt tiếp nhận
+IF OBJECT_ID('dbo.admission_batches', 'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.admission_batches (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    code NVARCHAR(100) NOT NULL UNIQUE,
+    name NVARCHAR(500) NOT NULL,
+    academic_year NVARCHAR(50) NULL,
+    start_date NVARCHAR(50) NULL,
+    end_date NVARCHAR(50) NULL,
+    target_ids NVARCHAR(MAX) NULL,
+    status NVARCHAR(50) DEFAULT 'Open',
+    note NVARCHAR(MAX) NULL,
+    is_active INT DEFAULT 1,
+    created_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120),
+    updated_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120)
+  )
+END
+GO
+
+-- 14. Bảng [students] - Hồ sơ học viên tiếp nhận
 IF OBJECT_ID('dbo.students', 'U') IS NULL
 BEGIN
   CREATE TABLE dbo.students (
@@ -264,16 +302,55 @@ BEGIN
     student_code NVARCHAR(100) NOT NULL UNIQUE,
     full_name NVARCHAR(255) NOT NULL,
     birthday NVARCHAR(50) NULL,
+    birthplace NVARCHAR(255) NULL,
+    hometown NVARCHAR(500) NULL,
     rank NVARCHAR(100) NULL,
+    position NVARCHAR(255) NULL,
     unit NVARCHAR(255) NULL,
     phone NVARCHAR(50) NULL,
     email NVARCHAR(255) NULL,
+    id_card NVARCHAR(50) NULL,
+    id_card_date NVARCHAR(50) NULL,
+    id_card_place NVARCHAR(255) NULL,
+    gender NVARCHAR(20) NULL,
+    ethnic NVARCHAR(100) NULL,
+    religion NVARCHAR(100) NULL,
+    party_date NVARCHAR(50) NULL,
+    party_official_date NVARCHAR(50) NULL,
+    education_level NVARCHAR(MAX) NULL,
+    batch_id INT NULL,
+    target_id INT NULL,
+    order_index INT NULL,
     class_name NVARCHAR(255) NULL,
     admission_date NVARCHAR(50) NULL,
+    declaration_date NVARCHAR(50) NULL,
+    declaration_place NVARCHAR(255) NULL,
     status NVARCHAR(50) DEFAULT 'Created',
+    review_notes NVARCHAR(MAX) NULL,
+    reviewed_by NVARCHAR(255) NULL,
+    reviewed_at NVARCHAR(50) NULL,
+    avatar_url NVARCHAR(MAX) NULL,
     is_active INT DEFAULT 1,
     created_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120),
     updated_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120)
+  )
+END
+GO
+
+-- 15. Bảng [student_documents] - Văn bằng, chứng chỉ, giấy tờ của học viên
+IF OBJECT_ID('dbo.student_documents', 'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.student_documents (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    student_id INT NOT NULL,
+    doc_type NVARCHAR(255) NOT NULL,
+    file_name NVARCHAR(500) NOT NULL,
+    file_path NVARCHAR(MAX) NOT NULL,
+    file_size BIGINT DEFAULT 0,
+    file_type NVARCHAR(100) NULL,
+    is_active INT DEFAULT 1,
+    created_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120),
+    CONSTRAINT FK_student_documents_student FOREIGN KEY (student_id) REFERENCES dbo.students(id) ON DELETE CASCADE
   )
 END
 GO

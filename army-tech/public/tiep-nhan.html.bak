@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <title>Cổng Tiếp nhận Học viên - Học viện Chính trị</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- PWA Meta Tags -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#166534" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="HVCT Tiếp Nhận" />
+  <link rel="apple-touch-icon" href="img/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png" />
+  <link rel="icon" type="image/svg+xml" href="img/icon.svg" />
+</head>
+<body class="mobile-reception-body">
+
+  <!-- Mobile App Top Bar -->
+  <header class="app-mobile-header">
+    <div class="app-mobile-brand">
+      <img src="img/logo-removebg-preview.png" alt="Logo HVCT" class="header-logo" />
+      <div class="header-titles">
+        <h1>HỌC VIỆN CHÍNH TRỊ</h1>
+        <p>Cổng Tiếp Nhận Học Viên Trực Tuyến</p>
+      </div>
+    </div>
+    <a href="students.html" class="portal-switch-link" title="Dành cho Cán bộ Quản trị">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
+      <span>Quản trị</span>
+    </a>
+  </header>
+
+  <!-- Mobile Switcher Tabs -->
+  <div class="mobile-segmented-control">
+    <button id="btnTabSubmit" class="seg-btn active" onclick="switchReceptionTab('submit')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>
+      Nộp hồ sơ tiếp nhận
+    </button>
+    <button id="btnTabTrack" class="seg-btn" onclick="switchReceptionTab('track')">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+      Tra cứu tiến độ
+    </button>
+  </div>
+
+  <main class="mobile-app-content">
+
+    <!-- ==================================================== -->
+    <!-- TAB 1: FORM NỘP HỒ SƠ TIẾP NHẬN -->
+    <!-- ==================================================== -->
+    <section id="receptionSubmitSection" class="mobile-section active">
+      
+      <!-- Stepper Progress Bar -->
+      <div class="mobile-stepper">
+        <div class="step-item active" id="stepIndicator1">
+          <div class="step-circle">1</div>
+          <span>Đối tượng</span>
+        </div>
+        <div class="step-line" id="stepLine1"></div>
+        <div class="step-item" id="stepIndicator2">
+          <div class="step-circle">2</div>
+          <span>Thông tin</span>
+        </div>
+        <div class="step-line" id="stepLine2"></div>
+        <div class="step-item" id="stepIndicator3">
+          <div class="step-circle">3</div>
+          <span>Văn bằng</span>
+        </div>
+        <div class="step-line" id="stepLine3"></div>
+        <div class="step-item" id="stepIndicator4">
+          <div class="step-circle">4</div>
+          <span>Xác nhận</span>
+        </div>
+      </div>
+
+      <form id="receptionForm" onsubmit="submitReceptionForm(event)">
+
+        <!-- BƯỚC 1: CHỌN ĐỢT & ĐỐI TƯỢNG -->
+        <div id="stepBox1" class="step-box active">
+          <div class="step-box-header">
+            <h3>Bước 1: Chọn đợt & đối tượng đào tạo</h3>
+            <p>Chọn đúng đợt tiếp nhận và đối tượng để hệ thống hướng dẫn chuẩn bị văn bằng, chứng chỉ phù hợp.</p>
+          </div>
+
+          <div class="mobile-card">
+            <div class="form-group">
+              <label class="required-label">Đợt tiếp nhận</label>
+              <select id="recBatchSelect" required onchange="onRecBatchSelected()">
+                <option value="">-- Đang tải các đợt tiếp nhận --</option>
+              </select>
+            </div>
+
+            <div class="form-group">
+              <label class="required-label">Đối tượng tiếp nhận đào tạo</label>
+              <select id="recTargetSelect" required onchange="onRecTargetSelected()" disabled>
+                <option value="">-- Vui lòng chọn đợt trước --</option>
+              </select>
+            </div>
+
+            <div id="recTargetInfoBox" class="target-info-preview hidden">
+              <div class="preview-header">
+                <span class="preview-badge">Lớp biên chế dự kiến: <strong id="previewClass">Lớp 23C</strong></span>
+              </div>
+              <p class="preview-desc" id="previewDesc"></p>
+
+              <div class="required-docs-checklist">
+                <strong>Danh mục văn bằng, giấy tờ bắt buộc cần nộp:</strong>
+                <ul id="previewDocsList"></ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="step-nav-buttons">
+            <div></div>
+            <button type="button" class="btn primary btn-mobile-next" onclick="goToStep(2)">
+              Tiếp tục điền thông tin
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- BƯỚC 2: THÔNG TIN HỌC VIÊN & CÔNG TÁC -->
+        <div id="stepBox2" class="step-box">
+          <div class="step-box-header">
+            <h3>Bước 2: Kê khai thông tin học viên</h3>
+            <p>Dựa trên mẫu Phiếu đăng ký nhập học quy chuẩn của Học viện Chính trị.</p>
+          </div>
+
+          <!-- Section I -->
+          <div class="mobile-card">
+            <h4 class="card-section-title">I. THÔNG TIN HỌC VIÊN</h4>
+
+            <div class="form-group">
+              <label>Số thứ tự (theo danh sách trên bảng):</label>
+              <input id="recOrderIndex" type="number" placeholder="VD: 27" inputmode="numeric" />
+            </div>
+
+            <div class="form-group">
+              <label class="required-label">Họ và tên (chữ in hoa có dấu):</label>
+              <input id="recFullName" type="text" required placeholder="VD: BÀN TRUNG NAM" autocapitalize="characters" />
+            </div>
+
+            <div class="form-group-row-2">
+              <div class="form-group">
+                <label class="required-label">Ngày sinh:</label>
+                <input id="recBirthday" type="date" required />
+              </div>
+              <div class="form-group">
+                <label class="required-label">Nơi sinh (Tỉnh/TP):</label>
+                <input id="recBirthplace" type="text" required placeholder="VD: Thái Nguyên" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="required-label">Quê quán (Xã, huyện, tỉnh):</label>
+              <input id="recHometown" type="text" required placeholder="VD: Xã Kim Phượng, tỉnh Thái Nguyên" />
+            </div>
+
+            <div class="form-group">
+              <label>Số CMT sĩ quan</label>
+              <input id="recIdCard" type="text" placeholder="VD: 019085001234" inputmode="numeric" />
+            </div>
+          </div>
+
+          <!-- Section II -->
+          <div class="mobile-card">
+            <h4 class="card-section-title">II. THÔNG TIN CÔNG TÁC</h4>
+
+            <div class="form-group-row-2">
+              <div class="form-group">
+                <label class="required-label">Cấp bậc:</label>
+                <select id="recRank" required>
+                  <option value="">-- Chọn cấp bậc --</option>
+                  <option value="Trung úy">Trung úy</option>
+                  <option value="Thượng úy">Thượng úy</option>
+                  <option value="Đại úy">Đại úy</option>
+                  <option value="Thiếu tá">Thiếu tá</option>
+                  <option value="Trung tá" selected>Trung tá</option>
+                  <option value="Thượng tá">Thượng tá</option>
+                  <option value="Đại tá">Đại tá</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="required-label">Chức vụ hiện tại:</label>
+                <input id="recPosition" type="text" required placeholder="VD: Chính trị viên" />
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="required-label">Đơn vị công tác (Trực thuộc Bộ):</label>
+              <input id="recUnit" type="text" required placeholder="VD: Quân khu 1, Quân đoàn 12,..." />
+            </div>
+
+            <div class="form-group">
+              <label class="required-label">Trình độ học vấn (Các văn bằng đã có):</label>
+              <textarea id="recEducationLevel" rows="2" required placeholder="VD: dai_hoc_ct_phan_doi; Thạc sĩ Chính trị học"></textarea>
+            </div>
+          </div>
+
+          <!-- Section III -->
+          <div class="mobile-card">
+            <h4 class="card-section-title">III. THÔNG TIN LIÊN HỆ</h4>
+
+            <div class="form-group">
+              <label class="required-label">Số điện thoại liên hệ:</label>
+              <input id="recPhone" type="tel" required placeholder="VD: 0978819885" inputmode="tel" />
+            </div>
+
+            <div class="form-group">
+              <label>Email liên lạc (nếu có):</label>
+              <input id="recEmail" type="email" placeholder="VD: nam.bt@mod.gov.vn" inputmode="email" />
+            </div>
+          </div>
+
+          <div class="step-nav-buttons">
+            <button type="button" class="btn secondary" onclick="goToStep(1)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              Quay lại
+            </button>
+            <button type="button" class="btn primary btn-mobile-next" onclick="goToStep(3)">
+              Tiếp tục: Tải văn bằng
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- BƯỚC 3: TẢI ẢNH VĂN BẰNG, CHỨNG CHỈ -->
+        <div id="stepBox3" class="step-box">
+          <div class="step-box-header">
+            <h3>Bước 3: Tải ảnh văn bằng, chứng chỉ</h3>
+            <p>Chụp ảnh trực tiếp bằng điện thoại hoặc chọn từ thư viện ảnh. Ảnh sẽ được tự động nén tối ưu để tải nhanh.</p>
+          </div>
+
+          <div id="recUploadCardsContainer" class="upload-cards-container">
+            <!-- Dynamic upload cards rendered by JS based on required documents -->
+          </div>
+
+          <div class="mobile-card tip-card">
+            <div class="tip-icon">💡</div>
+            <div class="tip-text">
+              <strong>Mẹo chụp ảnh giấy tờ rõ nét:</strong> Đặt văn bằng lên mặt phẳng có ánh sáng tốt, chụp góc thẳng, kiểm tra rõ số hiệu văn bằng và con dấu trước khi gửi.
+            </div>
+          </div>
+
+          <div class="step-nav-buttons">
+            <button type="button" class="btn secondary" onclick="goToStep(2)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              Quay lại
+            </button>
+            <button type="button" class="btn primary btn-mobile-next" onclick="goToStep(4)">
+              Xác nhận thông tin
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- BƯỚC 4: XÁC NHẬN & NỘP HỒ SƠ -->
+        <div id="stepBox4" class="step-box">
+          <div class="step-box-header">
+            <h3>Bước 4: Kiểm tra & Nộp hồ sơ</h3>
+            <p>Vui lòng rà soát lại thông tin trước khi nhấn nộp chính thức.</p>
+          </div>
+
+          <div class="mobile-card review-summary-card">
+            <h4>BẢN TÓM TẮT THÔNG TIN</h4>
+            <div class="summary-line"><span>Họ và tên:</span><strong id="sumFullName">--</strong></div>
+            <div class="summary-line"><span>Ngày sinh:</span><span id="sumBirthday">--</span></div>
+            <div class="summary-line"><span>Cấp bậc / Chức vụ:</span><span id="sumRankPos">--</span></div>
+            <div class="summary-line"><span>Đơn vị công tác:</span><strong id="sumUnit">--</strong></div>
+            <div class="summary-line"><span>Số điện thoại:</span><span id="sumPhone">--</span></div>
+            <div class="summary-line"><span>Đối tượng tiếp nhận:</span><span id="sumTarget">--</span></div>
+            <div class="summary-line"><span>Số ảnh văn bằng đã tải:</span><strong id="sumDocsCount" class="text-primary">0 tệp</strong></div>
+          </div>
+
+          <div class="mobile-card official-notice-card">
+            <div class="notice-badge">QUY ĐỊNH BẮT BUỘC</div>
+            <p class="notice-bold">
+              Ghi chú: Chuẩn bị bản photocopy văn bằng (đã kê khai) kèm bản gốc để đối chiếu tại bàn tiếp nhận học viên nhập học.
+            </p>
+            <label class="checkbox-label-commitment">
+              <input id="recCommitmentCheck" type="checkbox" required />
+              <span>Tôi xin cam đoan các thông tin kê khai trên là hoàn toàn chính xác và chấp hành nghiêm chỉnh mọi quy chế, quy định của Học viện.</span>
+            </label>
+          </div>
+
+          <div class="step-nav-buttons">
+            <button type="button" class="btn secondary" onclick="goToStep(3)">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              Sửa ảnh
+            </button>
+            <button id="btnSubmitDossier" type="submit" class="btn primary btn-submit-final">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+              NỘP HỒ SƠ TIẾP NHẬN
+            </button>
+          </div>
+        </div>
+
+      </form>
+
+      <!-- MÀN HÌNH CHÚC MỪNG NỘP THÀNH CÔNG -->
+      <div id="recSuccessBox" class="mobile-card success-card hidden">
+        <div class="success-icon-wrap">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
+        <h3>NỘP HỒ SƠ THÀNH CÔNG!</h3>
+        <p class="success-sub">Hồ sơ tiếp nhận của đồng chí đã được chuyển đến Ban Tiếp nhận - Học viện Chính trị.</p>
+
+        <div class="student-code-box">
+          <span>MÃ HỒ SƠ TIẾP NHẬN CỦA ĐỒNG CHÍ:</span>
+          <strong id="successStudentCode">HVCT-2026-0027</strong>
+          <small>Vui lòng ghi nhớ mã này để đối chiếu khi nhập học hoặc tra cứu tiến độ xét duyệt.</small>
+        </div>
+
+        <div class="success-instruction">
+          <strong>Các bước tiếp theo:</strong>
+          <ol>
+            <li>Cán bộ Phòng Đào tạo sẽ thẩm định thông tin và ảnh văn bằng.</li>
+            <li>Đồng chí chuẩn bị sẵn <strong>bản photocopy văn bằng</strong> kèm <strong>bản gốc</strong> để đối chiếu tại bàn tiếp nhận.</li>
+            <li>Có thể dùng chức năng <strong>Tra cứu tiến độ</strong> trên trang này bằng Mã hồ sơ hoặc CCCD.</li>
+          </ol>
+        </div>
+
+        <div class="success-actions">
+          <button class="btn primary full-width" onclick="trackCurrentStudentCode()">
+            Xem tình trạng hồ sơ ngay
+          </button>
+          <button class="btn secondary full-width" onclick="resetReceptionForm()">
+            Nộp hồ sơ học viên khác
+          </button>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================================================== -->
+    <!-- TAB 2: TRA CỨU TIẾN ĐỘ HỒ SƠ TIẾP NHẬN -->
+    <!-- ==================================================== -->
+    <section id="receptionTrackSection" class="mobile-section">
+      <div class="mobile-card track-search-card">
+        <h3>Tra cứu tiến độ xét duyệt hồ sơ</h3>
+        <p>Nhập Mã hồ sơ tiếp nhận hoặc Số CCCD/CMND để xem tình trạng thẩm định của cán bộ.</p>
+
+        <form id="trackForm" onsubmit="handleTrackDossier(event)">
+          <div class="form-group">
+            <label>Mã hồ sơ hoặc Số CCCD:</label>
+            <div class="search-input-wrap">
+              <input id="trackKeywordInput" type="text" required placeholder="VD: HVCT-2026-0027 hoặc 019085001234" />
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Số điện thoại xác thực:</label>
+            <input id="trackPhoneInput" type="tel" placeholder="Nhập số điện thoại đã đăng ký (tùy chọn)" />
+          </div>
+          <button type="submit" id="btnTrackSubmit" class="btn primary full-width">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Tra cứu hồ sơ
+          </button>
+        </form>
+      </div>
+
+      <!-- Result Card -->
+      <div id="trackResultContainer" class="track-result-container hidden">
+        <!-- Rendered by JS -->
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Modal Bổ sung ảnh văn bằng dành cho Mobile -->
+  <div id="mobileSupplementModal" class="modal-backdrop hidden" onclick="if(event.target === this) closeSupplementModal()">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3>Bổ sung ảnh văn bằng, chứng chỉ</h3>
+        <button class="icon-action-btn" onclick="closeSupplementModal()" aria-label="Đóng">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px;">
+          Chụp hoặc chọn ảnh văn bằng mới để cập nhật cho cán bộ thẩm định lại:
+        </p>
+        <div id="supplementUploadBoxes">
+          <!-- Rendered by JS -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn secondary" onclick="closeSupplementModal()">Hủy</button>
+        <button class="btn primary" onclick="submitSupplementFiles()">Gửi bổ sung</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Message -->
+  <div id="toast" class="toast hidden"></div>
+
+  <!-- Reception Mobile Script -->
+  <script src="tiep-nhan.js"></script>
+</body>
+</html>

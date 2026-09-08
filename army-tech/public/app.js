@@ -112,6 +112,18 @@ const navItems = [
     category: 'ops'
   },
   { 
+    key: 'students', 
+    label: 'Tiếp nhận học viên', 
+    shortLabel: 'Tiếp nhận', 
+    desc: 'Hồ sơ, xét duyệt & phân lớp học viên', 
+    href: 'students.html', 
+    permission: 'students', 
+    icon: 'students', 
+    color: '#0284c7', 
+    gradient: 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)',
+    category: 'ops'
+  },
+  { 
     key: 'tasks', 
     label: 'Nhắc việc', 
     shortLabel: 'Nhắc việc', 
@@ -697,12 +709,14 @@ async function loadData() {
   const examBootstrapUrl = state.selectedExamSessionId
     ? `/api/bootstrap?examSessionId=${encodeURIComponent(state.selectedExamSessionId)}`
     : '/api/bootstrap';
-  const [examData, dashboard, calendar, calendarWeekMeta, students, tasks, notifications, users, auditLogs, aiDocuments] = await Promise.all([
+  const [examData, dashboard, calendar, calendarWeekMeta, students, admissionBatches, admissionTargets, tasks, notifications, users, auditLogs, aiDocuments] = await Promise.all([
     shouldLoadExam ? safeRequest(examBootstrapUrl, { teachers: {}, rooms: [], examSessions: [] }) : Promise.resolve({ teachers: {}, rooms: [], examSessions: [] }),
     shouldLoadDashboard ? safeRequest('/api/dashboard', null) : Promise.resolve(null),
     shouldLoadCalendar ? safeRequest('/api/calendar', []) : Promise.resolve([]),
     shouldLoadCalendar ? safeRequest('/api/calendar/week-meta', []) : Promise.resolve([]),
     shouldLoadStudents ? safeRequest('/api/students', []) : Promise.resolve([]),
+    shouldLoadStudents ? safeRequest('/api/admission-batches', []) : Promise.resolve([]),
+    shouldLoadStudents ? safeRequest('/api/admission-targets', []) : Promise.resolve([]),
     shouldLoadTasks ? safeRequest('/api/tasks', []) : Promise.resolve([]),
     shouldLoadDashboard ? safeRequest('/api/notifications', []) : Promise.resolve([]),
     shouldLoadAdmin ? safeRequest('/api/users?includeInactive=1', []) : Promise.resolve([]),
@@ -719,6 +733,8 @@ async function loadData() {
   state.calendar = calendar;
   state.calendarWeekMeta = calendarWeekMeta;
   state.students = students;
+  state.admissionBatches = admissionBatches || [];
+  state.admissionTargets = admissionTargets || [];
   state.tasks = tasks;
   state.notifications = notifications;
   state.users = users;
@@ -1391,6 +1407,12 @@ function renderCalendarMonth() {
           <span class="day-number">${date.getDate()}</span>
           ${events.length ? `<span class="day-event-badge">${events.length}</span>` : ''}
         </div>
+        ${events.length ? `
+          <div class="day-event-dots">
+            ${events.slice(0, 3).map(item => `<span class="event-dot" style="background-color: ${escapeHtml(item.color || '#15803d')};"></span>`).join('')}
+            ${events.length > 3 ? `<span class="event-dot-more">+</span>` : ''}
+          </div>
+        ` : ''}
         <div class="day-events">
           ${visibleEvents.map(item => {
             const color = item.color || '#15803d';
@@ -2056,6 +2078,41 @@ function printWorkSchedule() {
   window.print();
 }
 
+function printElement(elemId) {
+  const elem = document.getElementById(elemId);
+  if (!elem) return;
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write('<html><head><title>Bản in</title>');
+  // Get all stylesheets from parent
+  const links = document.querySelectorAll('link[rel="stylesheet"], style');
+  links.forEach(l => {
+    if (l.tagName === 'LINK') doc.write(`<link rel="stylesheet" href="${l.href}">`);
+    else doc.write(`<style>${l.innerHTML}</style>`);
+  });
+  doc.write('</head><body style="background:white; margin:0; padding:15mm 20mm;">');
+  doc.write(elem.outerHTML);
+  doc.write('</body></html>');
+  doc.close();
+
+  iframe.onload = function() {
+    setTimeout(() => {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+      setTimeout(() => document.body.removeChild(iframe), 500);
+    }, 500);
+  };
+}
+
 function toggleWorkScheduleFullscreen() {
   const target = el('workScheduleModal') || el('workScheduleCard');
   if (!target) return;
@@ -2074,59 +2131,1212 @@ async function deleteCalendar(id, event) {
   await mutate(`/api/calendar/${id}`, { method: 'DELETE' }, 'Đã xóa lịch công tác.');
 }
 
-function renderStudents() {
-  if (!has('studentBody')) return;
-  el('studentBody').innerHTML = state.students.length ? state.students.map(item => `
-    <tr>
-      <td><strong>${escapeHtml(item.student_code)}</strong></td>
-      <td>${escapeHtml(item.full_name)}</td>
-      <td>${escapeHtml(item.rank || '')}</td>
-      <td>${escapeHtml(item.unit || '')}</td>
-      <td>${escapeHtml(item.class_name || '')}</td>
-      <td>${selectHtml(statusOptions.student, item.status, `updateStudentStatus(${item.id}, this.value)`)}</td>
-      <td>${iconButton('trash', 'Xóa học viên', `deleteStudent(${item.id})`, 'danger-btn')}</td>
-    </tr>
-  `).join('') : '<tr><td colspan="7" class="empty">Chưa có hồ sơ học viên.</td></tr>';
+// ==========================================================
+// MODULE TIẾP NHẬN HỌC VIÊN - HỌC VIỆN CHÍNH TRỊ (QUẢN TRỊ VIÊN)
+// ==========================================================
+
+let admissionState = {
+  currentStudentId: null,
+  selectedStudentFull: null,
+  activeTab: 'students',
+  filters: {
+    batchId: '',
+    targetId: '',
+    status: '',
+    keyword: ''
+  },
+  studentPage: 1,
+  batchPage: 1,
+  targetPage: 1,
+  pageSize: 10
+};
+
+function goAdmissionPage(type, page) {
+  if (type === 'student') { admissionState.studentPage = page; renderStudents(); }
+  if (type === 'batch') { admissionState.batchPage = page; renderAdmissionBatches(); }
+  if (type === 'target') { admissionState.targetPage = page; renderAdmissionTargets(); }
 }
 
-async function createStudent(event) {
-  event.preventDefault();
-  try {
-    const body = {
-      studentCode: el('studentCode').value,
-      fullName: el('studentName').value,
-      rank: el('studentRank').value,
-      unit: el('studentUnit').value,
-      className: el('studentClass').value,
-      status: el('studentStatus').value
-    };
-    await request('/api/students', { method: 'POST', body: JSON.stringify(body) });
-    event.target.reset();
-    toast('Đã thêm học viên.');
-    loadData();
-  } catch (error) {
-    toast(error.message);
+function buildAdmissionPagination(total, page, pageSize, type) {
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  if (totalPages <= 1) return '';
+  let html = '';
+  for (let i = 1; i <= totalPages; i++) {
+    html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="goAdmissionPage('${type}', ${i})">${i}</button>`;
+  }
+  return html;
+}
+
+
+function switchAdmissionTab(tab) {
+  admissionState.activeTab = tab;
+
+  const btnStudents = el('tabBtnStudents');
+  const btnBatches = el('tabBtnBatches');
+  const btnTargets = el('tabBtnTargets');
+  const panelStudents = el('panelStudents');
+  const panelBatches = el('panelBatches');
+  const panelTargets = el('panelTargets');
+
+  if (btnStudents) btnStudents.classList.toggle('active', tab === 'students');
+  if (btnBatches) btnBatches.classList.toggle('active', tab === 'batches');
+  if (btnTargets) btnTargets.classList.toggle('active', tab === 'targets');
+
+  if (panelStudents) panelStudents.classList.toggle('active', tab === 'students');
+  if (panelBatches) panelBatches.classList.toggle('active', tab === 'batches');
+  if (panelTargets) panelTargets.classList.toggle('active', tab === 'targets');
+
+  if (tab === 'batches') renderAdmissionBatches();
+  if (tab === 'targets') renderAdmissionTargets();
+}
+
+function renderStudents() {
+  if (!has('studentTableBody') && !has('studentBody')) return;
+
+  const students = state.students || [];
+  const batches = state.admissionBatches || [];
+  const targets = state.admissionTargets || [];
+
+  // 1. Cập nhật số lượng trên các badge tab
+  if (has('badgeStudentCount')) el('badgeStudentCount').textContent = students.length;
+  if (has('badgeBatchCount')) el('badgeBatchCount').textContent = batches.length;
+  if (has('badgeTargetCount')) el('badgeTargetCount').textContent = targets.length;
+
+  // 2. Thống kê KPI Cards
+  const total = students.length;
+  const pending = students.filter(s => s.status === 'PendingReview').length;
+  const approved = students.filter(s => s.status === 'Approved').length;
+  const rejected = students.filter(s => s.status === 'Rejected').length;
+
+  if (has('kpiTotalStudents')) el('kpiTotalStudents').textContent = total;
+  if (has('kpiPendingStudents')) el('kpiPendingStudents').textContent = pending;
+  if (has('kpiApprovedStudents')) el('kpiApprovedStudents').textContent = approved;
+  if (has('kpiRejectedStudents')) el('kpiRejectedStudents').textContent = rejected;
+
+  // 3. Đổ dữ liệu vào các bộ lọc Dropdown nếu chưa có
+  populateFilterOptions();
+
+  // 4. Lọc dữ liệu theo bộ lọc
+  const kw = (admissionState.filters.keyword || '').toLowerCase().trim();
+  const bId = admissionState.filters.batchId;
+  const tId = admissionState.filters.targetId;
+  const st = admissionState.filters.status;
+
+  const filtered = students.filter(item => {
+    if (bId && String(item.batch_id) !== String(bId)) return false;
+    if (tId && String(item.target_id) !== String(tId)) return false;
+    if (st && item.status !== st) return false;
+    if (kw) {
+      const matchCode = (item.student_code || '').toLowerCase().includes(kw);
+      const matchName = (item.full_name || '').toLowerCase().includes(kw);
+      const matchIdCard = (item.id_card || '').toLowerCase().includes(kw);
+      const matchPhone = (item.phone || '').toLowerCase().includes(kw);
+      const matchUnit = (item.unit || '').toLowerCase().includes(kw);
+      const matchRank = (item.rank || '').toLowerCase().includes(kw);
+      if (!matchCode && !matchName && !matchIdCard && !matchPhone && !matchUnit && !matchRank) return false;
+    }
+    return true;
+  });
+
+  // 5. Render vào bảng chính
+  const tbody = el('studentTableBody') || el('studentBody');
+  if (!tbody) return;
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="10" class="empty">Không tìm thấy hồ sơ học viên phù hợp.</td></tr>';
+    if (el('studentPagination')) el('studentPagination').innerHTML = '';
+    return;
+  }
+
+  const start = (admissionState.studentPage - 1) * admissionState.pageSize;
+  const pageItems = filtered.slice(start, start + admissionState.pageSize);
+  
+  if (el('studentPagination')) {
+    el('studentPagination').innerHTML = buildAdmissionPagination(filtered.length, admissionState.studentPage, admissionState.pageSize, 'student');
+  }
+
+  tbody.innerHTML = pageItems.map((item, index) => {
+    index = start + index;
+    const orderIndexDisplay = item.order_index ? `<strong>${item.order_index}</strong>` : `<span style="color:var(--text-muted);">${index + 1}</span>`;
+    const docCountBadge = item.document_count > 0
+      ? `<span class="badge-pill tag-success" title="${item.document_count} tệp văn bằng">${item.document_count} ảnh</span>`
+      : `<span class="badge-pill tag-muted">0 ảnh</span>`;
+
+    let statusBadge = '<span class="status-badge">Mới tạo</span>';
+    if (item.status === 'PendingReview') {
+      statusBadge = '<span class="status-badge pending">Chờ duyệt</span>';
+    } else if (item.status === 'Approved') {
+      statusBadge = '<span class="status-badge approved">Đã duyệt</span>';
+    } else if (item.status === 'Rejected') {
+      statusBadge = '<span class="status-badge rejected">Cần bổ sung</span>';
+    } else if (item.status === 'Completed') {
+      statusBadge = '<span class="status-badge completed">Đã vào lớp</span>';
+    }
+
+    const birthInfo = item.birthday ? `${escapeHtml(item.birthday)}` : '';
+    const hometownInfo = item.hometown ? `<br><small style="color:var(--text-muted);">${escapeHtml(item.hometown)}</small>` : '';
+
+    return `
+      <tr>
+        <td style="text-align: center;">${orderIndexDisplay}</td>
+        <td><strong>${escapeHtml(item.student_code)}</strong></td>
+        <td>
+          <a href="javascript:void(0)" onclick="openStudentDetailModal(${item.id})" class="student-name-link">
+            ${escapeHtml(item.full_name)}
+          </a>
+          ${item.phone ? `<br><small style="color:var(--text-muted);">SĐT: ${escapeHtml(item.phone)}</small>` : ''}
+        </td>
+        <td>${birthInfo}${hometownInfo}</td>
+        <td>
+          <strong>${escapeHtml(item.rank || '')}</strong>
+          ${item.position ? `<br><small>${escapeHtml(item.position)}</small>` : ''}
+        </td>
+        <td>${escapeHtml(item.unit || '')}</td>
+        <td>
+          <span class="target-chip">${escapeHtml(item.target_name || 'Đào tạo cán bộ')}</span>
+          ${item.class_name ? `<br><strong>${escapeHtml(item.class_name)}</strong>` : ''}
+        </td>
+        <td style="text-align: center;">${docCountBadge}</td>
+        <td style="text-align: center;">${statusBadge}</td>
+        <td style="text-align: right;">
+          <div class="row-actions-group">
+            <button class="action-btn-sm" onclick="openStudentDetailModal(${item.id})" title="Xem chi tiết & Thẩm định">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+            <button class="action-btn-sm" onclick="printStudentReceipt(${item.id})" title="In Phiếu tiếp nhận (Chuẩn A4)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+            </button>
+            <button class="action-btn-sm" onclick="downloadStudentBundle(${item.id})" title="Tải trọn gói ZIP (Phiếu + Ảnh văn bằng)">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+            </button>
+            <button class="action-btn-sm" onclick="openStudentFormModal(${item.id})" title="Chỉnh sửa thông tin">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            </button>
+            <button class="action-btn-sm danger" onclick="deleteStudent(${item.id})" title="Xóa hồ sơ">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Render các tab phụ
+  renderAdmissionBatches();
+  renderAdmissionTargets();
+}
+
+function populateFilterOptions() {
+  const batchSelect = el('studentFilterBatch');
+  const targetSelect = el('studentFilterTarget');
+
+  if (batchSelect && state.admissionBatches && state.admissionBatches.length) {
+    const curVal = batchSelect.value;
+    batchSelect.innerHTML = '<option value="">-- Tất cả các đợt --</option>' +
+      state.admissionBatches.map(b => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+    batchSelect.value = curVal;
+  }
+
+  if (targetSelect && state.admissionTargets && state.admissionTargets.length) {
+    const curVal = targetSelect.value;
+    targetSelect.innerHTML = '<option value="">-- Tất cả đối tượng --</option>' +
+      state.admissionTargets.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+    targetSelect.value = curVal;
   }
 }
 
-async function updateStudentStatus(id, status) {
-  const current = state.students.find(item => item.id === id);
-  if (!current) return;
+function handleStudentFilterChange() {
+  admissionState.filters.keyword = el('studentSearchKeyword')?.value || '';
+  admissionState.filters.batchId = el('studentFilterBatch')?.value || '';
+  admissionState.filters.targetId = el('studentFilterTarget')?.value || '';
+  admissionState.filters.status = el('studentFilterStatus')?.value || '';
+  renderStudents();
+}
+
+function resetStudentFilters() {
+  // Chỉ tải lại danh sách, giữ nguyên toàn bộ giá trị bộ lọc hiện tại
+  loadData();
+}
+
+function clearStudentFilters() {
+  if (has('studentSearchKeyword')) el('studentSearchKeyword').value = '';
+  if (has('studentFilterBatch')) el('studentFilterBatch').value = '';
+  if (has('studentFilterTarget')) el('studentFilterTarget').value = '';
+  if (has('studentFilterStatus')) el('studentFilterStatus').value = '';
+  admissionState.filters = { batchId: '', targetId: '', status: '', keyword: '' };
+  loadData();
+}
+
+
+// ==========================================================
+// MODAL CHI TIẾT & DUYỆT HỒ SƠ
+// ==========================================================
+async function openStudentDetailModal(id) {
   try {
-    await request(`/api/students/${id}`, {
+    const student = await request(`/api/students/${id}`);
+    admissionState.currentStudentId = id;
+    admissionState.selectedStudentFull = student;
+
+    el('modalStudentTitle').textContent = `Hồ sơ: ${student.full_name} (${student.student_code})`;
+    el('detailStudentCode').textContent = student.student_code;
+    el('detailStudentName').textContent = student.full_name;
+
+    // Badge trạng thái
+    let badgeHtml = 'Chờ duyệt';
+    let badgeClass = 'status-badge pending';
+    if (student.status === 'Approved') {
+      badgeHtml = 'Đã duyệt';
+      badgeClass = 'status-badge approved';
+    } else if (student.status === 'Rejected') {
+      badgeHtml = 'Cần bổ sung';
+      badgeClass = 'status-badge rejected';
+    } else if (student.status === 'Completed') {
+      badgeHtml = 'Đã vào lớp';
+      badgeClass = 'status-badge completed';
+    }
+    const badgeEl = el('modalStudentBadge');
+    badgeEl.textContent = badgeHtml;
+    badgeEl.className = badgeClass;
+
+    // Điền dữ liệu Section I, II, III
+    el('detOrderIndex').textContent = student.order_index || 'Chưa xếp STT';
+    el('detFullName').textContent = student.full_name || '--';
+    el('detBirthday').textContent = student.birthday || '--';
+    el('detBirthplace').textContent = student.birthplace || '--';
+    el('detHometown').textContent = student.hometown || '--';
+    el('detIdCard').textContent = student.id_card || '--';
+
+    el('detRank').textContent = student.rank || '--';
+    el('detPosition').textContent = student.position || '--';
+    el('detUnit').textContent = student.unit || '--';
+    el('detEducationLevel').textContent = student.education_level || '--';
+
+    el('detPhone').textContent = student.phone || '--';
+    el('detEmail').textContent = student.email || '--';
+    el('detBatchName').textContent = student.batch_name || 'Đợt 1';
+    el('detTargetName').textContent = student.target_name || '--';
+    el('detClassName').textContent = student.class_name || '--';
+    el('detDeclarationDate').textContent = student.declaration_date || student.created_at || '--';
+
+    // Điền khung duyệt
+    el('reviewStatus').value = student.status || 'PendingReview';
+    el('reviewClassName').value = student.class_name || '';
+    el('reviewOrderIndex').value = student.order_index || '';
+    el('reviewNotes').value = student.review_notes || '';
+
+    // Render Gallery văn bằng chứng chỉ
+    const docs = student.documents || [];
+    el('detDocCount').textContent = docs.length;
+    const galleryEl = el('detDocumentsGallery');
+
+    if (!docs.length) {
+      galleryEl.innerHTML = '<p class="empty-hint">Học viên chưa đính kèm ảnh văn bằng hoặc giấy tờ nào.</p>';
+    } else {
+      galleryEl.innerHTML = docs.map((doc, idx) => `
+        <div class="gallery-card">
+          <div class="gallery-img-thumb" onclick="openLightbox('/api/student-documents/${doc.id}/file', '${escapeHtml(doc.doc_type)}', '${escapeHtml(doc.file_name)}')">
+            <img src="/api/student-documents/${doc.id}/file" alt="${escapeHtml(doc.doc_type)}" loading="lazy" />
+            <div class="gallery-zoom-overlay">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>
+            </div>
+          </div>
+          <div class="gallery-caption">
+            <strong>${escapeHtml(doc.doc_type)}</strong>
+            <small>${escapeHtml(doc.file_name)}</small>
+            <a href="/api/student-documents/${doc.id}/file" target="_blank" class="gallery-download-link" download>Tải file ảnh</a>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    el('studentDetailModal').classList.remove('hidden');
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+function closeStudentDetailModal() {
+  el('studentDetailModal').classList.add('hidden');
+}
+
+async function submitReview(event) {
+  event.preventDefault();
+  const id = admissionState.currentStudentId;
+  if (!id) return;
+
+  try {
+    const body = {
+      status: el('reviewStatus').value,
+      class_name: el('reviewClassName').value.trim(),
+      order_index: el('reviewOrderIndex').value ? Number(el('reviewOrderIndex').value) : null,
+      review_notes: el('reviewNotes').value.trim()
+    };
+
+    await request(`/api/students/${id}/review`, {
       method: 'PUT',
-      body: JSON.stringify({ ...current, status })
+      body: JSON.stringify(body)
     });
-    toast('Đã cập nhật học viên.');
+
+    toast('Đã lưu quyết định thẩm định hồ sơ!');
+    closeStudentDetailModal();
     loadData();
-  } catch (error) {
-    toast(error.message);
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+// ==========================================================
+// IN PHIẾU TIẾP NHẬN CHUẨN A4 & XUẤT WORD
+// ==========================================================
+async function printStudentReceipt(id) {
+  try {
+    const student = await request(`/api/students/${id}`);
+    admissionState.selectedStudentFull = student;
+    populatePrintSlip(student);
+    el('studentPrintModal').classList.remove('hidden');
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+function printStudentReceiptCurrent() {
+  if (admissionState.selectedStudentFull) {
+    populatePrintSlip(admissionState.selectedStudentFull);
+    el('studentPrintModal').classList.remove('hidden');
+    document.body.classList.add('print-receipt-mode');
+  }
+}
+
+function closePrintModal() {
+  el('studentPrintModal').classList.add('hidden');
+  document.body.classList.remove('print-receipt-mode');
+}
+
+function populatePrintSlip(student) {
+  const targetTitle = (student.target_name || 'ĐÀO TẠO NGẮN HẠN CHÍNH ỦY TRUNG, LỮ ĐOÀN').toUpperCase();
+  const classTitle = student.class_name ? ` – ${student.class_name.toUpperCase()}` : ' – LỚP 23C';
+  el('printDocTitle').textContent = `PHIẾU ĐĂNG KÝ NHẬP HỌC ${targetTitle}${classTitle}`;
+
+  el('printOrderIndex').textContent = student.order_index || '......';
+  el('printFullName').textContent = student.full_name || '';
+  el('printBirthday').textContent = student.birthday || '';
+  el('printBirthplace').textContent = student.birthplace || '';
+  el('printHometown').textContent = student.hometown || '';
+
+  el('printRank').textContent = student.rank || '';
+  el('printPosition').textContent = student.position || '';
+  el('printUnit').textContent = student.unit || '';
+  el('printEducation').textContent = student.education_level || '';
+
+  el('printPhone').textContent = student.phone || '';
+
+  const dateStr = student.declaration_date || student.admission_date || new Date().toISOString().slice(0, 10);
+  const parts = dateStr.split('-');
+  el('printDateText').textContent = `Hà Nội, ngày ${parseInt(parts[2] || '3', 10)} tháng ${parseInt(parts[1] || '8', 10)} năm ${parts[0] || '2026'}`;
+  el('printSignName').textContent = student.full_name || '';
+  el('printOfficerName').textContent = student.reviewed_by || 'Cán bộ Phòng Đào tạo';
+}
+
+async function downloadStudentDocx(id) {
+  try {
+    showToast('Đang tạo và tải phiếu tiếp nhận...', 'info');
+    await downloadFile(`/api/students/${id}/receipt-doc`, `Phieu_Tiep_Nhan_${id}.docx`);
+    showToast('Tải phiếu tiếp nhận thành công!', 'success');
+  } catch (err) {
+    showToast(err.message || 'Lỗi khi tải phiếu tiếp nhận', 'error');
+  }
+}
+
+async function downloadStudentDocxCurrent() {
+  if (admissionState.selectedStudentFull) {
+    await downloadStudentDocx(admissionState.selectedStudentFull.id);
+  }
+}
+
+async function downloadStudentBundle(id) {
+  try {
+    showToast('Đang đóng gói và tải trọn bộ hồ sơ ZIP...', 'info');
+    await downloadFile(`/api/students/${id}/download-bundle`, `Ho_So_Hoc_Vien_${id}.zip`);
+    showToast('Tải trọn bộ hồ sơ thành công!', 'success');
+  } catch (err) {
+    showToast(err.message || 'Lỗi khi tải trọn bộ hồ sơ', 'error');
+  }
+}
+
+async function downloadStudentBundleCurrent() {
+  if (admissionState.selectedStudentFull) {
+    await downloadStudentBundle(admissionState.selectedStudentFull.id);
+  }
+}
+
+async function exportStudentsExcel() {
+  try {
+    const params = new URLSearchParams();
+    if (admissionState.filters.batchId) params.append('batchId', admissionState.filters.batchId);
+    if (admissionState.filters.targetId) params.append('targetId', admissionState.filters.targetId);
+    if (admissionState.filters.status) params.append('status', admissionState.filters.status);
+    if (admissionState.filters.keyword) params.append('keyword', admissionState.filters.keyword);
+
+    const query = params.toString() ? `?${params.toString()}` : '';
+    showToast('Đang xuất danh sách học viên...', 'info');
+    await downloadFile(`/api/students/export-excel${query}`, 'Danh_Sach_Tiep_Nhan_Hoc_Vien.csv');
+    showToast('Xuất danh sách học viên thành công!', 'success');
+  } catch (err) {
+    showToast(err.message || 'Lỗi khi xuất danh sách học viên', 'error');
+  }
+}
+
+let importStudentsRecords = [];
+
+function openImportStudentsModal() {
+  importStudentsRecords = [];
+  const modal = el('importStudentsModal');
+  if (modal) {
+    const fileInput = el('importStudentsFileInput');
+    if (fileInput) fileInput.value = '';
+    const previewEl = el('importStudentsPreview');
+    if (previewEl) previewEl.innerHTML = '';
+    const btnSubmit = el('btnSubmitImport');
+    if (btnSubmit) btnSubmit.disabled = true;
+    modal.classList.remove('hidden');
+  }
+}
+
+function closeImportStudentsModal() {
+  const modal = el('importStudentsModal');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function handleImportStudentsFile(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  try {
+    const text = await file.text();
+    const lines = text.split(/\r?\n/).filter(line => line.trim());
+    if (lines.length < 2) {
+      throw new Error('Tệp không có dữ liệu hoặc định dạng không đúng (cần ít nhất dòng tiêu đề và 1 dòng dữ liệu).');
+    }
+
+    const headerLine = lines[0];
+    let delimiter = ',';
+    if (headerLine.includes('\t')) delimiter = '\t';
+    else if (headerLine.includes(';')) delimiter = ';';
+
+    const parseLine = (line) => {
+      const result = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const char = line[i];
+        if (char === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i++;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (char === delimiter && !inQuotes) {
+          result.push(current.trim());
+          current = '';
+        } else {
+          current += char;
+        }
+      }
+      result.push(current.trim());
+      return result;
+    };
+
+    const headers = parseLine(lines[0]).map(h => h.toLowerCase().replace(/["\r]/g, ''));
+    const records = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const cols = parseLine(lines[i]);
+      if (!cols.length || (cols.length === 1 && !cols[0])) continue;
+
+      const getVal = (possibleNames) => {
+        for (const name of possibleNames) {
+          const idx = headers.findIndex(h => h.includes(name.toLowerCase()));
+          if (idx !== -1 && cols[idx] !== undefined) return cols[idx];
+        }
+        return '';
+      };
+
+      const fullName = getVal(['họ và tên', 'họ tên', 'fullname', 'tên']);
+      if (!fullName) continue;
+
+      const record = {
+        fullName,
+        orderIndex: getVal(['stt', 'số thứ tự', 'order']),
+        birthday: getVal(['ngày sinh', 'birthday', 'ngaysinh']),
+        birthplace: getVal(['nơi sinh', 'birthplace']),
+        hometown: getVal(['quê quán', 'que quan', 'hometown']),
+        rank: getVal(['cấp bậc', 'cap bac', 'rank']),
+        position: getVal(['chức vụ', 'chuc vu', 'position']),
+        unit: getVal(['đơn vị', 'don vi', 'unit']),
+        educationLevel: getVal(['trình độ', 'trinh do', 'education']),
+        phone: getVal(['số điện thoại', 'điện thoại', 'sđt', 'phone']),
+        idCard: getVal(['cccd', 'cmnd', 'idcard']),
+        className: getVal(['lớp', 'lop', 'classname']),
+        batchId: admissionState.filters.batchId ? Number(admissionState.filters.batchId) : null,
+        targetId: admissionState.filters.targetId ? Number(admissionState.filters.targetId) : null
+      };
+      records.push(record);
+    }
+
+    if (records.length === 0) {
+      throw new Error('Không đọc được dữ liệu học viên nào từ tệp. Vui lòng kiểm tra định dạng cột (Họ tên, Ngày sinh, Đơn vị, SĐT,...).');
+    }
+
+    importStudentsRecords = records;
+    const previewEl = el('importStudentsPreview');
+    if (previewEl) {
+      previewEl.innerHTML = `
+        <div style="margin-bottom: 10px; font-weight: 600; color: #166534;">
+          Đã nhận diện: ${records.length} học viên sẵn sàng nhập
+        </div>
+        <div style="max-height: 200px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px;">
+          <table class="table-compact" style="width: 100%; font-size: 0.85rem;">
+            <thead>
+              <tr style="background: var(--bg-card); position: sticky; top: 0;">
+                <th style="padding: 6px 10px;">#</th>
+                <th style="padding: 6px 10px;">Họ và tên</th>
+                <th style="padding: 6px 10px;">Ngày sinh</th>
+                <th style="padding: 6px 10px;">Cấp bậc</th>
+                <th style="padding: 6px 10px;">Đơn vị</th>
+                <th style="padding: 6px 10px;">SĐT</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${records.slice(0, 50).map((r, idx) => `
+                <tr>
+                  <td style="padding: 4px 10px;">${idx + 1}</td>
+                  <td style="padding: 4px 10px; font-weight: 600;">${escapeHtml(r.fullName)}</td>
+                  <td style="padding: 4px 10px;">${escapeHtml(r.birthday)}</td>
+                  <td style="padding: 4px 10px;">${escapeHtml(r.rank)}</td>
+                  <td style="padding: 4px 10px;">${escapeHtml(r.unit)}</td>
+                  <td style="padding: 4px 10px;">${escapeHtml(r.phone)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          ${records.length > 50 ? `<div style="padding: 8px; text-align: center; color: var(--text-muted); font-size: 0.8rem;">... và ${records.length - 50} học viên khác</div>` : ''}
+        </div>
+      `;
+    }
+    const btnSubmit = el('btnSubmitImport');
+    if (btnSubmit) btnSubmit.disabled = false;
+    showToast(`Đã nhận diện ${records.length} học viên từ tệp!`, 'success');
+  } catch (err) {
+    showToast(err.message, 'error');
+  }
+}
+
+async function submitImportStudents() {
+  if (!importStudentsRecords.length) {
+    showToast('Chưa có dữ liệu học viên để nhập.', 'error');
+    return;
+  }
+
+  try {
+    const btnSubmit = el('btnSubmitImport');
+    if (btnSubmit) {
+      btnSubmit.disabled = true;
+      btnSubmit.textContent = 'Đang xử lý nhập...';
+    }
+
+    const res = await request('/api/students/import-excel', {
+      method: 'POST',
+      body: JSON.stringify({ students: importStudentsRecords })
+    });
+
+    closeImportStudentsModal();
+    showToast(res.message || 'Nhập danh sách học viên thành công!', 'success');
+    await loadData();
+    renderStudents();
+  } catch (err) {
+    showToast(err.message || 'Lỗi khi nhập danh sách học viên', 'error');
+  } finally {
+    const btnSubmit = el('btnSubmitImport');
+    if (btnSubmit) {
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = 'Xác nhận nhập';
+    }
+  }
+}
+
+// ==========================================================
+// TẠO / SỬA HỒ SƠ HỌC VIÊN
+// ==========================================================
+function openStudentFormModal(id = null) {
+  const form = el('studentEditForm');
+  form.reset();
+
+  // Đổ danh sách đợt và đối tượng vào form modal
+  const batchSelect = el('editBatchId');
+  const targetSelect = el('editTargetId');
+
+  batchSelect.innerHTML = '<option value="">-- Chọn đợt tiếp nhận --</option>' +
+    (state.admissionBatches || []).map(b => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+
+  targetSelect.innerHTML = '<option value="">-- Chọn đối tượng tiếp nhận --</option>' +
+    (state.admissionTargets || []).map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+
+  if (id) {
+    el('studentFormTitle').textContent = 'Chỉnh sửa hồ sơ học viên';
+    el('editStudentId').value = id;
+    const item = (state.students || []).find(s => s.id === id);
+    if (item) {
+      el('editFullName').value = item.full_name || '';
+      el('editOrderIndex').value = item.order_index || '';
+      el('editBirthday').value = item.birthday || '';
+      el('editBirthplace').value = item.birthplace || '';
+      el('editHometown').value = item.hometown || '';
+      el('editRank').value = item.rank || '';
+      el('editPosition').value = item.position || '';
+      el('editUnit').value = item.unit || '';
+      el('editEducationLevel').value = item.education_level || '';
+      el('editPhone').value = item.phone || '';
+      el('editIdCard').value = item.id_card || '';
+      el('editBatchId').value = item.batch_id || '';
+      el('editTargetId').value = item.target_id || '';
+      el('editClassName').value = item.class_name || '';
+      el('editStatus').value = item.status || 'PendingReview';
+    }
+  } else {
+    el('studentFormTitle').textContent = 'Thêm hồ sơ học viên mới';
+    el('editStudentId').value = '';
+    el('editStatus').value = 'PendingReview';
+    if (state.admissionBatches?.length) batchSelect.value = state.admissionBatches[0].id;
+    if (state.admissionTargets?.length) {
+      targetSelect.value = state.admissionTargets[0].id;
+      onEditTargetChange();
+    }
+  }
+
+  el('studentFormModal').classList.remove('hidden');
+}
+
+function closeStudentFormModal() {
+  el('studentFormModal').classList.add('hidden');
+}
+
+function onEditBatchChange() {
+  // Có thể lọc các target theo batch
+}
+
+function onEditTargetChange() {
+  const targetId = Number(el('editTargetId').value);
+  const target = (state.admissionTargets || []).find(t => t.id === targetId);
+  if (target && target.default_class && !el('editClassName').value) {
+    el('editClassName').value = target.default_class;
+  }
+}
+
+async function saveStudent(event) {
+  event.preventDefault();
+  const id = el('editStudentId').value;
+  const body = {
+    full_name: el('editFullName').value.trim(),
+    order_index: el('editOrderIndex').value ? Number(el('editOrderIndex').value) : null,
+    birthday: el('editBirthday').value,
+    birthplace: el('editBirthplace').value.trim(),
+    hometown: el('editHometown').value.trim(),
+    rank: el('editRank').value.trim(),
+    position: el('editPosition').value.trim(),
+    unit: el('editUnit').value.trim(),
+    education_level: el('editEducationLevel').value.trim(),
+    phone: el('editPhone').value.trim(),
+    id_card: el('editIdCard').value.trim(),
+    batch_id: el('editBatchId').value ? Number(el('editBatchId').value) : null,
+    target_id: el('editTargetId').value ? Number(el('editTargetId').value) : null,
+    class_name: el('editClassName').value.trim(),
+    status: el('editStatus').value
+  };
+
+  try {
+    if (id) {
+      await request(`/api/students/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+      toast('Đã cập nhật hồ sơ học viên!');
+    } else {
+      await request('/api/students', { method: 'POST', body: JSON.stringify(body) });
+      toast('Đã tạo hồ sơ học viên thành công!');
+    }
+    closeStudentFormModal();
+    loadData();
+  } catch (err) {
+    toast(err.message);
   }
 }
 
 async function deleteStudent(id) {
-  await mutate(`/api/students/${id}`, { method: 'DELETE' }, 'Đã xóa học viên.');
+  if (!confirm('Đồng chí có chắc chắn muốn xóa hồ sơ học viên này?')) return;
+  await mutate(`/api/students/${id}`, { method: 'DELETE' }, 'Đã xóa hồ sơ học viên.');
 }
+
+// ==========================================================
+// QUẢN LÝ ĐỢT TIẾP NHẬN (ADMISSION BATCHES)
+// ==========================================================
+function renderAdmissionBatches() {
+  const container = el('batchCardsContainer') || el('batchTableBody');
+  if (!container) return;
+
+  const batches = state.admissionBatches || [];
+  if (!batches.length) {
+    if (container.tagName === 'TBODY') {
+      container.innerHTML = '<tr><td colspan="7" class="empty">Chưa có đợt tiếp nhận nào. Bấm "Tạo đợt tiếp nhận mới" để bắt đầu.</td></tr>';
+    } else {
+      container.innerHTML = '<div class="empty-panel">Chưa có đợt tiếp nhận nào. Bấm "Tạo đợt tiếp nhận mới" để bắt đầu.</div>';
+    }
+    if (el('batchPagination')) el('batchPagination').innerHTML = '';
+    return;
+  }
+
+  const start = (admissionState.batchPage - 1) * admissionState.pageSize;
+  const pageItems = batches.slice(start, start + admissionState.pageSize);
+
+  if (el('batchPagination')) {
+    el('batchPagination').innerHTML = buildAdmissionPagination(batches.length, admissionState.batchPage, admissionState.pageSize, 'batch');
+  }
+
+  container.innerHTML = pageItems.map(batch => {
+    let statusBadge = '<span class="badge badge-open">Đang mở</span>';
+    if (batch.status === 'Paused') statusBadge = '<span class="badge badge-paused">Tạm dừng</span>';
+    if (batch.status === 'Closed') statusBadge = '<span class="badge badge-closed">Đã đóng</span>';
+
+    // RENDER AS TABLE ROW
+    return `
+      <tr>
+        <td class="td-code">${escapeHtml(batch.code)}</td>
+        <td class="td-name">${escapeHtml(batch.name)}</td>
+        <td>${escapeHtml(batch.academic_year || '--')}</td>
+        <td class="td-muted">${escapeHtml(batch.start_date || '...')} &rarr; ${escapeHtml(batch.end_date || '...')}</td>
+        <td class="td-center">${statusBadge}</td>
+        <td class="td-center"><strong>${batch.student_count || 0}</strong></td>
+        <td class="td-right">
+          <button class="btn btn-ghost btn-icon" onclick="openBatchQrModal(${batch.id})" title="Link & Mã QR riêng cho đợt này">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          </button>
+          <button class="btn btn-ghost btn-icon" onclick="openBatchFormModal(${batch.id})" title="Sửa">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          </button>
+          <button class="btn btn-ghost btn-icon" onclick="deleteBatch(${batch.id})" title="Xóa" style="color:var(--danger)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openBatchFormModal(id = null) {
+  const form = el('batchEditForm');
+  form.reset();
+
+  const container = el('batchTargetsCheckboxes');
+  const targets = state.admissionTargets || [];
+  container.innerHTML = targets.map(t => `
+    <label class="checkbox-option">
+      <input type="checkbox" name="batchTargets" value="${t.id}" id="chkTarget_${t.id}" />
+      <span>${escapeHtml(t.name)} (${escapeHtml(t.default_class || 'Không có lớp')})</span>
+    </label>
+  `).join('');
+
+  const codeInput = el('editBatchCode');
+  codeInput.readOnly = true;
+  codeInput.style.backgroundColor = '#f1f5f9';
+  codeInput.style.cursor = 'not-allowed';
+
+  if (id) {
+    el('batchFormTitle').textContent = 'Chỉnh sửa đợt tiếp nhận';
+    el('editBatchIdField').value = id;
+    const b = (state.admissionBatches || []).find(item => item.id === id);
+    if (b) {
+      codeInput.value = b.code || '';
+      el('editBatchName').value = b.name || '';
+      el('editBatchYear').value = b.academic_year || '';
+      el('editBatchStatus').value = b.status || 'Open';
+      el('editBatchStartDate').value = b.start_date || '';
+      el('editBatchEndDate').value = b.end_date || '';
+      el('editBatchNote').value = b.note || '';
+
+      const targetIds = Array.isArray(b.target_ids) ? b.target_ids.map(Number) : [];
+      targetIds.forEach(tId => {
+        const chk = el(`chkTarget_${tId}`);
+        if (chk) chk.checked = true;
+      });
+    }
+  } else {
+    el('batchFormTitle').textContent = 'Thêm đợt tiếp nhận mới';
+    el('editBatchIdField').value = '';
+    
+    // Auto-generate code
+    const batches = state.admissionBatches || [];
+    const year = new Date().getFullYear();
+    const count = batches.length + 1;
+    codeInput.value = `DOT-${year}-${String(count).padStart(2, '0')}`;
+    
+    el('editBatchYear').value = `${year}-${year + 1}`;
+    // Mặc định chọn tất cả đối tượng
+    targets.forEach(t => {
+      const chk = el(`chkTarget_${t.id}`);
+      if (chk) chk.checked = true;
+    });
+  }
+
+  el('batchFormModal').classList.remove('hidden');
+}
+
+function closeBatchFormModal() {
+  el('batchFormModal').classList.add('hidden');
+}
+
+async function saveBatch(event) {
+  event.preventDefault();
+  const id = el('editBatchIdField').value;
+  const checkedTargetCheckboxes = document.querySelectorAll('input[name="batchTargets"]:checked');
+  const targetIds = Array.from(checkedTargetCheckboxes).map(c => Number(c.value));
+
+  const body = {
+    code: el('editBatchCode').value.trim(),
+    name: el('editBatchName').value.trim(),
+    academic_year: el('editBatchYear').value.trim(),
+    status: el('editBatchStatus').value,
+    start_date: el('editBatchStartDate').value,
+    end_date: el('editBatchEndDate').value,
+    target_ids: targetIds,
+    note: el('editBatchNote').value.trim()
+  };
+
+  try {
+    if (id) {
+      await request(`/api/admission-batches/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+      toast('Đã cập nhật đợt tiếp nhận!');
+    } else {
+      await request('/api/admission-batches', { method: 'POST', body: JSON.stringify(body) });
+      toast('Đã tạo đợt tiếp nhận mới!');
+    }
+    closeBatchFormModal();
+    loadData();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+async function deleteBatch(id) {
+  if (!confirm('Đồng chí có chắc chắn muốn xóa đợt tiếp nhận này?')) return;
+  await mutate(`/api/admission-batches/${id}`, { method: 'DELETE' }, 'Đã xóa đợt tiếp nhận.');
+}
+
+// ==========================================================
+// QUẢN LÝ ĐỐI TƯỢNG TIẾP NHẬN (ADMISSION TARGETS)
+// ==========================================================
+function renderAdmissionTargets() {
+  const container = el('targetCardsContainer') || el('targetTableBody');
+  if (!container) return;
+
+  const targets = state.admissionTargets || [];
+  if (!targets.length) {
+    if (container.tagName === 'TBODY') {
+      container.innerHTML = '<tr><td colspan="6" class="empty">Chưa có đối tượng tiếp nhận nào. Bấm "Thêm đối tượng tiếp nhận" để tạo mới.</td></tr>';
+    } else {
+      container.innerHTML = '<div class="empty-panel">Chưa có đối tượng tiếp nhận nào. Bấm "Thêm đối tượng tiếp nhận" để tạo mới.</div>';
+    }
+    if (el('targetPagination')) el('targetPagination').innerHTML = '';
+    return;
+  }
+
+  const start = (admissionState.targetPage - 1) * admissionState.pageSize;
+  const pageItems = targets.slice(start, start + admissionState.pageSize);
+
+  if (el('targetPagination')) {
+    el('targetPagination').innerHTML = buildAdmissionPagination(targets.length, admissionState.targetPage, admissionState.pageSize, 'target');
+  }
+
+  container.innerHTML = pageItems.map(t => {
+    return `
+      <tr>
+        <td class="td-code">${escapeHtml(t.code)}</td>
+        <td class="td-name">${escapeHtml(t.name)}</td>
+        <td><span class="badge badge-created">${escapeHtml(t.default_class || 'Chưa đặt')}</span></td>
+        <td class="td-center"><strong>${t.quota || 0}</strong></td>
+        <td class="td-center"><strong style="color:var(--ok)">${t.student_count || 0}</strong></td>
+        <td class="td-right">
+          <button class="btn btn-ghost btn-icon" onclick="openTargetFormModal(${t.id})" title="Sửa">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          </button>
+          <button class="btn btn-ghost btn-icon" onclick="deleteTarget(${t.id})" title="Xóa" style="color:var(--danger)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openTargetFormModal(id = null) {
+  const form = el('targetEditForm');
+  form.reset();
+
+  if (id) {
+    el('targetFormTitle').textContent = 'Chỉnh sửa đối tượng tiếp nhận';
+    el('editTargetIdField').value = id;
+    const t = (state.admissionTargets || []).find(item => item.id === id);
+    if (t) {
+      el('editTargetCode').value = t.code || '';
+      el('editTargetName').value = t.name || '';
+      el('editTargetDefaultClass').value = t.default_class || '';
+      el('editTargetQuota').value = t.quota || '';
+      const docs = Array.isArray(t.required_documents) ? t.required_documents.join('\n') : '';
+      el('editTargetDocs').value = docs;
+      el('editTargetDesc').value = t.description || '';
+    }
+  } else {
+    el('targetFormTitle').textContent = 'Thêm đối tượng tiếp nhận mới';
+    el('editTargetIdField').value = '';
+    el('editTargetDocs').value = 'Bản sao Quyết định cử đi học\nBằng tốt nghiệp Đại học / Cao đẳng\nChứng chỉ Lý luận chính trị\nẢnh thẻ 3x4';
+  }
+
+  el('targetFormModal').classList.remove('hidden');
+}
+
+function closeTargetFormModal() {
+  el('targetFormModal').classList.add('hidden');
+}
+
+async function saveTarget(event) {
+  event.preventDefault();
+  const id = el('editTargetIdField').value;
+  const docsText = el('editTargetDocs').value.trim();
+  const docsList = docsText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+
+  const body = {
+    code: el('editTargetCode').value.trim(),
+    name: el('editTargetName').value.trim(),
+    default_class: el('editTargetDefaultClass').value.trim(),
+    quota: el('editTargetQuota').value ? Number(el('editTargetQuota').value) : 0,
+    required_documents: docsList,
+    description: el('editTargetDesc').value.trim()
+  };
+
+  try {
+    if (id) {
+      await request(`/api/admission-targets/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+      toast('Đã cập nhật đối tượng tiếp nhận!');
+    } else {
+      await request('/api/admission-targets', { method: 'POST', body: JSON.stringify(body) });
+      toast('Đã tạo đối tượng tiếp nhận mới!');
+    }
+    closeTargetFormModal();
+    loadData();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+async function deleteTarget(id) {
+  if (!confirm('Đồng chí có chắc chắn muốn xóa đối tượng tiếp nhận này?')) return;
+  await mutate(`/api/admission-targets/${id}`, { method: 'DELETE' }, 'Đã xóa đối tượng tiếp nhận.');
+}
+
+// ==========================================================
+// MÃ QR VÀ LINK NỘP HỒ SƠ DI ĐỘNG
+// ==========================================================
+function openQrModal() {
+  const modal = el('qrModal');
+  const url = `${window.location.origin}/tiep-nhan.html`;
+  el('qrPublicUrlInput').value = url;
+
+  // Vẽ mã QR trực tiếp qua Canvas hoặc ảnh QR
+  const canvas = el('qrCanvas');
+  const ctx = canvas.getContext('2d');
+
+  // Vẽ nền trắng
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Tải hình ảnh QR từ API dịch vụ chuẩn
+  const qrImg = new Image();
+  qrImg.crossOrigin = 'anonymous';
+  qrImg.onload = () => {
+    ctx.drawImage(qrImg, 10, 10, 200, 200);
+  };
+  qrImg.onerror = () => {
+    // Vẽ placeholder nếu offline
+    ctx.fillStyle = '#166534';
+    ctx.font = '14px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('QUÉT MÃ QR NỘP HỒ SƠ', 110, 100);
+    ctx.font = '12px Inter, sans-serif';
+    ctx.fillText(url, 110, 130);
+  };
+  qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&data=${encodeURIComponent(url)}`;
+
+  modal.classList.remove('hidden');
+}
+
+/**
+ * Mở modal QR riêng cho một đợt tiếp nhận cụ thể.
+ * URL: /tiep-nhan.html?batch=<batchId>
+ */
+function openBatchQrModal(batchId) {
+  const batch = (state.admissionBatches || []).find(b => b.id === batchId);
+  if (!batch) { toast('Không tìm thấy đợt tiếp nhận.', 'error'); return; }
+
+  const modal = el('qrModal');
+  const baseUrl = `${window.location.origin}/tiep-nhan.html?batch=${batchId}`;
+
+  const openBtn = el('btnOpenBatchLink');
+  if (openBtn) openBtn.href = baseUrl;
+
+  // Cập nhật tiêu đề và URL trong modal hiện có
+  const titleEl  = el('qrModalTitle');
+  const urlInput = el('qrPublicUrlInput');
+  const canvas   = el('qrCanvas');
+
+  if (titleEl) titleEl.textContent = `Mã QR — ${batch.name}`;
+  if (urlInput) urlInput.value = baseUrl;
+
+  // Render QR
+  if (canvas) {
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    const qrImg = new Image();
+    qrImg.crossOrigin = 'anonymous';
+    qrImg.onload = () => ctx.drawImage(qrImg, 10, 10, 200, 200);
+    qrImg.onerror = () => {
+      ctx.fillStyle = '#166534';
+      ctx.font = 'bold 12px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`QR: ${batch.name}`, 110, 90);
+      ctx.font = '10px Inter, sans-serif';
+      ctx.fillText(baseUrl, 110, 115);
+    };
+    qrImg.src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&margin=0&data=${encodeURIComponent(baseUrl)}`;
+  }
+
+  // Hiển thị thêm thông tin các đối tượng bên dưới (nếu có)
+  let extraHtml = el('batchQrTargetLinks');
+  if (!extraHtml) {
+    extraHtml = document.createElement('div');
+    extraHtml.id = 'batchQrTargetLinks';
+    extraHtml.style.cssText = 'margin-top:14px; padding-top:12px; border-top:1px solid #e2e8f0; text-align:left;';
+    const modalBody = modal.querySelector('.modal-body');
+    if (modalBody) modalBody.appendChild(extraHtml);
+  }
+
+  const targets = batch.targets || [];
+  if (targets.length > 1) {
+    extraHtml.innerHTML = `
+      <p style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px;">
+        Link riêng theo Đối tượng
+      </p>
+      ${targets.map(t => {
+        const tUrl = `${window.location.origin}/tiep-nhan.html?batch=${batchId}&target=${t.id}`;
+        return `
+          <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+            <input readonly value="${tUrl}" style="flex:1;padding:5px 8px;border:1px solid #e2e8f0;border-radius:6px;font-size:11px;font-family:monospace;color:#0f172a;" onclick="this.select()" />
+            <button class="btn btn-secondary" style="padding:5px 10px;font-size:11px;" onclick="navigator.clipboard.writeText('${tUrl}').then(()=>toast('Đã sao chép!'))">
+              Sao chép
+            </button>
+          </div>
+          <p style="font-size:11px;color:#64748b;margin-bottom:8px;padding-left:2px;">↑ ${escapeHtml(t.name)}</p>
+        `;
+      }).join('')}
+    `;
+  } else if (targets.length === 1) {
+    extraHtml.innerHTML = `<p style="font-size:11px;color:#64748b;margin-top:4px;">✓ Đợt có 1 đối tượng — link trên sẽ tự chọn <strong>${escapeHtml(targets[0].name)}</strong>.</p>`;
+  } else {
+    extraHtml.innerHTML = '';
+  }
+
+  modal.classList.remove('hidden');
+}
+
+function closeQrModal() {
+  el('qrModal').classList.add('hidden');
+}
+
+function downloadBatchQr() {
+  const canvas = el('qrCanvas');
+  if (!canvas) return;
+  const url = el('qrPublicUrlInput')?.value || 'qr';
+  // Tạo canvas mới có padding trắng + label
+  const out = document.createElement('canvas');
+  out.width = 280; out.height = 310;
+  const ctx = out.getContext('2d');
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, 280, 310);
+  ctx.drawImage(canvas, 30, 20, 220, 220);
+  ctx.fillStyle = '#166534';
+  ctx.font = 'bold 11px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('HỌC VIỆN CHÍNH TRỊ — CỔNG TIẾP NHẬN', 140, 260);
+  ctx.font = '9px monospace';
+  ctx.fillStyle = '#64748b';
+  const shortUrl = url.length > 50 ? url.slice(0, 50) + '…' : url;
+  ctx.fillText(shortUrl, 140, 280);
+
+  const a = document.createElement('a');
+  a.href = out.toDataURL('image/png');
+  a.download = `QR-dot-tiep-nhan-${Date.now()}.png`;
+  a.click();
+}
+
+
+function copyPublicUrl() {
+  const input = el('qrPublicUrlInput');
+  input.select();
+  navigator.clipboard.writeText(input.value).then(() => {
+    toast('Đã sao chép liên kết vào bộ nhớ tạm!');
+  }).catch(() => {
+    toast('Sao chép liên kết thất bại.');
+  });
+}
+
+// ==========================================================
+// LIGHTBOX XEM ẢNH VĂN BẰNG
+// ==========================================================
+function openLightbox(src, docType, fileName) {
+  const modal = el('lightboxModal');
+  if (!modal) return;
+  const imgEl = el('lightboxImage');
+  const pdfFrame = el('lightboxPdfFrame');
+  const isPdf = (fileName && fileName.toLowerCase().endsWith('.pdf')) || (src && src.toLowerCase().includes('.pdf'));
+
+  if (isPdf) {
+    if (imgEl) imgEl.classList.add('hidden');
+    if (pdfFrame) {
+      pdfFrame.classList.remove('hidden');
+      pdfFrame.src = src;
+    }
+  } else {
+    if (pdfFrame) {
+      pdfFrame.classList.add('hidden');
+      pdfFrame.src = '';
+    }
+    if (imgEl) {
+      imgEl.classList.remove('hidden');
+      imgEl.src = src;
+    }
+  }
+
+  if (el('lightboxDocType')) el('lightboxDocType').textContent = docType || 'Tài liệu văn bằng';
+  if (el('lightboxFileName')) el('lightboxFileName').textContent = fileName || '';
+  modal.classList.remove('hidden');
+}
+
+function closeLightbox() {
+  const modal = el('lightboxModal');
+  if (!modal) return;
+  modal.classList.add('hidden');
+  const pdfFrame = el('lightboxPdfFrame');
+  if (pdfFrame) pdfFrame.src = '';
+  const imgEl = el('lightboxImage');
+  if (imgEl) imgEl.src = '';
+}
+
 
 const taskColorPresets = [
   { hex: '#15803d', label: 'Xanh quân đội' },

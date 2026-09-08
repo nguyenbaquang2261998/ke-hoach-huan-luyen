@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Cổng Tiếp nhận Học viên - Học viện Chính trị</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#166534" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="HVCT Tiếp Nhận" />
+  <link rel="apple-touch-icon" href="img/icon-192.png" />
+  <link rel="icon" type="image/png" sizes="192x192" href="img/icon-192.png" />
+  <link rel="icon" type="image/svg+xml" href="img/icon.svg" />
+  <style>
+    /* ====================================================
+       RESET & BASE
+       ==================================================== */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { font-size: 16px; -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f0f2f5;
+      color: #1a2332;
+      min-height: 100vh;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ====================================================
+       UTILITY
+       ==================================================== */
+    .hidden { display: none !important; }
+
+    /* ====================================================
+       APP HEADER
+       ==================================================== */
+    .app-header {
+      position: sticky; top: 0; z-index: 200;
+      background: linear-gradient(135deg, #166534 0%, #15803d 60%, #16a34a 100%);
+      padding: 0 16px; height: 60px;
+      display: flex; align-items: center; justify-content: space-between;
+      box-shadow: 0 2px 12px rgba(22,101,52,0.4);
+    }
+    .header-brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
+    .header-logo { width: 38px; height: 38px; border-radius: 50%; background: #fff; padding: 2px; object-fit: contain; flex-shrink: 0; }
+    .header-text { min-width: 0; }
+    .header-text h1 { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-text p { font-size: 10px; color: rgba(255,255,255,0.82); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-admin-btn {
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      color: rgba(255,255,255,0.85); text-decoration: none;
+      font-size: 9px; font-weight: 700; flex-shrink: 0;
+      padding: 6px 8px; border-radius: 8px; transition: background 0.15s; letter-spacing: 0.3px;
+    }
+    .header-admin-btn:hover, .header-admin-btn:active { background: rgba(255,255,255,0.15); color: #fff; }
+
+    /* ====================================================
+       TAB BAR
+       ==================================================== */
+    .tab-bar {
+      position: sticky; top: 60px; z-index: 190;
+      background: #fff; border-bottom: 1px solid #e2e8f0;
+      display: flex; padding: 8px 12px; gap: 8px;
+    }
+    .tab-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 10px 8px; border: none; border-radius: 10px;
+      background: #f1f5f9; color: #64748b;
+      font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
+      transition: all 0.2s; white-space: nowrap;
+    }
+    .tab-btn.active { background: #166534; color: #fff; box-shadow: 0 2px 8px rgba(22,101,52,0.3); }
+    .tab-btn svg { flex-shrink: 0; }
+
+    /* ====================================================
+       MAIN CONTENT
+       ==================================================== */
+    .app-main { max-width: 560px; margin: 0 auto; padding: 16px 14px 80px; }
+
+    /* ====================================================
+       TAB SECTIONS
+       ==================================================== */
+    .tab-section { display: none; }
+    .tab-section.active { display: block; }
+
+    /* ====================================================
+       STEPPER
+       ==================================================== */
+    .stepper { display: flex; align-items: center; margin-bottom: 20px; padding: 16px 4px 0; }
+    .step-node { display: flex; flex-direction: column; align-items: center; gap: 5px; flex-shrink: 0; }
+    .step-dot {
+      width: 30px; height: 30px; border-radius: 50%;
+      background: #e2e8f0; color: #94a3b8;
+      font-size: 12px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center;
+      transition: all 0.25s; border: 2px solid transparent;
+    }
+    .step-node.active .step-dot { background: #166534; color: #fff; border-color: #166534; box-shadow: 0 0 0 4px rgba(22,101,52,0.15); }
+    .step-node.done .step-dot { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .step-label { font-size: 10px; font-weight: 600; color: #94a3b8; text-align: center; }
+    .step-node.active .step-label { color: #166534; font-weight: 700; }
+    .step-node.done .step-label { color: #22c55e; }
+    .step-connector { flex: 1; height: 2px; background: #e2e8f0; margin: 0 4px 16px; border-radius: 2px; transition: background 0.25s; }
+    .step-connector.done { background: #22c55e; }
+
+    /* ====================================================
+       STEP PANELS
+       ==================================================== */
+    .step-panel { display: none; }
+    .step-panel.active { display: block; }
+
+    /* ====================================================
+       SECTION HEADING
+       ==================================================== */
+    .section-head { margin-bottom: 14px; }
+    .section-head h2 { font-size: 16px; font-weight: 800; color: #0f172a; margin-bottom: 3px; }
+    .section-head p { font-size: 12px; color: #64748b; }
+
+    /* ====================================================
+       CARD
+       ==================================================== */
+    .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; border: 1px solid #e8edf3; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .card-label {
+      font-size: 11px; font-weight: 800; color: #166534;
+      text-transform: uppercase; letter-spacing: 0.6px;
+      margin-bottom: 14px; display: flex; align-items: center; gap: 6px;
+    }
+    .card-label::after { content: ''; flex: 1; height: 1px; background: #e2e8f0; }
+
+    /* ====================================================
+       FORM ELEMENTS
+       ==================================================== */
+    .field { margin-bottom: 14px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label { display: block; font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; }
+    .field label .req { color: #ef4444; margin-left: 2px; }
+    .field input, .field select, .field textarea {
+      width: 100%; padding: 11px 13px;
+      border: 1.5px solid #d1d5db; border-radius: 10px;
+      font-size: 15px; font-family: inherit; color: #0f172a;
+      background: #fff; transition: border-color 0.15s, box-shadow 0.15s;
+      -webkit-appearance: none; appearance: none;
+    }
+    .field select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat; background-position: right 13px center; padding-right: 36px;
+    }
+    .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: #166534; box-shadow: 0 0 0 3px rgba(22,101,52,0.12); }
+    .field input::placeholder, .field textarea::placeholder { color: #9ca3af; font-size: 14px; }
+    .field textarea { resize: vertical; min-height: 72px; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+    .field-row .field { margin-bottom: 0; }
+
+    /* Preset lock badge — hiển thị khi field bị khoá từ URL */
+    .preset-lock-badge {
+      display: flex; align-items: center; gap: 6px;
+      margin-top: 6px; padding: 7px 10px;
+      background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px;
+      font-size: 11px; font-weight: 600; color: #166534; line-height: 1.4;
+    }
+    .preset-lock-badge svg { flex-shrink: 0; }
+    .field select:disabled {
+      background-color: #f0fdf4; border-color: #86efac;
+      color: #166534; opacity: 1; cursor: not-allowed;
+    }
+
+    /* Target info preview */
+    .target-preview { margin-top: 10px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 12px; }
+    .target-preview-badge { display: inline-flex; align-items: center; gap: 5px; background: #166534; color: #fff; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; margin-bottom: 8px; }
+    .target-preview p { font-size: 12px; color: #166534; margin-bottom: 8px; }
+    .docs-list-title { font-size: 11px; font-weight: 700; color: #374151; margin-bottom: 5px; }
+    .docs-list { list-style: none; padding: 0; }
+    .docs-list li { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; color: #374151; padding: 4px 0; border-bottom: 1px dashed #d1fae5; }
+    .docs-list li:last-child { border-bottom: none; }
+    .doc-num { font-weight: 700; color: #166534; flex-shrink: 0; }
+
+    /* ====================================================
+       UPLOAD DOC CARDS
+       ==================================================== */
+    .upload-doc-card { border-left: 3px solid #166534; }
+    .upload-doc-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    .upload-doc-title { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+    .doc-num-badge { width: 24px; height: 24px; border-radius: 50%; background: #166534; color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .upload-doc-title strong { font-size: 13px; font-weight: 700; color: #0f172a; line-height: 1.3; }
+    .upload-tag { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #64748b; flex-shrink: 0; white-space: nowrap; }
+    .upload-tag.done { background: #dcfce7; color: #166534; }
+    .upload-btn-label {
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      width: 100%; padding: 14px; border: 2px dashed #d1d5db; border-radius: 10px;
+      background: #f8fafc; color: #166534; font-size: 14px; font-weight: 700;
+      font-family: inherit; cursor: pointer; transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .upload-btn-label:active { background: #f0fdf4; border-color: #86efac; }
+    .file-input-hidden { display: none; }
+    .upload-preview { display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid #e2e8f0; }
+    .upload-thumb { width: 58px; height: 58px; object-fit: cover; border-radius: 8px; border: 1px solid #e2e8f0; cursor: pointer; flex-shrink: 0; }
+    .prev-info { flex: 1; min-width: 0; }
+    .prev-filename { font-size: 12px; font-weight: 700; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .prev-filesize { font-size: 11px; color: #64748b; margin-top: 2px; }
+    .btn-remove-file { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; background: none; border: none; color: #ef4444; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; padding: 0; }
+
+    /* Tip card */
+    .tip-card { display: flex; align-items: flex-start; gap: 10px; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; }
+    .tip-icon { font-size: 18px; flex-shrink: 0; line-height: 1.2; }
+    .tip-text { font-size: 12px; color: #1d4ed8; line-height: 1.5; }
+    .tip-text strong { font-weight: 700; }
+
+    /* ====================================================
+       STEP 4: REVIEW & SUBMIT
+       ==================================================== */
+    .review-card { background: #f8fafc; border: 1px solid #e2e8f0; }
+    .review-card h3 { font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.6px; padding-bottom: 10px; border-bottom: 1px solid #e2e8f0; margin-bottom: 12px; }
+    .review-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; padding: 7px 0; font-size: 13px; border-bottom: 1px dashed #e8edf3; }
+    .review-row:last-child { border-bottom: none; }
+    .review-row .rlabel { color: #64748b; font-size: 12px; font-weight: 500; flex-shrink: 0; }
+    .review-row .rval { font-weight: 700; color: #0f172a; text-align: right; word-break: break-word; }
+    .review-row .rval.green { color: #166534; }
+    .notice-card { border: 2px solid #fde68a; background: #fffbeb; }
+    .notice-badge { display: inline-flex; align-items: center; gap: 5px; background: #d97706; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.4px; padding: 3px 10px; border-radius: 999px; margin-bottom: 10px; }
+    .notice-text { font-size: 12px; color: #78350f; line-height: 1.6; margin-bottom: 14px; }
+    .commit-label { display: flex; align-items: flex-start; gap: 10px; cursor: pointer; }
+    .commit-label input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px; accent-color: #166534; cursor: pointer; }
+    .commit-label span { font-size: 12px; color: #374151; line-height: 1.6; }
+
+    /* ====================================================
+       NAV BUTTONS
+       ==================================================== */
+    .step-nav { display: flex; gap: 10px; margin-top: 16px; }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+      padding: 12px 18px; border-radius: 10px; border: none;
+      font-size: 14px; font-weight: 700; font-family: inherit;
+      cursor: pointer; transition: all 0.15s;
+      -webkit-tap-highlight-color: transparent; text-decoration: none;
+    }
+    .btn-primary { background: #166534; color: #fff; box-shadow: 0 2px 8px rgba(22,101,52,0.3); }
+    .btn-primary:active { background: #14532d; transform: scale(0.98); }
+    .btn-secondary { background: #f1f5f9; color: #374151; }
+    .btn-secondary:active { background: #e2e8f0; transform: scale(0.98); }
+    .btn-grow { flex: 1; }
+    .btn-full { width: 100%; }
+    .btn-submit { width: 100%; padding: 14px; font-size: 15px; border-radius: 12px; background: linear-gradient(135deg, #166534, #15803d); box-shadow: 0 4px 14px rgba(22,101,52,0.35); justify-content: center; }
+    .btn-submit:active { transform: scale(0.98); box-shadow: none; }
+
+    /* ====================================================
+       SUCCESS SCREEN
+       ==================================================== */
+    #recSuccessBox { padding: 8px 0 24px; }
+    .success-screen { text-align: center; animation: successFadeIn 0.4s ease; }
+    @keyframes successFadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Banner thông báo */
+    .success-banner {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: linear-gradient(135deg, #166534, #15803d);
+      color: #fff; font-size: 13px; font-weight: 800; letter-spacing: 0.8px;
+      padding: 10px 22px; border-radius: 999px;
+      margin-bottom: 24px;
+      box-shadow: 0 4px 16px rgba(22,101,52,0.4);
+      animation: bannerPop 0.5s 0.1s cubic-bezier(0.175,0.885,0.32,1.275) both;
+    }
+    @keyframes bannerPop {
+      from { opacity: 0; transform: scale(0.7); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    /* Icon wrapper với pulse ring */
+    .success-icon-wrap {
+      position: relative; display: inline-flex;
+      align-items: center; justify-content: center;
+      margin-bottom: 20px;
+    }
+    .success-icon-wrap::before {
+      content: ''; position: absolute;
+      width: 100px; height: 100px; border-radius: 50%;
+      background: rgba(22,101,52,0.08);
+      animation: pulseRing 1.8s ease-out infinite;
+    }
+    @keyframes pulseRing {
+      0%   { transform: scale(0.85); opacity: 0.6; }
+      70%  { transform: scale(1.3);  opacity: 0; }
+      100% { transform: scale(1.3);  opacity: 0; }
+    }
+    .success-icon {
+      width: 80px; height: 80px; background: #dcfce7;
+      border-radius: 50%; display: flex; align-items: center; justify-content: center;
+      border: 3px solid #86efac;
+      animation: iconBounce 0.6s 0.2s cubic-bezier(0.175,0.885,0.32,1.275) both;
+    }
+    @keyframes iconBounce {
+      from { opacity: 0; transform: scale(0.4); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+
+    /* Tiêu đề */
+    .success-title { font-size: 22px; font-weight: 900; color: #166534; margin-bottom: 8px; }
+    .success-sub { font-size: 13px; color: #64748b; margin-bottom: 20px; line-height: 1.6; }
+
+    /* Code box */
+    .code-box {
+      border: 2.5px solid #86efac; border-radius: 16px;
+      padding: 18px 16px; background: #f0fdf4; margin-bottom: 20px;
+      box-shadow: 0 2px 8px rgba(22,101,52,0.1);
+    }
+    .code-box .code-label {
+      font-size: 10px; font-weight: 800; color: #166534;
+      text-transform: uppercase; letter-spacing: 0.8px;
+      display: block; margin-bottom: 8px;
+    }
+    .code-box .code-val {
+      font-size: 28px; font-weight: 900; color: #166534;
+      letter-spacing: 2px; display: block; margin-bottom: 12px;
+    }
+    .btn-copy-code {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: #166534; color: #fff;
+      border: none; border-radius: 8px;
+      padding: 7px 14px; font-size: 12px; font-weight: 700;
+      font-family: inherit; cursor: pointer; margin-bottom: 10px;
+      transition: background 0.15s;
+    }
+    .btn-copy-code:active { background: #14532d; }
+    .code-box .code-note { font-size: 11px; color: #64748b; display: block; }
+
+    /* Next steps */
+    .next-steps { background: #fffbeb; border: 1px solid #fde68a; border-radius: 12px; padding: 14px; text-align: left; margin-bottom: 16px; }
+    .next-steps strong { font-size: 12px; font-weight: 800; color: #78350f; display: block; margin-bottom: 8px; }
+    .next-steps ol { padding-left: 18px; font-size: 12px; color: #374151; }
+    .next-steps ol li { margin-bottom: 5px; line-height: 1.5; }
+    .success-actions { display: flex; flex-direction: column; gap: 8px; }
+
+
+
+    /* ====================================================
+       TRACK TAB
+       ==================================================== */
+    .track-section-head { padding: 4px 0 16px; }
+    .track-section-head h2 { font-size: 17px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }
+    .track-section-head p { font-size: 12px; color: #64748b; line-height: 1.5; }
+    .search-field { display: flex; border: 1.5px solid #d1d5db; border-radius: 10px; overflow: hidden; margin-bottom: 10px; background: #fff; transition: border-color 0.15s, box-shadow 0.15s; }
+    .search-field:focus-within { border-color: #166534; box-shadow: 0 0 0 3px rgba(22,101,52,0.12); }
+    .search-field input { flex: 1; padding: 12px 14px; border: none; font-size: 14px; font-family: inherit; color: #0f172a; background: transparent; outline: none; }
+    .search-field input::placeholder { color: #9ca3af; }
+    .search-field .search-icon { display: flex; align-items: center; padding: 0 12px; color: #94a3b8; }
+    .track-result-container { margin-top: 8px; }
+    .track-result-card { background: #fff; border-radius: 14px; border: 1px solid #e8edf3; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .track-card-top { padding: 14px 16px; border-bottom: 1px solid #e8edf3; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .track-code-label { font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; }
+    .track-code { font-size: 18px; font-weight: 900; color: #166534; letter-spacing: 0.5px; }
+    .track-status-pill { padding: 5px 12px; border-radius: 999px; font-size: 11px; font-weight: 800; }
+    .status-pending { background: #fef9c3; color: #854d0e; }
+    .status-approved { background: #dcfce7; color: #166534; }
+    .status-rejected { background: #fee2e2; color: #991b1b; }
+    .status-reviewing { background: #eff6ff; color: #1d4ed8; }
+    .track-card-body { padding: 14px 16px; }
+    .track-banner { padding: 10px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 12px; line-height: 1.5; }
+    .track-banner.ok { background: #f0fdf4; border: 1px solid #86efac; color: #166534; }
+    .track-banner.warn { background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; }
+    .track-banner.info { background: #eff6ff; border: 1px solid #bfdbfe; color: #1d4ed8; }
+    .track-info-grid { font-size: 13px; }
+    .track-info-row { display: flex; justify-content: space-between; gap: 8px; padding: 7px 0; border-bottom: 1px dashed #e8edf3; }
+    .track-info-row:last-child { border-bottom: none; }
+    .track-info-row span:first-child { color: #64748b; font-size: 12px; }
+    .track-info-row span:last-child { font-weight: 600; text-align: right; }
+    .track-sub-label { font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; margin: 14px 0 8px; }
+    .track-doc-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+    .track-doc-item:last-child { border-bottom: none; }
+    .review-comment { font-style: italic; font-weight: 600; font-size: 12px; margin-top: 4px; }
+    .btn-xs { padding: 4px 8px; font-size: 11px; border-radius: 6px; }
+
+    /* ====================================================
+       MODAL
+       ==================================================== */
+    .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 800; display: flex; align-items: flex-end; justify-content: center; }
+    .modal-sheet {
+      background: #fff; border-radius: 20px 20px 0 0; width: 100%;
+      max-width: 560px; max-height: 85vh;
+      display: flex; flex-direction: column; overflow: hidden;
+      box-shadow: 0 -8px 40px rgba(0,0,0,0.2);
+      animation: slideUp 0.25s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    .modal-handle { width: 40px; height: 4px; background: #e2e8f0; border-radius: 2px; margin: 12px auto 0; flex-shrink: 0; }
+    .modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px 12px; border-bottom: 1px solid #e8edf3; flex-shrink: 0; }
+    .modal-head h3 { font-size: 15px; font-weight: 800; color: #0f172a; }
+    .modal-close-btn { width: 30px; height: 30px; border-radius: 50%; background: #f1f5f9; border: none; color: #64748b; font-size: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; line-height: 1; }
+    .modal-body { flex: 1; overflow-y: auto; padding: 14px 16px; }
+    .modal-foot { display: flex; gap: 8px; padding: 12px 16px; border-top: 1px solid #e8edf3; flex-shrink: 0; }
+    .modal-foot .btn { flex: 1; }
+
+    /* ====================================================
+       TOAST
+       ==================================================== */
+    .toast-wrap { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 9999; pointer-events: none; }
+    #toast {
+      display: inline-flex; align-items: center; gap: 8px;
+      background: #0f172a; color: #fff;
+      padding: 11px 20px; border-radius: 999px;
+      font-size: 13px; font-weight: 600;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+      max-width: 86vw; text-align: center;
+      opacity: 0; transition: opacity 0.2s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    #toast.show { opacity: 1; }
+    #toast.toast-success { background: #166534; }
+    #toast.toast-error { background: #dc2626; }
+
+    /* ====================================================
+       RESPONSIVE >= 768px
+       ==================================================== */
+    @media (min-width: 768px) {
+      .app-header { height: 68px; padding: 0 32px; }
+      .header-logo { width: 46px; height: 46px; }
+      .header-text h1 { font-size: 15px; }
+      .header-text p { font-size: 12px; }
+      .tab-bar { top: 68px; padding: 10px 32px; gap: 12px; justify-content: center; }
+      .tab-btn { flex: none; min-width: 200px; font-size: 14px; padding: 12px 20px; }
+      .app-main { padding: 28px 32px 80px; max-width: 680px; }
+      .card { padding: 20px; }
+      .section-head h2 { font-size: 18px; }
+      .modal-overlay { align-items: center; }
+      .modal-sheet { border-radius: 16px; max-width: 480px; max-height: 80vh; animation: fadeIn 0.2s ease; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+      .modal-handle { display: none; }
+      .toast-wrap { bottom: 32px; left: auto; right: 32px; transform: none; }
+      #toast { max-width: 360px; }
+    }
+
+    @media (min-width: 1024px) {
+      .app-header { padding: 0 56px; }
+      .tab-bar { padding: 10px 56px; }
+      .app-main { max-width: 760px; padding: 36px 56px 80px; }
+    }
+
+    /* ====================================================
+       JS-GENERATED CLASS ALIASES (buildUploadCards, goToStep)
+       ==================================================== */
+    /* mobile-card: alias for .card (JS uses this class name) */
+    .mobile-card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; border: 1px solid #e8edf3; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .mobile-card.upload-doc-card { border-left: 3px solid #166534; }
+    .mobile-card.empty-card p { font-size: 13px; color: #64748b; line-height: 1.6; }
+
+    /* doc-badge-step: alias for .doc-num-badge */
+    .doc-badge-step { width: 24px; height: 24px; border-radius: 50%; background: #166534; color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+    /* doc-status-tag: alias for .upload-tag */
+    .doc-status-tag { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; background: #f1f5f9; color: #64748b; flex-shrink: 0; white-space: nowrap; }
+    .doc-status-tag.tag-success { background: #dcfce7; color: #166534; }
+
+    /* btn-take-photo: alias for .upload-btn-label */
+    .btn-take-photo { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; padding: 14px; border: 2px dashed #d1d5db; border-radius: 10px; background: #f8fafc; color: #166534; font-size: 14px; font-weight: 700; font-family: inherit; cursor: pointer; transition: all 0.15s; -webkit-tap-highlight-color: transparent; }
+    .btn-take-photo:active { background: #f0fdf4; border-color: #86efac; }
+
+    /* upload-preview-wrap: alias for .upload-preview */
+    .upload-preview-wrap { display: flex; align-items: center; gap: 12px; background: #f8fafc; padding: 10px; border-radius: 10px; border: 1px solid #e2e8f0; }
+
+    /* prev-details: alias for .prev-info */
+    .prev-details { flex: 1; min-width: 0; }
+
+    /* btn-delete-img: alias for .btn-remove-file */
+    .btn-delete-img { display: inline-flex; align-items: center; gap: 4px; margin-top: 6px; background: none; border: none; color: #ef4444; font-size: 11px; font-weight: 700; font-family: inherit; cursor: pointer; padding: 0; }
+
+    /* step-connector.active (JS adds class "active", not "done") */
+    .step-connector.active { background: #22c55e; }
+
+    /* step-node.completed (JS uses this, not "done") */
+    .step-node.completed .step-dot { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .step-node.completed .step-label { color: #22c55e; }
+  </style>
+</head>
+<body>
+
+  <!-- APP HEADER -->
+  <header class="app-header">
+    <div class="header-brand">
+      <img src="img/logo-removebg-preview.png" alt="Logo HVCT" class="header-logo" />
+      <div class="header-text">
+        <h1>HỌC VIỆN CHÍNH TRỊ</h1>
+        <p>Cổng Tiếp Nhận Học Viên Trực Tuyến</p>
+      </div>
+    </div>
+    <a href="students.html" class="header-admin-btn" title="Quản trị hệ thống">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <rect x="2" y="3" width="20" height="14" rx="2"/>
+        <line x1="8" y1="21" x2="16" y2="21"/>
+        <line x1="12" y1="17" x2="12" y2="21"/>
+      </svg>
+      Quản trị
+    </a>
+  </header>
+
+  <!-- TAB BAR -->
+  <div class="tab-bar" role="tablist">
+    <button id="btnTabSubmit" class="tab-btn active" role="tab" aria-selected="true" onclick="switchReceptionTab('submit')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="12" y1="18" x2="12" y2="12"/>
+        <line x1="9" y1="15" x2="15" y2="15"/>
+      </svg>
+      Nộp hồ sơ
+    </button>
+    <button id="btnTabTrack" class="tab-btn" role="tab" aria-selected="false" onclick="switchReceptionTab('track')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/>
+        <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      Tra cứu
+    </button>
+  </div>
+
+  <!-- MAIN -->
+  <main class="app-main">
+
+    <!-- TAB 1: NỘP HỒ SƠ -->
+    <section id="receptionSubmitSection" class="tab-section active" role="tabpanel">
+      <!-- Stepper -->
+      <div class="stepper" id="stepperBar">
+        <div class="step-node active" id="stepIndicator1">
+          <div class="step-dot">1</div>
+          <span class="step-label">Đối tượng</span>
+        </div>
+        <div class="step-connector" id="stepLine1"></div>
+        <div class="step-node" id="stepIndicator2">
+          <div class="step-dot">2</div>
+          <span class="step-label">Thông tin</span>
+        </div>
+        <div class="step-connector" id="stepLine2"></div>
+        <div class="step-node" id="stepIndicator3">
+          <div class="step-dot">3</div>
+          <span class="step-label">Văn bằng</span>
+        </div>
+        <div class="step-connector" id="stepLine3"></div>
+        <div class="step-node" id="stepIndicator4">
+          <div class="step-dot">4</div>
+          <span class="step-label">Xác nhận</span>
+        </div>
+      </div>
+
+      <form id="receptionForm" onsubmit="submitReceptionForm(event)">
+
+        <!-- BƯỚC 1 -->
+        <div id="stepBox1" class="step-panel active">
+          <div class="section-head">
+            <h2>Bước 1: Chọn đợt &amp; đối tượng</h2>
+            <p>Chọn đúng đợt tiếp nhận để hệ thống hướng dẫn chuẩn bị văn bằng phù hợp.</p>
+          </div>
+          <div class="card">
+            <div class="field">
+              <label for="recBatchSelect">Đợt tiếp nhận <span class="req">*</span></label>
+              <select id="recBatchSelect" required onchange="onRecBatchSelected()">
+                <option value="">-- Đang tải các đợt tiếp nhận --</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="recTargetSelect">Đối tượng tiếp nhận đào tạo <span class="req">*</span></label>
+              <select id="recTargetSelect" required onchange="onRecTargetSelected()" disabled>
+                <option value="">-- Vui lòng chọn đợt trước --</option>
+              </select>
+            </div>
+            <div id="recTargetInfoBox" class="target-preview hidden">
+              <div class="target-preview-badge">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>
+                Lớp biên chế dự kiến: <strong id="previewClass">--</strong>
+              </div>
+              <p id="previewDesc"></p>
+              <div class="docs-list-title">Văn bằng, giấy tờ bắt buộc cần nộp:</div>
+              <ul class="docs-list" id="previewDocsList"></ul>
+            </div>
+          </div>
+          <div class="step-nav">
+            <div style="flex:1"></div>
+            <button type="button" class="btn btn-primary btn-grow" onclick="goToStep(2)">
+              Tiếp tục: Điền thông tin
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- BƯỚC 2 -->
+        <div id="stepBox2" class="step-panel">
+          <div class="section-head">
+            <h2>Bước 2: Kê khai thông tin</h2>
+            <p>Dựa trên mẫu Phiếu đăng ký nhập học của Học viện Chính trị.</p>
+          </div>
+          <div class="card">
+            <div class="card-label">I. Thông tin học viên</div>
+            <div class="field">
+              <label for="recOrderIndex">Số thứ tự (theo danh sách nếu có)</label>
+              <input id="recOrderIndex" type="number" placeholder="VD: 27" inputmode="numeric" />
+            </div>
+            <div class="field">
+              <label for="recFullName">Họ và tên (chữ in hoa có dấu) <span class="req">*</span></label>
+              <input id="recFullName" type="text" required placeholder="VD: BÀN TRUNG NAM" autocapitalize="characters" />
+            </div>
+            <div class="field">
+              <label>Ngày sinh <span class="req">*</span></label>
+              <div class="field-row" style="grid-template-columns:1fr 1fr 1.4fr;gap:8px;margin-bottom:0">
+                <div class="field" style="margin-bottom:0">
+                  <select id="recBdDay" required>
+                    <option value="">Ngày</option>
+                  </select>
+                </div>
+                <div class="field" style="margin-bottom:0">
+                  <select id="recBdMonth" required>
+                    <option value="">Tháng</option>
+                    <option value="01">Tháng 1</option>
+                    <option value="02">Tháng 2</option>
+                    <option value="03">Tháng 3</option>
+                    <option value="04">Tháng 4</option>
+                    <option value="05">Tháng 5</option>
+                    <option value="06">Tháng 6</option>
+                    <option value="07">Tháng 7</option>
+                    <option value="08">Tháng 8</option>
+                    <option value="09">Tháng 9</option>
+                    <option value="10">Tháng 10</option>
+                    <option value="11">Tháng 11</option>
+                    <option value="12">Tháng 12</option>
+                  </select>
+                </div>
+                <div class="field" style="margin-bottom:0">
+                  <select id="recBdYear" required>
+                    <option value="">Năm</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div class="field">
+              <label for="recBirthplace">Nơi sinh (Tỉnh/TP) <span class="req">*</span></label>
+              <input id="recBirthplace" type="text" required placeholder="VD: Thái Nguyên" />
+            </div>
+            <div class="field">
+              <label for="recHometown">Quê quán (Xã, huyện, tỉnh) <span class="req">*</span></label>
+              <input id="recHometown" type="text" required placeholder="VD: Xã Kim Phượng, tỉnh Thái Nguyên" />
+            </div>
+            <div class="field">
+              <label for="recIdCard">Số CMT sĩ quan</label>
+              <input id="recIdCard" type="text" placeholder="VD: 019085001234" inputmode="numeric" />
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-label">II. Thông tin công tác</div>
+            <div class="field-row">
+              <div class="field">
+                <label for="recRank">Cấp bậc <span class="req">*</span></label>
+                <select id="recRank" required>
+                  <option value="">-- Chọn --</option>
+                  <option value="Thượng úy">Thượng úy</option>
+                  <option value="Đại úy">Đại úy</option>
+                  <option value="Thiếu tá">Thiếu tá</option>
+                  <option value="Trung tá">Trung tá</option>
+                  <option value="Thượng tá">Thượng tá</option>
+                  <option value="Đại tá">Đại tá</option>
+                </select>
+              </div>
+              <div class="field">
+                <label for="recGender">Giới tính <span class="req">*</span></label>
+                <select id="recGender" required>
+                  <option value="">-- Chọn --</option>
+                  <option value="Nam">Nam</option>
+                  <option value="Nữ">Nữ</option>
+                </select>
+              </div>
+            </div>
+            <div class="field">
+              <label for="recPosition">Chức vụ hiện tại <span class="req">*</span></label>
+              <input id="recPosition" type="text" required placeholder="VD: Chính trị viên" />
+            </div>
+            <div class="field">
+              <label for="recUnit">Đơn vị công tác (Trực thuộc Bộ) <span class="req">*</span></label>
+              <input id="recUnit" type="text" required placeholder="VD: Quân khu 1, Quân đoàn 12,..." />
+            </div>
+            <div class="field">
+              <label for="recEducationLevel">Trình độ học vấn (Các văn bằng đã có) <span class="req">*</span></label>
+              <textarea id="recEducationLevel" rows="2" required placeholder="VD: Đại học Chính trị phân đội; Thạc sĩ Chính trị học"></textarea>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-label">III. Thông tin liên hệ</div>
+            <div class="field">
+              <label for="recPhone">Số điện thoại liên hệ <span class="req">*</span></label>
+              <input id="recPhone" type="tel" required placeholder="VD: 0978819885" inputmode="tel" />
+            </div>
+            <div class="field">
+              <label for="recEmail">Email liên lạc (nếu có)</label>
+              <input id="recEmail" type="email" placeholder="VD: nam.bt@mod.gov.vn" inputmode="email" />
+            </div>
+          </div>
+          <div class="step-nav">
+            <button type="button" class="btn btn-secondary" onclick="goToStep(1)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+              Quay lại
+            </button>
+            <button type="button" class="btn btn-primary btn-grow" onclick="goToStep(3)">
+              Tiếp tục: Tải văn bằng
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- BƯỚC 3 -->
+        <div id="stepBox3" class="step-panel">
+          <div class="section-head">
+            <h2>Bước 3: Tải ảnh văn bằng</h2>
+            <p>Chụp ảnh trực tiếp bằng điện thoại hoặc chọn từ thư viện. Ảnh sẽ tự động nén để tải nhanh.</p>
+          </div>
+          <div class="tip-card">
+            <span class="tip-icon">💡</span>
+            <div class="tip-text"><strong>Mẹo chụp rõ nét:</strong> Đặt văn bằng lên mặt phẳng có ánh sáng tốt, chụp góc thẳng, kiểm tra rõ số hiệu và con dấu trước khi gửi.</div>
+          </div>
+          <div id="recUploadCardsContainer"></div>
+          <div class="step-nav">
+            <button type="button" class="btn btn-secondary" onclick="goToStep(2)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+              Quay lại
+            </button>
+            <button type="button" class="btn btn-primary btn-grow" onclick="goToStep(4)">
+              Xác nhận thông tin
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- BƯỚC 4 -->
+        <div id="stepBox4" class="step-panel">
+          <div class="section-head">
+            <h2>Bước 4: Kiểm tra &amp; Nộp hồ sơ</h2>
+            <p>Rà soát lại thông tin trước khi nộp chính thức.</p>
+          </div>
+          <div class="card review-card">
+            <h3>Bản tóm tắt thông tin</h3>
+            <div class="review-row"><span class="rlabel">Họ và tên</span><span class="rval" id="sumFullName">--</span></div>
+            <div class="review-row"><span class="rlabel">Ngày sinh</span><span class="rval" id="sumBirthday">--</span></div>
+            <div class="review-row"><span class="rlabel">Cấp bậc / Chức vụ</span><span class="rval" id="sumRankPos">--</span></div>
+            <div class="review-row"><span class="rlabel">Đơn vị công tác</span><span class="rval" id="sumUnit">--</span></div>
+            <div class="review-row"><span class="rlabel">Số điện thoại</span><span class="rval" id="sumPhone">--</span></div>
+            <div class="review-row"><span class="rlabel">Đối tượng tiếp nhận</span><span class="rval" id="sumTarget">--</span></div>
+            <div class="review-row"><span class="rlabel">Số ảnh văn bằng đã tải</span><span class="rval green" id="sumDocsCount">0 tệp</span></div>
+          </div>
+          <div class="card notice-card">
+            <div class="notice-badge">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              QUY ĐỊNH BẮT BUỘC
+            </div>
+            <p class="notice-text">Chuẩn bị bản photocopy văn bằng (đã kê khai) kèm bản gốc để đối chiếu tại bàn tiếp nhận học viên nhập học.</p>
+            <label class="commit-label">
+              <input id="recCommitmentCheck" type="checkbox" required />
+              <span>Tôi xin cam đoan các thông tin kê khai trên là hoàn toàn chính xác và chấp hành nghiêm chỉnh mọi quy chế, quy định của Học viện.</span>
+            </label>
+          </div>
+          <div class="step-nav">
+            <button type="button" class="btn btn-secondary" onclick="goToStep(3)">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+              Sửa ảnh
+            </button>
+            <button id="btnSubmitDossier" type="submit" class="btn btn-primary btn-submit btn-grow">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+              NỘP HỒ SƠ TIẾP NHẬN
+            </button>
+          </div>
+        </div>
+
+      </form>
+
+      <!-- SUCCESS SCREEN -->
+      <div id="recSuccessBox" class="hidden">
+        <div class="success-screen">
+
+          <!-- Banner thông báo nổi bật -->
+          <div class="success-banner">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            NỘP HỒ SƠ THÀNH CÔNG
+          </div>
+
+          <!-- Icon chúc mừng -->
+          <div class="success-icon-wrap">
+            <div class="success-icon">
+              <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="#166534" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+          </div>
+
+          <h2 class="success-title">Hồ sơ đã được gửi!</h2>
+          <p class="success-sub">Hồ sơ của đồng chí đã chuyển đến <strong>Ban Tiếp nhận — Học viện Chính trị</strong> để thẩm định.</p>
+
+          <!-- Mã hồ sơ -->
+          <div class="code-box">
+            <span class="code-label">Mã hồ sơ tiếp nhận của đồng chí</span>
+            <span class="code-val" id="successStudentCode">HVCT-2026-0027</span>
+            <button class="btn-copy-code" onclick="copyStudentCode()" title="Sao chép mã hồ sơ">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+              Sao chép mã
+            </button>
+            <span class="code-note">📌 Ghi nhớ mã này để tra cứu tiến độ xét duyệt</span>
+          </div>
+
+          <!-- Các bước tiếp theo -->
+          <div class="next-steps">
+            <strong>Các bước tiếp theo:</strong>
+            <ol>
+              <li>Cán bộ Phòng Đào tạo sẽ thẩm định thông tin và ảnh văn bằng.</li>
+              <li>Chuẩn bị <strong>bản photocopy văn bằng</strong> kèm <strong>bản gốc</strong> để đối chiếu tại bàn tiếp nhận.</li>
+              <li>Dùng chức năng <strong>Tra cứu</strong> trên trang này để kiểm tra tiến độ.</li>
+            </ol>
+          </div>
+
+          <!-- Hành động -->
+          <div class="success-actions">
+            <button class="btn btn-primary btn-full" onclick="trackCurrentStudentCode()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              Xem tình trạng hồ sơ ngay
+            </button>
+            <button class="btn btn-secondary btn-full" onclick="resetReceptionForm()">Nộp hồ sơ học viên khác</button>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: TRA CỨU -->
+    <section id="receptionTrackSection" class="tab-section" role="tabpanel">
+      <div class="track-section-head">
+        <h2>Tra cứu tiến độ hồ sơ</h2>
+        <p>Nhập Mã hồ sơ tiếp nhận hoặc Số CCCD/CMND để xem tình trạng thẩm định.</p>
+      </div>
+      <div class="card">
+        <form id="trackForm" onsubmit="handleTrackDossier(event)">
+          <div class="field">
+            <label for="trackKeywordInput">Mã hồ sơ hoặc Số CCCD</label>
+            <div class="search-field">
+              <input id="trackKeywordInput" type="text" required placeholder="VD: HVCT-2026-0027 hoặc 019085001234" />
+              <span class="search-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+              </span>
+            </div>
+          </div>
+          <div class="field">
+            <label for="trackPhoneInput">Số điện thoại xác thực (tùy chọn)</label>
+            <input id="trackPhoneInput" type="tel" placeholder="Nhập số điện thoại đã đăng ký" />
+          </div>
+          <button type="submit" id="btnTrackSubmit" class="btn btn-primary btn-full" style="margin-top:4px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Tra cứu hồ sơ
+          </button>
+        </form>
+      </div>
+      <div id="trackResultContainer" class="track-result-container hidden"></div>
+    </section>
+
+  </main>
+
+  <!-- MODAL BỔ SUNG ẢNH -->
+  <div id="mobileSupplementModal" class="modal-overlay hidden" onclick="if(event.target===this) closeSupplementModal()">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="modal-head">
+        <h3>Bổ sung ảnh văn bằng</h3>
+        <button class="modal-close-btn" onclick="closeSupplementModal()" aria-label="Đóng">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="font-size:12px; color:#64748b; margin-bottom:14px;">Chụp hoặc chọn ảnh văn bằng mới để cập nhật cho cán bộ thẩm định lại:</p>
+        <div id="supplementUploadBoxes"></div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn btn-secondary" onclick="closeSupplementModal()">Hủy</button>
+        <button class="btn btn-primary" onclick="submitSupplementFiles()">Gửi bổ sung</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div class="toast-wrap">
+    <div id="toast"></div>
+  </div>
+
+  <script src="tiep-nhan.js"></script>
+</body>
+</html>

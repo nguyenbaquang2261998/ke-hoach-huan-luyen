@@ -6,6 +6,7 @@ const https = require('https');
 const crypto = require('crypto');
 const JSZip = require('jszip');
 const db = require('./db/sqlserver');
+const { ensureAdmissionTables } = require('./db/ensure_admission_tables');
 
 function loadLocalEnv() {
   const envPath = path.join(__dirname, '.env');
@@ -40,9 +41,11 @@ function resolveRuntimePath(value, fallback) {
 const DATA_DIR = resolveRuntimePath(process.env.DATA_DIR, __dirname);
 const UPLOAD_ROOT = resolveRuntimePath(process.env.UPLOAD_DIR, path.join(DATA_DIR, 'uploads'));
 const EXAM_UPLOAD_ROOT = path.join(UPLOAD_ROOT, 'exams');
+const STUDENT_UPLOAD_ROOT = path.join(UPLOAD_ROOT, 'students');
 
 fs.mkdirSync(UPLOAD_ROOT, { recursive: true });
 fs.mkdirSync(EXAM_UPLOAD_ROOT, { recursive: true });
+fs.mkdirSync(STUDENT_UPLOAD_ROOT, { recursive: true });
 
 app.use(cors());
 app.use(express.json({ limit: '30mb' }));
@@ -235,29 +238,43 @@ function normalizeUserPayload(body) {
 }
 
 async function ensureDefaultAdminAccount() {
-  const activeAdmin = await db.get("SELECT TOP 1 id FROM users WHERE role = 'admin' AND is_active = 1");
-  if (activeAdmin) return;
-
   const baseUsername = (cleanEnv(process.env.DEFAULT_ADMIN_USERNAME) || 'admin').toLowerCase();
   const configuredPassword = cleanEnv(process.env.DEFAULT_ADMIN_PASSWORD);
   const password = configuredPassword.length >= 6 ? configuredPassword : 'admin123';
-  let username = baseUsername;
-  let counter = 1;
-  while (await usernameExists(username)) {
-    username = `${baseUsername}-${counter}`;
-    counter++;
+
+  // 1. Luôn đảm bảo tài khoản admin chuẩn tồn tại và hoạt động
+  const existingAdmin = await db.get("SELECT id, permissions, is_active FROM users WHERE username = ?", [baseUsername]);
+  if (!existingAdmin) {
+    await db.run(`
+      INSERT INTO users(username, password_hash, full_name, role, permissions, note, is_active)
+      VALUES (?, ?, ?, 'admin', ?, ?, 1)
+    `, [
+      baseUsername,
+      hashPassword(password),
+      'Quản trị hệ thống',
+      JSON.stringify(defaultPermissionsForRole('admin')),
+      'Tài khoản quản trị mặc định của hệ thống.'
+    ]);
+    console.log(`✅ Đã khởi tạo tài khoản quản trị mặc định: [${baseUsername}]`);
+  } else if (Number(existingAdmin.is_active) !== 1) {
+    await db.run("UPDATE users SET is_active = 1 WHERE id = ?", [existingAdmin.id]);
   }
 
-  await db.run(`
-    INSERT INTO users(username, password_hash, full_name, role, permissions, note)
-    VALUES (?, ?, ?, 'admin', ?, ?)
-  `, [
-    username,
-    hashPassword(password),
-    'Quản trị hệ thống',
-    JSON.stringify(defaultPermissionsForRole('admin')),
-    'Tài khoản quản trị khởi tạo tự động khi hệ thống chưa có người dùng.'
-  ]);
+  // 2. Cập nhật quyền 'students' cho các tài khoản hiện có trong CSDL nếu chưa có
+  const allUsers = await db.all("SELECT id, username, role, permissions FROM users WHERE is_active = 1");
+  for (const u of allUsers) {
+    let perms = {};
+    try {
+      perms = typeof u.permissions === 'string' ? JSON.parse(u.permissions || '{}') : (u.permissions || {});
+    } catch (e) {
+      perms = {};
+    }
+    if (perms.students !== true) {
+      perms.students = true;
+      await db.run("UPDATE users SET permissions = ? WHERE id = ?", [JSON.stringify(perms), u.id]);
+      console.log(`🔑 Đã cấp quyền Tiếp nhận học viên cho tài khoản [${u.username}]`);
+    }
+  }
 }
 
 function validateUserPayload(payload, options = {}) {
@@ -731,7 +748,7 @@ async function getAuthenticatedUser(req) {
 function permissionForApi(req) {
   const pathName = String(req.path || '');
   if (pathName.startsWith('/calendar')) return 'calendar';
-  if (pathName.startsWith('/students')) return 'students';
+  if (pathName.startsWith('/students') || pathName.startsWith('/admission-batches') || pathName.startsWith('/admission-targets')) return 'students';
   if (pathName.startsWith('/tasks')) return 'tasks';
   if (pathName.startsWith('/users') || pathName.startsWith('/audit-logs') || pathName.startsWith('/docs')) return 'admin';
   if (
@@ -750,7 +767,21 @@ function permissionForApi(req) {
 
 async function requireApiAccess(req, res, next) {
   try {
-    if (String(req.path || '').startsWith('/auth')) return next();
+    const pathName = String(req.path || '');
+    if (
+      pathName.startsWith('/auth') ||
+      pathName.startsWith('/reception') ||
+      pathName.startsWith('/student-documents') ||
+      (req.method === 'GET' && (
+        pathName.startsWith('/admission-batches') ||
+        pathName.startsWith('/admission-targets') ||
+        pathName.includes('/receipt-doc') ||
+        pathName.includes('/download-bundle') ||
+        pathName.includes('/export-excel')
+      ))
+    ) {
+      return next();
+    }
     const user = await getAuthenticatedUser(req);
     const permissionKey = permissionForApi(req);
     if (!hasMenuPermission(user, permissionKey)) {
@@ -1342,14 +1373,57 @@ function normalizeStudentPayload(body, current = {}) {
     studentCode: cleanText(body.student_code ?? body.studentCode ?? current.student_code),
     fullName: cleanText(body.full_name ?? body.fullName ?? current.full_name),
     birthday: cleanText(body.birthday ?? current.birthday),
+    birthplace: cleanText(body.birthplace ?? current.birthplace),
+    hometown: cleanText(body.hometown ?? current.hometown),
     rank: cleanText(body.rank ?? current.rank),
+    position: cleanText(body.position ?? current.position),
     unit: cleanText(body.unit ?? current.unit),
     phone: cleanText(body.phone ?? current.phone),
     email: cleanText(body.email ?? current.email),
+    idCard: cleanText(body.id_card ?? body.idCard ?? current.id_card),
+    idCardDate: cleanText(body.id_card_date ?? body.idCardDate ?? current.id_card_date),
+    idCardPlace: cleanText(body.id_card_place ?? body.idCardPlace ?? current.id_card_place),
+    gender: cleanText(body.gender ?? current.gender) || 'Nam',
+    ethnic: cleanText(body.ethnic ?? current.ethnic) || 'Kinh',
+    religion: cleanText(body.religion ?? current.religion) || 'Không',
+    partyDate: cleanText(body.party_date ?? body.partyDate ?? current.party_date),
+    partyOfficialDate: cleanText(body.party_official_date ?? body.partyOfficialDate ?? current.party_official_date),
+    educationLevel: cleanText(body.education_level ?? body.educationLevel ?? current.education_level),
     className: cleanText(body.class_name ?? body.className ?? current.class_name),
+    batchId: (body.batch_id ?? body.batchId ?? current.batch_id) ? Number(body.batch_id ?? body.batchId ?? current.batch_id) : null,
+    targetId: (body.target_id ?? body.targetId ?? current.target_id) ? Number(body.target_id ?? body.targetId ?? current.target_id) : null,
+    orderIndex: (body.order_index ?? body.orderIndex ?? current.order_index) ? Number(body.order_index ?? body.orderIndex ?? current.order_index) : null,
     admissionDate: ensureDate(body.admission_date ?? body.admissionDate ?? current.admission_date),
-    status: normalizeStatus(body.status ?? current.status, STUDENT_STATUSES, 'Created')
+    declarationDate: cleanText(body.declaration_date ?? body.declarationDate ?? current.declaration_date) || new Date().toISOString().slice(0, 10),
+    declarationPlace: cleanText(body.declaration_place ?? body.declarationPlace ?? current.declaration_place) || 'Hà Nội',
+    status: normalizeStatus(body.status ?? current.status, STUDENT_STATUSES, 'Created'),
+    reviewNotes: cleanText(body.review_notes ?? body.reviewNotes ?? current.review_notes),
+    reviewedBy: cleanText(body.reviewed_by ?? body.reviewedBy ?? current.reviewed_by),
+    reviewedAt: cleanText(body.reviewed_at ?? body.reviewedAt ?? current.reviewed_at),
+    avatarUrl: cleanText(body.avatar_url ?? body.avatarUrl ?? current.avatar_url)
   };
+}
+
+async function generateNextStudentCode(year = new Date().getFullYear()) {
+  const prefix = `HVCT-${year}-`;
+  const existingRows = await db.all(`SELECT student_code FROM students WHERE student_code LIKE '${prefix}%'`);
+  let maxNum = 0;
+  for (const row of existingRows) {
+    const raw = String(row.student_code || '');
+    if (raw.startsWith(prefix)) {
+      const num = parseInt(raw.slice(prefix.length), 10);
+      if (!isNaN(num) && num > maxNum) {
+        maxNum = num;
+      }
+    }
+  }
+  let nextNum = maxNum + 1;
+  let code = `${prefix}${String(nextNum).padStart(4, '0')}`;
+  while (await db.get('SELECT id FROM students WHERE student_code = ?', [code])) {
+    nextNum++;
+    code = `${prefix}${String(nextNum).padStart(4, '0')}`;
+  }
+  return code;
 }
 
 function normalizeTaskPayload(body, current = {}) {
@@ -1859,15 +1933,438 @@ app.delete('/api/calendar/:id', async (req, res) => {
   }
 });
 
+function tryParseJson(str, fallback = []) {
+  if (!str) return fallback;
+  if (typeof str === 'object') return str;
+  try {
+    return JSON.parse(str);
+  } catch (e) {
+    return fallback;
+  }
+}
+
+async function getStudentFull(id) {
+  const row = await db.get(`
+    SELECT s.*, 
+           b.name AS batch_name, b.code AS batch_code,
+           t.name AS target_name, t.code AS target_code, t.required_documents AS target_required_documents
+    FROM students s
+    LEFT JOIN admission_batches b ON b.id = s.batch_id
+    LEFT JOIN admission_targets t ON t.id = s.target_id
+    WHERE s.id = ? AND s.is_active = 1
+  `, [id]);
+  if (!row) return null;
+  const docs = await db.all('SELECT * FROM student_documents WHERE student_id = ? AND is_active = 1 ORDER BY id ASC', [row.id]);
+  row.documents = docs;
+  row.target_required_documents = tryParseJson(row.target_required_documents, []);
+  return row;
+}
+
+// ==========================================================
+// ADMISSION TARGETS (Đối tượng tiếp nhận)
+// ==========================================================
+app.get('/api/admission-targets', async (req, res) => {
+  try {
+    const rows = await db.all(`
+      SELECT t.*,
+             (SELECT COUNT(*) FROM students s WHERE s.target_id = t.id AND s.is_active = 1) AS student_count
+      FROM admission_targets t
+      WHERE t.is_active = 1
+      ORDER BY t.id ASC
+    `);
+    res.json(rows.map(r => ({
+      ...r,
+      required_documents: tryParseJson(r.required_documents, [])
+    })));
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.post('/api/admission-targets', async (req, res) => {
+  try {
+    const code = cleanText(req.body.code);
+    const name = cleanText(req.body.name);
+    if (!code || !name) throw httpError(400, 'Mã và tên đối tượng không được để trống.');
+
+    const duplicate = await db.get('SELECT id FROM admission_targets WHERE code = ?', [code]);
+    if (duplicate) throw httpError(409, 'Mã đối tượng tiếp nhận đã tồn tại.');
+
+    const defaultClass = cleanText(req.body.default_class ?? req.body.defaultClass);
+    const quota = Number(req.body.quota || 0);
+    const reqDocs = Array.isArray(req.body.required_documents) ? JSON.stringify(req.body.required_documents) : cleanText(req.body.required_documents);
+    const description = cleanText(req.body.description);
+
+    const info = await db.run(`
+      INSERT INTO admission_targets (code, name, default_class, quota, required_documents, description)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [code, name, defaultClass, quota, reqDocs, description]);
+
+    const row = await db.get('SELECT * FROM admission_targets WHERE id = ?', [info.lastInsertRowid]);
+    row.required_documents = tryParseJson(row.required_documents, []);
+    await auditLog('Create', 'AdmissionTargets', row.id, row, null, req);
+    res.status(201).json(row);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.put('/api/admission-targets/:id', async (req, res) => {
+  try {
+    const current = await db.get('SELECT * FROM admission_targets WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!current) throw httpError(404, 'Không tìm thấy đối tượng tiếp nhận.');
+
+    const code = cleanText(req.body.code ?? current.code);
+    const name = cleanText(req.body.name ?? current.name);
+    const defaultClass = cleanText(req.body.default_class ?? req.body.defaultClass ?? current.default_class);
+    const quota = Number(req.body.quota ?? current.quota);
+    const reqDocs = req.body.required_documents !== undefined
+      ? (Array.isArray(req.body.required_documents) ? JSON.stringify(req.body.required_documents) : cleanText(req.body.required_documents))
+      : current.required_documents;
+    const description = cleanText(req.body.description ?? current.description);
+
+    await db.run(`
+      UPDATE admission_targets
+      SET code = ?, name = ?, default_class = ?, quota = ?, required_documents = ?, description = ?,
+          updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
+      WHERE id = ?
+    `, [code, name, defaultClass, quota, reqDocs, description, current.id]);
+
+    const row = await db.get('SELECT * FROM admission_targets WHERE id = ?', [current.id]);
+    row.required_documents = tryParseJson(row.required_documents, []);
+    await auditLog('Update', 'AdmissionTargets', row.id, row, current, req);
+    res.json(row);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.delete('/api/admission-targets/:id', async (req, res) => {
+  try {
+    const current = await db.get('SELECT * FROM admission_targets WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!current) throw httpError(404, 'Không tìm thấy đối tượng tiếp nhận.');
+    await db.run('UPDATE admission_targets SET is_active = 0, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE id = ?', [current.id]);
+    await auditLog('Delete', 'AdmissionTargets', current.id, null, current, req);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+// ==========================================================
+// ADMISSION BATCHES (Đợt tiếp nhận)
+// ==========================================================
+app.get('/api/admission-batches', async (req, res) => {
+  try {
+    const rows = await db.all(`
+      SELECT b.*,
+             (SELECT COUNT(*) FROM students s WHERE s.batch_id = b.id AND s.is_active = 1) AS student_count,
+             (SELECT COUNT(*) FROM students s WHERE s.batch_id = b.id AND s.status = 'Approved' AND s.is_active = 1) AS approved_count,
+             (SELECT COUNT(*) FROM students s WHERE s.batch_id = b.id AND s.status = 'PendingReview' AND s.is_active = 1) AS pending_count
+      FROM admission_batches b
+      WHERE b.is_active = 1
+      ORDER BY b.id DESC
+    `);
+    
+    const allTargets = await db.all('SELECT id, code, name, default_class, required_documents FROM admission_targets WHERE is_active = 1');
+    const targetMap = new Map(allTargets.map(t => [t.id, { ...t, required_documents: tryParseJson(t.required_documents, []) }]));
+
+    const result = rows.map(b => {
+      const targetIds = tryParseJson(b.target_ids, []);
+      const targets = targetIds.map(id => targetMap.get(Number(id))).filter(Boolean);
+      return {
+        ...b,
+        target_ids: targetIds,
+        targets
+      };
+    });
+
+    res.json(result);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.post('/api/admission-batches', async (req, res) => {
+  try {
+    const code = cleanText(req.body.code);
+    const name = cleanText(req.body.name);
+    if (!code || !name) throw httpError(400, 'Mã và tên đợt tiếp nhận không được để trống.');
+
+    const duplicate = await db.get('SELECT id FROM admission_batches WHERE code = ?', [code]);
+    if (duplicate) throw httpError(409, 'Mã đợt tiếp nhận đã tồn tại.');
+
+    const academicYear = cleanText(req.body.academic_year ?? req.body.academicYear) || '2026-2027';
+    const startDate = cleanText(req.body.start_date ?? req.body.startDate);
+    const endDate = cleanText(req.body.end_date ?? req.body.endDate);
+    const targetIds = Array.isArray(req.body.target_ids) ? JSON.stringify(req.body.target_ids) : cleanText(req.body.target_ids);
+    const status = cleanText(req.body.status) || 'Open';
+    const note = cleanText(req.body.note);
+
+    const info = await db.run(`
+      INSERT INTO admission_batches (code, name, academic_year, start_date, end_date, target_ids, status, note)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `, [code, name, academicYear, startDate, endDate, targetIds, status, note]);
+
+    const row = await db.get('SELECT * FROM admission_batches WHERE id = ?', [info.lastInsertRowid]);
+    await auditLog('Create', 'AdmissionBatches', row.id, row, null, req);
+    res.status(201).json(row);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.put('/api/admission-batches/:id', async (req, res) => {
+  try {
+    const current = await db.get('SELECT * FROM admission_batches WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!current) throw httpError(404, 'Không tìm thấy đợt tiếp nhận.');
+
+    const code = cleanText(req.body.code ?? current.code);
+    const name = cleanText(req.body.name ?? current.name);
+    const academicYear = cleanText(req.body.academic_year ?? req.body.academicYear ?? current.academic_year);
+    const startDate = cleanText(req.body.start_date ?? req.body.startDate ?? current.start_date);
+    const endDate = cleanText(req.body.end_date ?? req.body.endDate ?? current.end_date);
+    const targetIds = req.body.target_ids !== undefined
+      ? (Array.isArray(req.body.target_ids) ? JSON.stringify(req.body.target_ids) : cleanText(req.body.target_ids))
+      : current.target_ids;
+    const status = cleanText(req.body.status ?? current.status);
+    const note = cleanText(req.body.note ?? current.note);
+
+    await db.run(`
+      UPDATE admission_batches
+      SET code = ?, name = ?, academic_year = ?, start_date = ?, end_date = ?, target_ids = ?, status = ?, note = ?,
+          updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
+      WHERE id = ?
+    `, [code, name, academicYear, startDate, endDate, targetIds, status, note, current.id]);
+
+    const row = await db.get('SELECT * FROM admission_batches WHERE id = ?', [current.id]);
+    await auditLog('Update', 'AdmissionBatches', row.id, row, current, req);
+    res.json(row);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.delete('/api/admission-batches/:id', async (req, res) => {
+  try {
+    const current = await db.get('SELECT * FROM admission_batches WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!current) throw httpError(404, 'Không tìm thấy đợt tiếp nhận.');
+    await db.run('UPDATE admission_batches SET is_active = 0, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE id = ?', [current.id]);
+    await auditLog('Delete', 'AdmissionBatches', current.id, null, current, req);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+// ==========================================================
+// STUDENTS (Hồ sơ học viên tiếp nhận - Quản trị viên)
+// ==========================================================
 app.get('/api/students', async (req, res) => {
   try {
     const limit = parseLimit(req.query.limit, 100, 500);
+    const batchId = req.query.batch_id ? Number(req.query.batch_id) : null;
+    const targetId = req.query.target_id ? Number(req.query.target_id) : null;
+    const status = cleanText(req.query.status);
+    const keyword = cleanText(req.query.keyword || req.query.q);
+
+    let whereSql = 'WHERE s.is_active = 1';
+    const params = [];
+
+    if (batchId) {
+      whereSql += ' AND s.batch_id = ?';
+      params.push(batchId);
+    }
+    if (targetId) {
+      whereSql += ' AND s.target_id = ?';
+      params.push(targetId);
+    }
+    if (status) {
+      whereSql += ' AND s.status = ?';
+      params.push(status);
+    }
+    if (keyword) {
+      whereSql += ' AND (s.student_code LIKE ? OR s.full_name LIKE ? OR s.id_card LIKE ? OR s.phone LIKE ? OR s.unit LIKE ? OR s.rank LIKE ?)';
+      const kwPattern = `%${keyword}%`;
+      params.push(kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern);
+    }
+
+    params.unshift(limit);
+
     const rows = await db.all(`
-      SELECT TOP (?) * FROM students
-      WHERE is_active = 1
-      ORDER BY id DESC
-    `, [limit]);
+      SELECT TOP (?) s.*,
+             b.name AS batch_name, b.code AS batch_code,
+             t.name AS target_name, t.code AS target_code,
+             (SELECT COUNT(*) FROM student_documents d WHERE d.student_id = s.id AND d.is_active = 1) AS document_count
+      FROM students s
+      LEFT JOIN admission_batches b ON b.id = s.batch_id
+      LEFT JOIN admission_targets t ON t.id = s.target_id
+      ${whereSql}
+      ORDER BY (CASE WHEN s.order_index IS NULL THEN 9999 ELSE s.order_index END) ASC, s.id DESC
+    `, params);
+
     res.json(rows);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+// Xuất danh sách học viên dạng Excel/CSV (UTF-8 BOM tương thích hoàn hảo với Microsoft Excel)
+app.get('/api/students/export-excel', async (req, res) => {
+  try {
+    const batchId = req.query.batch_id ? Number(req.query.batch_id) : null;
+    const targetId = req.query.target_id ? Number(req.query.target_id) : null;
+    const status = cleanText(req.query.status);
+    const keyword = cleanText(req.query.keyword || req.query.q);
+
+    let whereSql = 'WHERE s.is_active = 1';
+    const params = [];
+
+    if (batchId) {
+      whereSql += ' AND s.batch_id = ?';
+      params.push(batchId);
+    }
+    if (targetId) {
+      whereSql += ' AND s.target_id = ?';
+      params.push(targetId);
+    }
+    if (status) {
+      whereSql += ' AND s.status = ?';
+      params.push(status);
+    }
+    if (keyword) {
+      whereSql += ' AND (s.student_code LIKE ? OR s.full_name LIKE ? OR s.id_card LIKE ? OR s.phone LIKE ? OR s.unit LIKE ? OR s.rank LIKE ?)';
+      const kwPattern = `%${keyword}%`;
+      params.push(kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern);
+    }
+
+    const rows = await db.all(`
+      SELECT s.*,
+             b.name AS batch_name,
+             t.name AS target_name
+      FROM students s
+      LEFT JOIN admission_batches b ON b.id = s.batch_id
+      LEFT JOIN admission_targets t ON t.id = s.target_id
+      ${whereSql}
+      ORDER BY (CASE WHEN s.order_index IS NULL THEN 9999 ELSE s.order_index END) ASC, s.id DESC
+    `, params);
+
+    const escapeCsv = (val) => {
+      const str = String(val ?? '').replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const headers = [
+      'STT', 'Mã hồ sơ', 'Họ và tên', 'Ngày sinh', 'Nơi sinh', 'Quê quán',
+      'Cấp bậc', 'Chức vụ', 'Đơn vị cử đi học', 'Số CCCD/CMND', 'Số điện thoại',
+      'Email', 'Đợt tiếp nhận', 'Đối tượng tiếp nhận', 'Lớp biên chế',
+      'Trạng thái', 'Trình độ học vấn', 'Ghi chú thẩm định'
+    ];
+
+    const lines = [headers.map(escapeCsv).join(',')];
+    rows.forEach((r, idx) => {
+      lines.push([
+        escapeCsv(r.order_index || (idx + 1)),
+        escapeCsv(r.student_code || ''),
+        escapeCsv(r.full_name || ''),
+        escapeCsv(r.birthday || ''),
+        escapeCsv(r.birthplace || ''),
+        escapeCsv(r.hometown || ''),
+        escapeCsv(r.rank || ''),
+        escapeCsv(r.position || ''),
+        escapeCsv(r.unit || ''),
+        escapeCsv(r.id_card || ''),
+        escapeCsv(r.phone || ''),
+        escapeCsv(r.email || ''),
+        escapeCsv(r.batch_name || ''),
+        escapeCsv(r.target_name || ''),
+        escapeCsv(r.class_name || ''),
+        escapeCsv(r.status || ''),
+        escapeCsv(r.education_level || ''),
+        escapeCsv(r.review_notes || '')
+      ].join(','));
+    });
+
+    const csvContent = '\uFEFF' + lines.join('\r\n');
+    const fileName = `Danh_Sach_Hoc_Vien_${new Date().toISOString().slice(0, 10)}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.send(Buffer.from(csvContent, 'utf8'));
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+// Nhập danh sách học viên từ file / JSON
+app.post('/api/students/import-excel', async (req, res) => {
+  try {
+    const list = Array.isArray(req.body.students) ? req.body.students : (Array.isArray(req.body) ? req.body : []);
+    if (!list.length) throw httpError(400, 'Không có dữ liệu học viên để nhập.');
+
+    let importedCount = 0;
+    const errors = [];
+
+    for (let i = 0; i < list.length; i++) {
+      const item = list[i];
+      const fullName = cleanText(item.full_name || item.fullName);
+      if (!fullName) {
+        errors.push(`Dòng ${i + 1}: Thiếu họ và tên học viên.`);
+        continue;
+      }
+
+      let studentCode = cleanText(item.student_code || item.studentCode);
+      if (!studentCode) {
+        studentCode = await generateNextStudentCode();
+      } else {
+        const existed = await db.get('SELECT id FROM students WHERE student_code = ?', [studentCode]);
+        if (existed) {
+          studentCode = await generateNextStudentCode();
+        }
+      }
+
+      await db.run(`
+        INSERT INTO students (
+          student_code, full_name, birthday, birthplace, hometown,
+          rank, position, unit, phone, email, id_card,
+          class_name, batch_id, target_id, order_index,
+          admission_date, declaration_date, declaration_place, status, review_notes
+        ) VALUES (
+          ?, ?, ?, ?, ?,
+          ?, ?, ?, ?, ?, ?,
+          ?, ?, ?, ?,
+          ?, ?, ?, ?, ?
+        )
+      `, [
+        studentCode,
+        fullName,
+        cleanText(item.birthday),
+        cleanText(item.birthplace),
+        cleanText(item.hometown),
+        cleanText(item.rank),
+        cleanText(item.position),
+        cleanText(item.unit),
+        cleanText(item.phone),
+        cleanText(item.email),
+        cleanText(item.id_card || item.idCard),
+        cleanText(item.class_name || item.className),
+        item.batch_id ? Number(item.batch_id) : null,
+        item.target_id ? Number(item.target_id) : null,
+        item.order_index ? Number(item.order_index) : null,
+        new Date().toISOString().slice(0, 10),
+        new Date().toISOString().slice(0, 10),
+        'Hà Nội',
+        cleanText(item.status) || 'PendingReview',
+        cleanText(item.review_notes || 'Nhập từ file danh sách')
+      ]);
+      importedCount++;
+    }
+
+    res.json({
+      ok: true,
+      importedCount,
+      errors,
+      message: `Đã nhập thành công ${importedCount} hồ sơ học viên.`
+    });
   } catch (error) {
     sendError(res, error);
   }
@@ -1875,8 +2372,8 @@ app.get('/api/students', async (req, res) => {
 
 app.get('/api/students/:id', async (req, res) => {
   try {
-    const row = await db.get('SELECT * FROM students WHERE id = ? AND is_active = 1', [req.params.id]);
-    if (!row) return res.status(404).json({ message: 'Khong tim thay hoc vien.' });
+    const row = await getStudentFull(req.params.id);
+    if (!row) return res.status(404).json({ message: 'Không tìm thấy hồ sơ học viên.' });
     res.json(row);
   } catch (error) {
     sendError(res, error);
@@ -1886,52 +2383,44 @@ app.get('/api/students/:id', async (req, res) => {
 app.post('/api/students', async (req, res) => {
   try {
     const payload = normalizeStudentPayload(req.body || {});
-    if (!payload.studentCode || !payload.fullName) throw httpError(400, 'Ma hoc vien va ho ten khong duoc de trong.');
-    const duplicate = await db.get('SELECT id FROM students WHERE student_code = ?', [payload.studentCode]);
-    if (duplicate) {
-      throw httpError(409, 'Ma hoc vien da ton tai.');
+    if (!payload.fullName) throw httpError(400, 'Họ và tên không được để trống.');
+
+    let studentCode = payload.studentCode;
+    if (!studentCode) {
+      studentCode = await generateNextStudentCode();
+    } else {
+      const duplicate = await db.get('SELECT id FROM students WHERE student_code = ?', [studentCode]);
+      if (duplicate) throw httpError(409, 'Mã hồ sơ học viên đã tồn tại.');
     }
 
     const info = await db.run(`
-      INSERT INTO students(student_code, full_name, birthday, rank, unit, phone, email, class_name, admission_date, status)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [payload.studentCode, payload.fullName, payload.birthday, payload.rank, payload.unit, payload.phone, payload.email, payload.className, payload.admissionDate, payload.status]);
-    const row = await db.get('SELECT * FROM students WHERE id = ?', [info.lastInsertRowid]);
+      INSERT INTO students (
+        student_code, full_name, birthday, birthplace, hometown,
+        rank, position, unit, phone, email, id_card, id_card_date, id_card_place,
+        gender, ethnic, religion, party_date, party_official_date,
+        education_level, class_name, batch_id, target_id, order_index,
+        admission_date, declaration_date, declaration_place, status,
+        review_notes, reviewed_by, reviewed_at, avatar_url
+      ) VALUES (
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, ?,
+        ?, ?, ?, ?
+      )
+    `, [
+      studentCode, payload.fullName, payload.birthday, payload.birthplace, payload.hometown,
+      payload.rank, payload.position, payload.unit, payload.phone, payload.email, payload.idCard, payload.idCardDate, payload.idCardPlace,
+      payload.gender, payload.ethnic, payload.religion, payload.partyDate, payload.partyOfficialDate,
+      payload.educationLevel, payload.className, payload.batchId, payload.targetId, payload.orderIndex,
+      payload.admissionDate, payload.declarationDate, payload.declarationPlace, payload.status,
+      payload.reviewNotes, payload.reviewedBy, payload.reviewedAt, payload.avatarUrl
+    ]);
+
+    const row = await getStudentFull(info.lastInsertRowid);
     await auditLog('Create', 'Students', row.id, row, null, req);
     res.status(201).json(row);
-  } catch (error) {
-    sendError(res, error);
-  }
-});
-
-app.post('/api/students/import', async (req, res) => {
-  try {
-    const lines = cleanText(req.body?.text || req.body?.names).split(/\r?\n/).map(line => line.trim()).filter(Boolean);
-    if (!lines.length && !Array.isArray(req.body?.students)) throw httpError(400, 'Chua co du lieu import.');
-    const items = Array.isArray(req.body?.students)
-      ? req.body.students
-      : lines.map(line => {
-        const [studentCode, fullName, rank = '', unit = '', className = ''] = line.split(/[,\t|;]/).map(part => part.trim());
-        return { student_code: studentCode, full_name: fullName, rank, unit, class_name: className };
-      });
-
-    let inserted = 0;
-    await db.transaction(async (tx) => {
-      for (const item of items) {
-        const payload = normalizeStudentPayload(item);
-        if (!payload.studentCode || !payload.fullName) continue;
-        const exists = await tx.get('SELECT id FROM students WHERE student_code = ?', [payload.studentCode]);
-        if (exists) continue;
-        await tx.run(`
-          INSERT INTO students(student_code, full_name, rank, unit, class_name, admission_date, status)
-          VALUES (?, ?, ?, ?, ?, ?, ?)
-        `, [payload.studentCode, payload.fullName, payload.rank, payload.unit, payload.className, payload.admissionDate, payload.status]);
-        inserted++;
-      }
-    });
-
-    await auditLog('Import', 'Students', null, { inserted }, null, req);
-    res.json({ inserted });
   } catch (error) {
     sendError(res, error);
   }
@@ -1940,21 +2429,70 @@ app.post('/api/students/import', async (req, res) => {
 app.put('/api/students/:id', async (req, res) => {
   try {
     const current = await db.get('SELECT * FROM students WHERE id = ? AND is_active = 1', [req.params.id]);
-    if (!current) throw httpError(404, 'Khong tim thay hoc vien.');
+    if (!current) throw httpError(404, 'Không tìm thấy hồ sơ học viên.');
     const payload = normalizeStudentPayload(req.body || {}, current);
-    if (!payload.studentCode || !payload.fullName) throw httpError(400, 'Ma hoc vien va ho ten khong duoc de trong.');
+    if (!payload.studentCode || !payload.fullName) throw httpError(400, 'Mã học viên và họ tên không được để trống.');
     const duplicate = await db.get('SELECT id FROM students WHERE student_code = ? AND id != ?', [payload.studentCode, current.id]);
-    if (duplicate) throw httpError(409, 'Ma hoc vien da ton tai.');
+    if (duplicate) throw httpError(409, 'Mã học viên đã tồn tại.');
 
     await db.run(`
       UPDATE students
-      SET student_code = ?, full_name = ?, birthday = ?, rank = ?, unit = ?, phone = ?, email = ?,
-          class_name = ?, admission_date = ?, status = ?, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
+      SET student_code = ?, full_name = ?, birthday = ?, birthplace = ?, hometown = ?,
+          rank = ?, position = ?, unit = ?, phone = ?, email = ?,
+          id_card = ?, id_card_date = ?, id_card_place = ?, gender = ?, ethnic = ?, religion = ?,
+          party_date = ?, party_official_date = ?, education_level = ?,
+          class_name = ?, batch_id = ?, target_id = ?, order_index = ?,
+          admission_date = ?, declaration_date = ?, declaration_place = ?,
+          status = ?, review_notes = ?, reviewed_by = ?, reviewed_at = ?, avatar_url = ?,
+          updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
       WHERE id = ?
-    `, [payload.studentCode, payload.fullName, payload.birthday, payload.rank, payload.unit, payload.phone, payload.email, payload.className, payload.admissionDate, payload.status, current.id]);
-    
-    const row = await db.get('SELECT * FROM students WHERE id = ?', [current.id]);
+    `, [
+      payload.studentCode, payload.fullName, payload.birthday, payload.birthplace, payload.hometown,
+      payload.rank, payload.position, payload.unit, payload.phone, payload.email,
+      payload.idCard, payload.idCardDate, payload.idCardPlace, payload.gender, payload.ethnic, payload.religion,
+      payload.partyDate, payload.partyOfficialDate, payload.educationLevel,
+      payload.className, payload.batchId, payload.targetId, payload.orderIndex,
+      payload.admissionDate, payload.declarationDate, payload.declarationPlace,
+      payload.status, payload.reviewNotes, payload.reviewedBy, payload.reviewedAt, payload.avatarUrl,
+      current.id
+    ]);
+
+    const row = await getStudentFull(current.id);
     await auditLog('Update', 'Students', row.id, row, current, req);
+    res.json(row);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.put('/api/students/:id/review', async (req, res) => {
+  try {
+    const current = await db.get('SELECT * FROM students WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!current) throw httpError(404, 'Không tìm thấy hồ sơ học viên.');
+    const status = cleanText(req.body.status);
+    if (!['Approved', 'Rejected', 'PendingReview', 'Completed'].includes(status)) {
+      throw httpError(400, 'Trạng thái duyệt không hợp lệ.');
+    }
+    const reviewNotes = cleanText(req.body.review_notes ?? req.body.reviewNotes ?? current.review_notes);
+    const className = cleanText(req.body.class_name ?? req.body.className ?? current.class_name);
+    const orderIndex = (req.body.order_index ?? req.body.orderIndex ?? current.order_index) ? Number(req.body.order_index ?? req.body.orderIndex ?? current.order_index) : null;
+    const reviewedAt = new Date().toISOString().replace('T', ' ').slice(0, 19);
+
+    await db.run(`
+      UPDATE students
+      SET status = ?, review_notes = ?, class_name = ?, order_index = ?, reviewed_by = ?, reviewed_at = ?,
+          updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
+      WHERE id = ?
+    `, [status, reviewNotes, className, orderIndex, reviewedBy, reviewedAt, current.id]);
+
+    const notifTitle = status === 'Approved' ? `Hồ sơ học viên ${current.full_name} đã được phê duyệt` : `Hồ sơ học viên ${current.full_name}: yêu cầu bổ sung`;
+    await db.run(`
+      INSERT INTO notifications (title, message, priority, entity_name, entity_id)
+      VALUES (?, ?, ?, 'Students', ?)
+    `, [notifTitle, reviewNotes || `Trạng thái: ${status}`, status === 'Approved' ? 'Normal' : 'High', current.id]);
+
+    const row = await getStudentFull(current.id);
+    await auditLog('Review', 'Students', row.id, row, current, req);
     res.json(row);
   } catch (error) {
     sendError(res, error);
@@ -1964,10 +2502,343 @@ app.put('/api/students/:id', async (req, res) => {
 app.delete('/api/students/:id', async (req, res) => {
   try {
     const current = await db.get('SELECT * FROM students WHERE id = ? AND is_active = 1', [req.params.id]);
-    if (!current) return res.status(404).json({ message: 'Khong tim thay hoc vien.' });
+    if (!current) return res.status(404).json({ message: 'Không tìm thấy học viên.' });
     await db.run('UPDATE students SET is_active = 0, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE id = ?', [current.id]);
     await auditLog('Delete', 'Students', current.id, null, current, req);
     res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+// Xuất file Word Phiếu tiếp nhận học viên chuẩn theo mẫu
+app.get('/api/students/:id/receipt-doc', async (req, res) => {
+  try {
+    const student = await getStudentFull(req.params.id);
+    if (!student) return res.status(404).json({ message: 'Không tìm thấy hồ sơ học viên.' });
+
+    const buffer = await buildAdmissionReceiptDocx(student);
+    const safeStudentCode = (student.student_code || 'HV').replace(/[^a-zA-Z0-9_-]/g, '_');
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    res.setHeader('Content-Disposition', `attachment; filename="Phieu_Tiep_Nhan_${safeStudentCode}.docx"`);
+    res.send(buffer);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+// Tải file hồ sơ trọn gói Bundle ZIP gồm Phiếu tiếp nhận và toàn bộ ảnh văn bằng chứng chỉ
+app.get('/api/students/:id/download-bundle', async (req, res) => {
+  try {
+    const student = await getStudentFull(req.params.id);
+    if (!student) return res.status(404).json({ message: 'Không tìm thấy hồ sơ học viên.' });
+
+    const docxBuffer = await buildAdmissionReceiptDocx(student);
+    const safeStudentCode = (student.student_code || 'HV').replace(/[^a-zA-Z0-9_-]/g, '_');
+    const safeFullName = (student.full_name || 'HocVien')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9_-]/g, '_');
+
+    const zip = new JSZip();
+    zip.file(`Phieu_Tiep_Nhan_${safeStudentCode}.docx`, docxBuffer);
+
+    const docFolder = zip.folder('VanBang_ChungChi');
+    const docs = student.documents || [];
+    for (let i = 0; i < docs.length; i++) {
+      const doc = docs[i];
+      if (doc.file_path && fs.existsSync(doc.file_path)) {
+        const fileData = fs.readFileSync(doc.file_path);
+        const ext = path.extname(doc.file_name || '') || '.jpg';
+        const safeDocType = (doc.doc_type || 'ChungChi')
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-zA-Z0-9_-]/g, '_');
+        docFolder.file(`${String(i + 1).padStart(2, '0')}_${safeDocType}${ext}`, fileData);
+      }
+    }
+
+    const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
+    const filename = `HoSo_${safeStudentCode}_${safeFullName}.zip`;
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(zipBuffer);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+// Phục vụ xem/tải trực tiếp file ảnh văn bằng chứng chỉ
+app.get('/api/student-documents/:id/file', async (req, res) => {
+  try {
+    const doc = await db.get('SELECT * FROM student_documents WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!doc || !fs.existsSync(doc.file_path)) {
+      return res.status(404).json({ message: 'Không tìm thấy tệp tài liệu.' });
+    }
+    const ext = path.extname(doc.file_name).toLowerCase();
+    const mimeMap = {
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.webp': 'image/webp',
+      '.gif': 'image/gif',
+      '.pdf': 'application/pdf'
+    };
+    res.setHeader('Content-Type', mimeMap[ext] || 'application/octet-stream');
+    res.setHeader('Content-Disposition', `inline; filename="${encodeURIComponent(doc.file_name)}"`);
+    fs.createReadStream(doc.file_path).pipe(res);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+// ==========================================================
+// RECEPTION PORTAL (Phân vùng Tiếp nhận học viên - Mobile-first)
+// ==========================================================
+app.get('/api/reception/init-data', async (req, res) => {
+  try {
+    const batches = await db.all(`
+      SELECT id, code, name, academic_year, start_date, end_date, target_ids, status, note
+      FROM admission_batches
+      WHERE is_active = 1 AND status = 'Open'
+      ORDER BY id DESC
+    `);
+
+    const allTargets = await db.all(`
+      SELECT id, code, name, default_class, quota, required_documents, description
+      FROM admission_targets
+      WHERE is_active = 1
+      ORDER BY id ASC
+    `);
+
+    const targetMap = new Map();
+    allTargets.forEach(t => {
+      targetMap.set(t.id, {
+        ...t,
+        required_documents: tryParseJson(t.required_documents, [])
+      });
+    });
+
+    const activeBatches = batches.map(b => {
+      const targetIds = tryParseJson(b.target_ids, []);
+      const targets = targetIds.map(id => targetMap.get(Number(id))).filter(Boolean);
+      return {
+        ...b,
+        targets
+      };
+    });
+
+    res.json({
+      batches: activeBatches,
+      allTargets: Array.from(targetMap.values())
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.post('/api/reception/submit', async (req, res) => {
+  try {
+    const payload = normalizeStudentPayload(req.body || {});
+    if (!payload.fullName) throw httpError(400, 'Vui lòng nhập họ và tên.');
+    if (!payload.birthday) throw httpError(400, 'Vui lòng nhập ngày sinh.');
+    if (!payload.unit) throw httpError(400, 'Vui lòng nhập đơn vị công tác.');
+    if (!payload.phone) throw httpError(400, 'Vui lòng nhập số điện thoại.');
+    if (!payload.targetId) throw httpError(400, 'Vui lòng chọn đối tượng đào tạo tiếp nhận.');
+
+    const studentCode = await generateNextStudentCode();
+
+    let className = payload.className;
+    if (!className && payload.targetId) {
+      const t = await db.get('SELECT default_class FROM admission_targets WHERE id = ?', [payload.targetId]);
+      if (t?.default_class) className = t.default_class;
+    }
+
+    const info = await db.run(`
+      INSERT INTO students (
+        student_code, full_name, birthday, birthplace, hometown,
+        rank, position, unit, phone, email, id_card, id_card_date, id_card_place,
+        gender, ethnic, religion, party_date, party_official_date,
+        education_level, class_name, batch_id, target_id, order_index,
+        admission_date, declaration_date, declaration_place, status,
+        review_notes
+      ) VALUES (
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, 'PendingReview',
+        ?
+      )
+    `, [
+      studentCode, payload.fullName, payload.birthday, payload.birthplace, payload.hometown,
+      payload.rank, payload.position, payload.unit, payload.phone, payload.email, payload.idCard, payload.idCardDate, payload.idCardPlace,
+      payload.gender, payload.ethnic, payload.religion, payload.partyDate, payload.partyOfficialDate,
+      payload.educationLevel, className, payload.batchId, payload.targetId, payload.orderIndex,
+      new Date().toISOString().slice(0, 10), payload.declarationDate, payload.declarationPlace,
+      'Hồ sơ đăng ký nộp trực tuyến qua Phân vùng Tiếp nhận'
+    ]);
+
+    const studentId = info.lastInsertRowid;
+    const studentFolder = path.join(STUDENT_UPLOAD_ROOT, `student-${studentId}`);
+    fs.mkdirSync(studentFolder, { recursive: true });
+
+    const documents = Array.isArray(req.body.documents) ? req.body.documents : [];
+    let savedDocsCount = 0;
+
+    for (let i = 0; i < documents.length; i++) {
+      const doc = documents[i];
+      if (!doc || !doc.contentBase64) continue;
+
+      const rawBase64 = cleanText(doc.contentBase64 || doc.data);
+      const cleanBase64 = rawBase64.replace(/^data:[^;]+;base64,/i, '');
+      if (!cleanBase64) continue;
+
+      const buffer = Buffer.from(cleanBase64, 'base64');
+      const originalName = cleanText(doc.fileName || doc.name || `ChungChi_${i + 1}.jpg`);
+      const ext = path.extname(originalName).toLowerCase() || '.jpg';
+      const storedName = `${Date.now()}-${i + 1}-${crypto.randomBytes(4).toString('hex')}${ext}`;
+      const filePath = path.join(studentFolder, storedName);
+
+      fs.writeFileSync(filePath, buffer);
+
+      await db.run(`
+        INSERT INTO student_documents (student_id, doc_type, file_name, file_path, file_size, file_type)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [
+        studentId,
+        cleanText(doc.docType || 'Văn bằng chứng chỉ'),
+        originalName,
+        filePath,
+        buffer.length,
+        ext.slice(1)
+      ]);
+      savedDocsCount++;
+    }
+
+    await db.run(`
+      INSERT INTO notifications (title, message, priority, entity_name, entity_id)
+      VALUES (?, ?, 'High', 'Students', ?)
+    `, [
+      `Hồ sơ tiếp nhận mới: ${payload.fullName} (${studentCode})`,
+      `Đồng chí ${payload.rank ? payload.rank + ' ' : ''}${payload.fullName} (${payload.unit || 'Đơn vị'}) vừa nộp hồ sơ tiếp nhận kèm ${savedDocsCount} ảnh văn bằng.`,
+      studentId
+    ]);
+
+    res.status(201).json({
+      ok: true,
+      studentId,
+      studentCode,
+      fullName: payload.fullName,
+      status: 'PendingReview',
+      documentsSaved: savedDocsCount,
+      message: 'Hồ sơ đã được gửi thành công! Cán bộ tiếp nhận sẽ thẩm định và phản hồi.'
+    });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.get('/api/reception/track', async (req, res) => {
+  try {
+    const keyword = cleanText(req.query.keyword || req.query.code || req.query.idCard);
+    const phone = cleanText(req.query.phone);
+    if (!keyword) throw httpError(400, 'Vui lòng nhập Mã hồ sơ hoặc Số CCCD để tra cứu.');
+
+    let student = await db.get(`
+      SELECT s.*,
+             b.name AS batch_name, b.academic_year,
+             t.name AS target_name, t.required_documents AS target_required_documents
+      FROM students s
+      LEFT JOIN admission_batches b ON b.id = s.batch_id
+      LEFT JOIN admission_targets t ON t.id = s.target_id
+      WHERE (s.student_code = ? OR s.id_card = ?) AND s.is_active = 1
+    `, [keyword, keyword]);
+
+    if (!student && phone) {
+      student = await db.get(`
+        SELECT s.*,
+               b.name AS batch_name, b.academic_year,
+               t.name AS target_name, t.required_documents AS target_required_documents
+        FROM students s
+        LEFT JOIN admission_batches b ON b.id = s.batch_id
+        LEFT JOIN admission_targets t ON t.id = s.target_id
+        WHERE s.phone = ? AND s.is_active = 1
+      `, [phone]);
+    }
+
+    if (!student) {
+      return res.status(404).json({ message: 'Không tìm thấy hồ sơ học viên phù hợp. Vui lòng kiểm tra lại Mã hồ sơ hoặc Số CCCD.' });
+    }
+
+    const docs = await db.all('SELECT id, doc_type, file_name, file_size, file_type, created_at FROM student_documents WHERE student_id = ? AND is_active = 1 ORDER BY id ASC', [student.id]);
+    student.documents = docs;
+    student.target_required_documents = tryParseJson(student.target_required_documents, []);
+
+    res.json(student);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.post('/api/reception/supplement/:id', async (req, res) => {
+  try {
+    const student = await db.get('SELECT * FROM students WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!student) throw httpError(404, 'Không tìm thấy hồ sơ học viên.');
+
+    const documents = Array.isArray(req.body.documents) ? req.body.documents : [];
+    if (!documents.length) throw httpError(400, 'Vui lòng chọn ảnh văn bằng cần bổ sung.');
+
+    const studentFolder = path.join(STUDENT_UPLOAD_ROOT, `student-${student.id}`);
+    fs.mkdirSync(studentFolder, { recursive: true });
+
+    let addedCount = 0;
+    for (let i = 0; i < documents.length; i++) {
+      const doc = documents[i];
+      if (!doc || !doc.contentBase64) continue;
+
+      const rawBase64 = cleanText(doc.contentBase64 || doc.data);
+      const cleanBase64 = rawBase64.replace(/^data:[^;]+;base64,/i, '');
+      if (!cleanBase64) continue;
+
+      const buffer = Buffer.from(cleanBase64, 'base64');
+      const originalName = cleanText(doc.fileName || doc.name || `BoSung_${i + 1}.jpg`);
+      const ext = path.extname(originalName).toLowerCase() || '.jpg';
+      const storedName = `supplement-${Date.now()}-${i + 1}${ext}`;
+      const filePath = path.join(studentFolder, storedName);
+
+      fs.writeFileSync(filePath, buffer);
+
+      await db.run(`
+        INSERT INTO student_documents (student_id, doc_type, file_name, file_path, file_size, file_type)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `, [
+        student.id,
+        cleanText(doc.docType || 'Văn bằng bổ sung'),
+        originalName,
+        filePath,
+        buffer.length,
+        ext.slice(1)
+      ]);
+      addedCount++;
+    }
+
+    await db.run(`
+      UPDATE students
+      SET status = 'PendingReview', review_notes = ?, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
+      WHERE id = ?
+    `, [`Học viên đã bổ sung ${addedCount} ảnh văn bằng/giấy tờ mới.`, student.id]);
+
+    await db.run(`
+      INSERT INTO notifications (title, message, priority, entity_name, entity_id)
+      VALUES (?, ?, 'High', 'Students', ?)
+    `, [
+      `Bổ sung hồ sơ: ${student.full_name} (${student.student_code})`,
+      `Học viên đã bổ sung thêm ${addedCount} văn bằng/chứng chỉ theo yêu cầu.`,
+      student.id
+    ]);
+
+    res.json({ ok: true, addedCount, message: 'Đã cập nhật bổ sung hồ sơ thành công!' });
   } catch (error) {
     sendError(res, error);
   }
@@ -2920,6 +3791,73 @@ async function buildExportDocx(session, rows) {
   return zip.generateAsync({ type: 'nodebuffer' });
 }
 
+async function buildAdmissionReceiptDocx(student) {
+  const dateStr = student.declaration_date || student.admission_date || new Date().toISOString().slice(0, 10);
+  const parts = dateStr.split('-');
+  const dYear = parts[0] || '2026';
+  const dMonth = parts[1] || '08';
+  const dDay = parts[2] || '03';
+
+  const targetTitle = (student.target_name || 'ĐÀO TẠO NGẮN HẠN CHÍNH ỦY TRUNG, LỮ ĐOÀN').toUpperCase();
+  const classTitle = student.class_name ? ` – ${student.class_name.toUpperCase()}` : ' – LỚP 23C';
+  const orderText = student.order_index ? String(student.order_index) : '......';
+
+  const body = `
+    ${p('CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM', true, 'center')}
+    ${p('Độc lập – Tự do – Hạnh phúc', true, 'center')}
+    ${p('_______________________', false, 'center')}
+    ${p('')}
+    ${p(`PHIẾU ĐĂNG KÝ NHẬP HỌC ${targetTitle}${classTitle}`, true, 'center')}
+    ${p('Kính gửi: Phòng Đào tạo/Học viện Chính trị', false, 'center')}
+    ${p('')}
+    ${p('I. THÔNG TIN HỌC VIÊN', true, 'left')}
+    ${p(`   1. Số thứ tự (theo DS trên bảng):   ${orderText}`, false, 'left')}
+    ${p(`   2. Họ và tên:                                  ${student.full_name || ''}`, false, 'left')}
+    ${p(`   3. Ngày sinh:                                  ${student.birthday || ''}`, false, 'left')}
+    ${p(`   4. Nơi sinh:                                   ${student.birthplace || ''}`, false, 'left')}
+    ${p(`   5. Quê quán:                                  ${student.hometown || ''}`, false, 'left')}
+    ${p('')}
+    ${p('II. THÔNG TIN CÔNG TÁC', true, 'left')}
+    ${p(`   1. Cấp bậc:                                     ${student.rank || ''}`, false, 'left')}
+    ${p(`   2. Chức vụ:                                    ${student.position || ''}`, false, 'left')}
+    ${p(`   3. Đơn vị (Trực thuộc Bộ):           ${student.unit || ''}`, false, 'left')}
+    ${p(`   4. Trình độ học vấn:                      ${student.education_level || ''}`, false, 'left')}
+    ${p('')}
+    ${p('III. THÔNG TIN LIÊN HỆ', true, 'left')}
+    ${p(`   • Số điện thoại:                               ${student.phone || ''}`, false, 'left')}
+    ${student.id_card ? p(`   • Số CCCD/CMND:                            ${student.id_card}`, false, 'left') : ''}
+    ${p('')}
+    ${p('Ghi chú: Chuẩn bị bản photocopy văn bằng (đã kê khai) kèm bản gốc để đối chiếu tại bàn tiếp nhận học viên nhập học.', true, 'left')}
+    ${p('')}
+    ${p('Tôi xin cam đoan các thông tin kê khai trên là hoàn toàn chính xác và chấp hành nghiêm chỉnh mọi quy chế, quy định của Học viện.', false, 'left')}
+    ${p('')}
+    ${p(`Hà Nội, ngày ${parseInt(dDay, 10)} tháng ${parseInt(dMonth, 10)} năm ${dYear}`, false, 'right')}
+    ${p('')}
+    ${table([
+      [
+        cell('NGƯỜI KÊ KHAI\n(Ký, ghi rõ họ tên)', { bold: true, width: 4500 })
+      ]
+    ])}
+    ${p('')}
+    ${p('')}
+    ${p('')}
+    ${table([
+      [
+        cell(student.full_name || '', { bold: true, width: 4500 })
+      ]
+    ])}
+  `;
+
+  const zip = new JSZip();
+  zip.file('[Content_Types].xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/><Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/></Types>`);
+  zip.folder('_rels').file('.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`);
+  zip.folder('docProps').file('core.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/"><dc:title>Phiếu đăng ký nhập học</dc:title><dc:creator>Học viện Chính trị</dc:creator><dcterms:created xsi:type="dcterms:W3CDTF" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">${new Date().toISOString()}</dcterms:created></cp:coreProperties>`);
+  zip.folder('docProps').file('app.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties"><Application>Học viện Chính trị - Quản lý tiếp nhận</Application></Properties>`);
+  zip.folder('word').folder('_rels').file('document.xml.rels', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`);
+  zip.folder('word').file('document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body}<w:sectPr><w:pgSz w:w="11906" w:h="16838" w:orient="portrait"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1418" w:header="720" w:footer="720" w:gutter="0"/></w:sectPr></w:body></w:document>`);
+  return zip.generateAsync({ type: 'nodebuffer' });
+}
+
 app.get('/api/history/:id/export', async (req, res) => {
   try {
     const session = await db.get(`
@@ -2952,6 +3890,7 @@ app.get('/api/history/:id/export', async (req, res) => {
 async function startServer() {
   try {
     await ensureDefaultAdminAccount();
+    await ensureAdmissionTables();
     app.listen(PORT, () => {
       console.log(`🚀 ArmyTech Website running on SQL Server at http://localhost:${PORT}`);
     });
