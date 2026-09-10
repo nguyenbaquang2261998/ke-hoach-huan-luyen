@@ -66,7 +66,7 @@ jobs:
           : "${VPS_USER:?Missing VPS_USER}"
 
           REMOTE="${VPS_USER}@${VPS_HOST}"
-          SSH_BASE=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PubkeyAuthentication=no)
+          SSH_BASE=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PubkeyAuthentication=no -o PasswordAuthentication=yes -o PreferredAuthentications=password)
 
           sshpass -e ssh "${SSH_BASE[@]}" -p "${VPS_PORT}" "${REMOTE}" "rm -rf '${REMOTE_TMP_DIR}' && mkdir -p '${REMOTE_TMP_DIR}/nginx'"
           sshpass -e scp "${SSH_BASE[@]}" -P "${VPS_PORT}" deploy/docker-compose.yml "${REMOTE}:${REMOTE_TMP_DIR}/docker-compose.yml"
@@ -93,7 +93,7 @@ jobs:
 
           APP_IMAGE="${DOCKERHUB_USERNAME}/${IMAGE_NAME}:${GIT_SHA}"
           REMOTE="${VPS_USER}@${VPS_HOST}"
-          SSH_BASE=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PubkeyAuthentication=no)
+          SSH_BASE=(-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o PubkeyAuthentication=no -o PasswordAuthentication=yes -o PreferredAuthentications=password)
           REMOTE_ENV=$(printf 'APP_IMAGE=%q DOCKERHUB_USERNAME=%q DOCKERHUB_TOKEN=%q DEPLOY_DIR=%q REMOTE_TMP_DIR=%q DOMAIN_NAME=%q NGINX_CONF_NAME=%q' \
             "${APP_IMAGE}" "${DOCKERHUB_USERNAME}" "${DOCKERHUB_TOKEN}" "${DEPLOY_DIR}" "${REMOTE_TMP_DIR}" "${DOMAIN_NAME}" "${NGINX_CONF_NAME}")
 
