@@ -34,12 +34,24 @@ async function ensureAdmissionTables() {
         start_date NVARCHAR(50) NULL,
         end_date NVARCHAR(50) NULL,
         target_ids NVARCHAR(MAX) NULL,
+        expected_students NVARCHAR(MAX) NULL,
         status NVARCHAR(50) DEFAULT 'Open',
         note NVARCHAR(MAX) NULL,
         is_active INT DEFAULT 1,
         created_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120),
         updated_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120)
       );
+    END
+  `);
+
+  // 2b. Bổ sung cột expected_students vào admission_batches (nếu chưa có)
+  await db.exec(`
+    IF NOT EXISTS (
+      SELECT * FROM sys.columns 
+      WHERE object_id = OBJECT_ID('dbo.admission_batches') AND name = 'expected_students'
+    )
+    BEGIN
+      ALTER TABLE dbo.admission_batches ADD expected_students NVARCHAR(MAX) NULL;
     END
   `);
 

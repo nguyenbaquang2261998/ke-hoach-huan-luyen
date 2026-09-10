@@ -589,6 +589,16 @@
               <label for="recFullName">Họ và tên (chữ in hoa có dấu) <span class="req">*</span></label>
               <input id="recFullName" type="text" required placeholder="VD: BÀN TRUNG NAM" autocapitalize="characters" />
             </div>
+            <!-- Khung thông báo nhận diện danh sách dự kiến -->
+            <div id="expectedMatchNotice" class="expected-match-notice hidden">
+              <div class="match-badge">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <span>✨ Đã tìm thấy trên danh sách dự kiến!</span>
+              </div>
+              <p class="match-desc">
+                Hệ thống đã tự động điền <strong>Cấp bậc, Chức vụ, Đơn vị, Lớp</strong>. Đồng chí có thể kiểm tra và chỉnh sửa nếu cần.
+              </p>
+            </div>
             <div class="field">
               <label>Ngày sinh <span class="req">*</span></label>
               <div class="field-row" style="grid-template-columns:1fr 1fr 1.4fr;gap:8px;margin-bottom:0">
@@ -665,6 +675,10 @@
             <div class="field">
               <label for="recUnit">Đơn vị công tác (Trực thuộc Bộ) <span class="req">*</span></label>
               <input id="recUnit" type="text" required placeholder="VD: Quân khu 1, Quân đoàn 12,..." />
+            </div>
+            <div class="field">
+              <label for="recClassName">Lớp biên chế <span class="opt" style="font-weight:normal;color:#64748b;">(Dự kiến)</span></label>
+              <input id="recClassName" type="text" placeholder="VD: Lớp 23C" />
             </div>
             <div class="field">
               <label for="recEducationLevel">Trình độ học vấn (Các văn bằng đã có) <span class="req">*</span></label>

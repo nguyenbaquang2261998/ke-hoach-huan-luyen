@@ -2251,7 +2251,7 @@ function renderStudents() {
     if (tId && String(item.target_id) !== String(tId)) return false;
     if (st && item.status !== st) return false;
     if (kw) {
-      const matchCode = (item.student_code || '').toLowerCase().includes(kw);
+      // const matchCode = (item.student_code || '').toLowerCase().includes(kw);
       const matchName = (item.full_name || '').toLowerCase().includes(kw);
       const matchIdCard = (item.id_card || '').toLowerCase().includes(kw);
       const matchPhone = (item.phone || '').toLowerCase().includes(kw);
@@ -2882,6 +2882,31 @@ function openStudentFormModal(id = null) {
     }
   }
 
+  const nameInput = el('editFullName');
+  if (nameInput) {
+    nameInput.oninput = () => {
+      const batchId = Number(el('editBatchId')?.value);
+      if (!batchId) return;
+      const batch = (state.admissionBatches || []).find(b => b.id === batchId);
+      if (!batch) return;
+      const expected = Array.isArray(batch.expected_students)
+        ? batch.expected_students
+        : (tryParseJson(batch.expected_students, []) || []);
+      if (!expected.length) return;
+
+      const norm = normalizePersonName(nameInput.value);
+      if (!norm || norm.length < 2) return;
+      const match = expected.find(s => normalizePersonName(s.full_name) === norm);
+      if (match) {
+        if (match.rank) el('editRank').value = match.rank;
+        if (match.position) el('editPosition').value = match.position;
+        if (match.unit) el('editUnit').value = match.unit;
+        if (match.class_name) el('editClassName').value = match.class_name;
+        toast(`✨ Tự động điền thông tin dự kiến: ${match.full_name} (${match.rank || ''})`);
+      }
+    };
+  }
+
   el('studentFormModal').classList.remove('hidden');
 }
 
@@ -2998,9 +3023,198 @@ function renderAdmissionBatches() {
   }).join('');
 }
 
+function normalizePersonName(str) {
+  if (!str) return '';
+  return String(str)
+    .trim()
+    .toLowerCase()
+    .normalize('NFC')
+    .replace(/\s+/g, ' ');
+}
+
+let currentBatchExpectedStudents = [];
+
+function renderBatchExpectedPreview() {
+  const box = el('batchExpectedPreviewBox');
+  const statusEl = el('batchExpectedExcelStatus');
+  const badge = el('batchExpectedCountBadge');
+  const table = el('batchExpectedMiniTable');
+  if (!box || !statusEl || !badge || !table) return;
+
+  if (!currentBatchExpectedStudents || !currentBatchExpectedStudents.length) {
+    box.classList.add('hidden');
+    statusEl.textContent = 'Chưa có danh sách dự kiến tải lên.';
+    table.innerHTML = '';
+    return;
+  }
+
+  statusEl.textContent = `Đã nhận diện: ${currentBatchExpectedStudents.length} học viên dự kiến.`;
+  badge.textContent = `Đã nhận diện: ${currentBatchExpectedStudents.length} học viên`;
+  box.classList.remove('hidden');
+
+  table.innerHTML = `
+    <table style="width:100%;border-collapse:collapse;font-size:11px;">
+      <thead>
+        <tr style="background:#f1f5f9;text-align:left;border-bottom:1px solid #cbd5e1;">
+          <th style="padding:4px;width:32px;">STT</th>
+          <th style="padding:4px;">Họ và tên</th>
+          <th style="padding:4px;">Cấp bậc</th>
+          <th style="padding:4px;">Chức vụ</th>
+          <th style="padding:4px;">Đơn vị</th>
+          <th style="padding:4px;">Lớp</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${currentBatchExpectedStudents.map((s, idx) => `
+          <tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:4px;color:#64748b;">${s.stt || idx + 1}</td>
+            <td style="padding:4px;font-weight:600;">${escapeHtml(s.full_name)}</td>
+            <td style="padding:4px;">${escapeHtml(s.rank || '')}</td>
+            <td style="padding:4px;">${escapeHtml(s.position || '')}</td>
+            <td style="padding:4px;">${escapeHtml(s.unit || '')}</td>
+            <td style="padding:4px;"><span class="tag-status green" style="font-size:10px;">${escapeHtml(s.class_name || '')}</span></td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+function clearBatchExpectedStudents() {
+  currentBatchExpectedStudents = [];
+  const fi = el('batchExpectedExcelFile');
+  if (fi) fi.value = '';
+  renderBatchExpectedPreview();
+}
+
+function downloadExpectedStudentsTemplate() {
+  if (typeof XLSX === 'undefined') {
+    toast('Thư viện Excel chưa sẵn sàng. Vui lòng tải lại trang.');
+    return;
+  }
+  const sampleData = [
+    ['STT', 'HỌ VÀ TÊN', 'CẤP BẬC', 'CHỨC VỤ', 'CHỨC VỤ ĐƠN VỊ', 'LỚP', 'Đơn vị'],
+    [1, 'HÀ NGỌC ANH', 'Thiếu tá', 'Trợ lý', 'Trợ lý', 'Lớp 23C', 'Quân khu 1'],
+    [2, 'QUÁCH QUANG HƯNG', 'Đại úy', 'Trợ lý', 'Trợ lý', 'Lớp 23C', 'Quân đoàn 12'],
+    [3, 'TRẦN VĂN PHƯƠNG', 'Thượng úy', 'Đại đội trưởng', 'Đại đội trưởng', 'Lớp 23C', 'Quân khu 3'],
+    [4, 'NGUYỄN VĂN HẢI', 'Thiếu tá', 'Phó Tiểu đoàn trưởng', 'Phó TĐT', 'Lớp 23C', 'Học viện Chính trị']
+  ];
+  const ws = XLSX.utils.aoa_to_sheet(sampleData);
+  ws['!cols'] = [
+    { wch: 6 },
+    { wch: 24 },
+    { wch: 12 },
+    { wch: 22 },
+    { wch: 22 },
+    { wch: 12 },
+    { wch: 22 }
+  ];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'DS_HocVien_DuKien');
+  XLSX.writeFile(wb, 'Mau_Danh_Sach_Hoc_Vien_Du_Kien.xlsx');
+}
+
+async function handleBatchExcelUpload(event) {
+  const file = event.target.files && event.target.files[0];
+  if (!file) return;
+
+  if (typeof XLSX === 'undefined') {
+    toast('Thư viện Excel chưa được tải. Vui lòng thử lại.');
+    return;
+  }
+
+  try {
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data, { type: 'array' });
+    const firstSheetName = workbook.SheetNames[0];
+    if (!firstSheetName) throw new Error('File Excel không có sheet nào.');
+    const worksheet = workbook.Sheets[firstSheetName];
+    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+
+    if (!rows || rows.length < 2) {
+      throw new Error('Tệp Excel không có đủ dữ liệu.');
+    }
+
+    // Tìm dòng tiêu đề (quét 15 dòng đầu tiên)
+    let headerRowIdx = -1;
+    let nameCol = -1, rankCol = -1, posCol = -1, posUnitCol = -1, unitCol = -1, classCol = -1, sttCol = -1;
+
+    for (let r = 0; r < Math.min(rows.length, 15); r++) {
+      const row = rows[r];
+      if (!Array.isArray(row)) continue;
+      const rowStrs = row.map(cell => normalizePersonName(cell));
+      const nIdx = rowStrs.findIndex(s => s.includes('họ và tên') || s.includes('họ tên') || s.includes('ho va ten') || s.includes('ho ten') || s === 'họ tên' || s === 'tên học viên');
+      if (nIdx !== -1) {
+        headerRowIdx = r;
+        nameCol = nIdx;
+        break;
+      }
+    }
+
+    if (headerRowIdx === -1) {
+      throw new Error('Không tìm thấy cột [HỌ VÀ TÊN] trong tệp Excel. Vui lòng kiểm tra dòng tiêu đề hoặc tải file mẫu để đối chiếu.');
+    }
+
+    const headerRow = rows[headerRowIdx].map(cell => normalizePersonName(cell));
+    for (let c = 0; c < headerRow.length; c++) {
+      const h = headerRow[c];
+      if (c === nameCol) continue;
+      if (sttCol === -1 && (h === 'stt' || h.includes('thứ tự'))) sttCol = c;
+      else if (rankCol === -1 && (h.includes('cấp bậc') || h.includes('cap bac') || h === 'cấp')) rankCol = c;
+      else if (posUnitCol === -1 && (h.includes('chức vụ đơn vị') || h.includes('chuc vu don vi'))) posUnitCol = c;
+      else if (posCol === -1 && (h.includes('chức vụ') || h.includes('chuc vu') || h.includes('position'))) posCol = c;
+      else if (unitCol === -1 && (h === 'đơn vị' || h === 'don vi' || h.includes('đơn vị') || h.includes('don vi'))) unitCol = c;
+      else if (classCol === -1 && (h.includes('lớp') || h.includes('lop') || h.includes('class'))) classCol = c;
+    }
+
+    const parsedList = [];
+    for (let r = headerRowIdx + 1; r < rows.length; r++) {
+      const row = rows[r];
+      if (!Array.isArray(row) || !row.length) continue;
+      const rawName = String(row[nameCol] || '').trim();
+      if (!rawName) continue;
+      const normName = normalizePersonName(rawName);
+      if (normName.includes('tổng số') || normName.includes('tổng cộng') || normName.includes('học viện chính trị')) continue;
+
+      const sttVal = sttCol !== -1 ? parseInt(row[sttCol]) || (parsedList.length + 1) : (parsedList.length + 1);
+      const rankVal = rankCol !== -1 ? String(row[rankCol] || '').trim() : '';
+      const posVal = posCol !== -1 ? String(row[posCol] || '').trim() : (posUnitCol !== -1 ? String(row[posUnitCol] || '').trim() : '');
+      let unitVal = unitCol !== -1 ? String(row[unitCol] || '').trim() : '';
+      if (!unitVal && posUnitCol !== -1) {
+        unitVal = String(row[posUnitCol] || '').trim();
+      }
+      const classVal = classCol !== -1 ? String(row[classCol] || '').trim() : '';
+
+      parsedList.push({
+        stt: sttVal,
+        full_name: rawName,
+        rank: rankVal,
+        position: posVal,
+        unit: unitVal,
+        class_name: classVal
+      });
+    }
+
+    if (!parsedList.length) {
+      throw new Error('Không đọc được học viên nào từ file Excel. Vui lòng kiểm tra lại nội dung.');
+    }
+
+    currentBatchExpectedStudents = parsedList;
+    renderBatchExpectedPreview();
+    toast(`Đã nhận diện thành công ${parsedList.length} học viên dự kiến!`);
+  } catch (err) {
+    console.error('Lỗi phân tích Excel:', err);
+    toast(err.message || 'Không thể đọc tệp Excel.', 'error');
+  }
+}
+
 function openBatchFormModal(id = null) {
   const form = el('batchEditForm');
   form.reset();
+
+  currentBatchExpectedStudents = [];
+  const fi = el('batchExpectedExcelFile');
+  if (fi) fi.value = '';
 
   const container = el('batchTargetsCheckboxes');
   const targets = state.admissionTargets || [];
@@ -3034,6 +3248,10 @@ function openBatchFormModal(id = null) {
         const chk = el(`chkTarget_${tId}`);
         if (chk) chk.checked = true;
       });
+
+      currentBatchExpectedStudents = Array.isArray(b.expected_students)
+        ? [...b.expected_students]
+        : (tryParseJson(b.expected_students, []) || []);
     }
   } else {
     el('batchFormTitle').textContent = 'Thêm đợt tiếp nhận mới';
@@ -3053,6 +3271,7 @@ function openBatchFormModal(id = null) {
     });
   }
 
+  renderBatchExpectedPreview();
   el('batchFormModal').classList.remove('hidden');
 }
 
@@ -3074,6 +3293,7 @@ async function saveBatch(event) {
     start_date: el('editBatchStartDate').value,
     end_date: el('editBatchEndDate').value,
     target_ids: targetIds,
+    expected_students: currentBatchExpectedStudents,
     note: el('editBatchNote').value.trim()
   };
 

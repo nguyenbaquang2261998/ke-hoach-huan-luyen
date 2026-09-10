@@ -9527,16 +9527,74 @@ td small {
     gap: 12px;
     padding: 14px;
   }
-  
   .ai-repo-actions {
     width: 100%;
     justify-content: flex-end;
     padding-top: 8px;
     border-top: 1px solid #f1f5f9;
   }
-  
   .btn-open-link {
     flex: 1;
     justify-content: center;
+  }
+}
+
+/* ==========================================================================
+   EXPECTED STUDENTS EXCEL & AUTO-FILL STYLES
+   ========================================================================== */
+.expected-match-notice {
+  margin-top: 8px;
+  margin-bottom: 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 10px 12px;
+  transition: all 0.25s ease;
+  animation: fadeInNotice 0.3s ease-in-out;
+}
+
+@keyframes fadeInNotice {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.expected-match-notice .match-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 0.8125rem;
+  color: #166534;
+}
+
+.expected-match-notice .match-badge svg {
+  color: #16a34a;
+}
+
+.expected-match-notice .match-desc {
+  margin: 4px 0 0 0;
+  font-size: 0.775rem;
+  color: #15803d;
+  line-height: 1.4;
+}
+
+.field-highlight-flash {
+  animation: pulseGreenHighlight 1.5s ease-out;
+}
+
+@keyframes pulseGreenHighlight {
+  0% {
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.45);
+    border-color: #22c55e !important;
+    background-color: #f0fdf4 !important;
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+    border-color: #22c55e !important;
+  }
+  100% {
+    box-shadow: none;
+    border-color: inherit;
+    background-color: inherit;
   }
 }

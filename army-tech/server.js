@@ -2077,11 +2077,27 @@ app.get('/api/admission-batches', async (req, res) => {
       return {
         ...b,
         target_ids: targetIds,
+        expected_students: tryParseJson(b.expected_students, []),
         targets
       };
     });
 
     res.json(result);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.get('/api/admission-batches/:id/expected-students', async (req, res) => {
+  try {
+    const row = await db.get('SELECT id, code, name, expected_students FROM admission_batches WHERE id = ? AND is_active = 1', [req.params.id]);
+    if (!row) throw httpError(404, 'Không tìm thấy đợt tiếp nhận.');
+    res.json({
+      batch_id: row.id,
+      batch_code: row.code,
+      batch_name: row.name,
+      expected_students: tryParseJson(row.expected_students, [])
+    });
   } catch (error) {
     sendError(res, error);
   }
@@ -2100,17 +2116,20 @@ app.post('/api/admission-batches', async (req, res) => {
     const startDate = cleanText(req.body.start_date ?? req.body.startDate);
     const endDate = cleanText(req.body.end_date ?? req.body.endDate);
     const targetIds = Array.isArray(req.body.target_ids) ? JSON.stringify(req.body.target_ids) : cleanText(req.body.target_ids);
+    const expectedStudents = Array.isArray(req.body.expected_students)
+      ? JSON.stringify(req.body.expected_students)
+      : (cleanText(req.body.expected_students) || null);
     const status = cleanText(req.body.status) || 'Open';
     const note = cleanText(req.body.note);
 
     const info = await db.run(`
-      INSERT INTO admission_batches (code, name, academic_year, start_date, end_date, target_ids, status, note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `, [code, name, academicYear, startDate, endDate, targetIds, status, note]);
+      INSERT INTO admission_batches (code, name, academic_year, start_date, end_date, target_ids, expected_students, status, note)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [code, name, academicYear, startDate, endDate, targetIds, expectedStudents, status, note]);
 
     const row = await db.get('SELECT * FROM admission_batches WHERE id = ?', [info.lastInsertRowid]);
     await auditLog('Create', 'AdmissionBatches', row.id, row, null, req);
-    res.status(201).json(row);
+    res.status(201).json({ ...row, expected_students: tryParseJson(row.expected_students, []) });
   } catch (error) {
     sendError(res, error);
   }
@@ -2129,19 +2148,22 @@ app.put('/api/admission-batches/:id', async (req, res) => {
     const targetIds = req.body.target_ids !== undefined
       ? (Array.isArray(req.body.target_ids) ? JSON.stringify(req.body.target_ids) : cleanText(req.body.target_ids))
       : current.target_ids;
+    const expectedStudents = req.body.expected_students !== undefined
+      ? (Array.isArray(req.body.expected_students) ? JSON.stringify(req.body.expected_students) : cleanText(req.body.expected_students))
+      : current.expected_students;
     const status = cleanText(req.body.status ?? current.status);
     const note = cleanText(req.body.note ?? current.note);
 
     await db.run(`
       UPDATE admission_batches
-      SET code = ?, name = ?, academic_year = ?, start_date = ?, end_date = ?, target_ids = ?, status = ?, note = ?,
+      SET code = ?, name = ?, academic_year = ?, start_date = ?, end_date = ?, target_ids = ?, expected_students = ?, status = ?, note = ?,
           updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
       WHERE id = ?
-    `, [code, name, academicYear, startDate, endDate, targetIds, status, note, current.id]);
+    `, [code, name, academicYear, startDate, endDate, targetIds, expectedStudents, status, note, current.id]);
 
     const row = await db.get('SELECT * FROM admission_batches WHERE id = ?', [current.id]);
     await auditLog('Update', 'AdmissionBatches', row.id, row, current, req);
-    res.json(row);
+    res.json({ ...row, expected_students: tryParseJson(row.expected_students, []) });
   } catch (error) {
     sendError(res, error);
   }
@@ -2605,7 +2627,7 @@ app.get('/api/student-documents/:id/file', async (req, res) => {
 app.get('/api/reception/init-data', async (req, res) => {
   try {
     const batches = await db.all(`
-      SELECT id, code, name, academic_year, start_date, end_date, target_ids, status, note
+      SELECT id, code, name, academic_year, start_date, end_date, target_ids, expected_students, status, note
       FROM admission_batches
       WHERE is_active = 1 AND status = 'Open'
       ORDER BY id DESC
@@ -2631,6 +2653,8 @@ app.get('/api/reception/init-data', async (req, res) => {
       const targets = targetIds.map(id => targetMap.get(Number(id))).filter(Boolean);
       return {
         ...b,
+        target_ids: targetIds,
+        expected_students: tryParseJson(b.expected_students, []),
         targets
       };
     });

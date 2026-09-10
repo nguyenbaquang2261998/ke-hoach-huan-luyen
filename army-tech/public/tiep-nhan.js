@@ -7,6 +7,7 @@ let appData = {
   allTargets: [],
   selectedBatch: null,
   selectedTarget: null,
+  selectedExpectedStudents: [],
   currentStep: 1,
   uploadedDocs: {}, // { [docType]: { fileName, contentBase64, previewUrl, size } }
   trackedStudent: null,
@@ -17,6 +18,7 @@ let appData = {
 document.addEventListener('DOMContentLoaded', () => {
   initBirthdaySelects();
   initReceptionPortal();
+  initExpectedStudentAutofill();
 });
 
 function initBirthdaySelects() {
@@ -43,6 +45,110 @@ function initBirthdaySelects() {
   }
 }
 
+function normalizePersonName(str) {
+  if (!str) return '';
+  return String(str)
+    .trim()
+    .toLowerCase()
+    .normalize('NFC')
+    .replace(/\s+/g, ' ');
+}
+
+function initExpectedStudentAutofill() {
+  const nameInput = document.getElementById('recFullName');
+  if (nameInput) {
+    nameInput.addEventListener('input', checkAndAutofillExpectedStudent);
+    nameInput.addEventListener('change', checkAndAutofillExpectedStudent);
+  }
+}
+
+function checkAndAutofillExpectedStudent() {
+  const nameInput = document.getElementById('recFullName');
+  const noticeBox = document.getElementById('expectedMatchNotice');
+  if (!nameInput) return;
+
+  const rawName = nameInput.value || '';
+  const normName = normalizePersonName(rawName);
+
+  if (!normName || normName.length < 2) {
+    if (noticeBox) noticeBox.classList.add('hidden');
+    return;
+  }
+
+  const expectedList = appData.selectedExpectedStudents || [];
+  if (!expectedList.length) {
+    if (noticeBox) noticeBox.classList.add('hidden');
+    return;
+  }
+
+  // Khớp họ tên không phân biệt hoa thường, dấu cách
+  const match = expectedList.find(s => normalizePersonName(s.full_name) === normName);
+  if (match) {
+    // 1. Cấp bậc
+    if (match.rank) {
+      const rankSelect = document.getElementById('recRank');
+      if (rankSelect) {
+        let foundOpt = false;
+        const normMatchRank = normalizePersonName(match.rank);
+        for (let i = 0; i < rankSelect.options.length; i++) {
+          if (normalizePersonName(rankSelect.options[i].value) === normMatchRank) {
+            rankSelect.selectedIndex = i;
+            foundOpt = true;
+            break;
+          }
+        }
+        if (!foundOpt && match.rank) {
+          const newOpt = document.createElement('option');
+          newOpt.value = match.rank;
+          newOpt.textContent = match.rank;
+          rankSelect.appendChild(newOpt);
+          rankSelect.value = match.rank;
+        }
+        flashFieldHighlight(rankSelect);
+      }
+    }
+
+    // 2. Chức vụ
+    if (match.position) {
+      const posInput = document.getElementById('recPosition');
+      if (posInput) {
+        posInput.value = match.position;
+        flashFieldHighlight(posInput);
+      }
+    }
+
+    // 3. Đơn vị
+    if (match.unit) {
+      const unitInput = document.getElementById('recUnit');
+      if (unitInput) {
+        unitInput.value = match.unit;
+        flashFieldHighlight(unitInput);
+      }
+    }
+
+    // 4. Lớp biên chế
+    if (match.class_name) {
+      const classInput = document.getElementById('recClassName');
+      if (classInput) {
+        classInput.value = match.class_name;
+        flashFieldHighlight(classInput);
+      }
+    }
+
+    if (noticeBox) {
+      noticeBox.classList.remove('hidden');
+    }
+  } else {
+    if (noticeBox) noticeBox.classList.add('hidden');
+  }
+}
+
+function flashFieldHighlight(elem) {
+  if (!elem) return;
+  elem.classList.remove('field-highlight-flash');
+  void elem.offsetWidth; // trigger reflow
+  elem.classList.add('field-highlight-flash');
+}
 
 async function initReceptionPortal() {
   try {
@@ -150,6 +256,10 @@ function onRecBatchSelected() {
   targetInfoBox.classList.add('hidden');
   appData.selectedBatch = appData.batches.find(b => b.id === batchId) || null;
   appData.selectedTarget = null;
+  appData.selectedExpectedStudents = Array.isArray(appData.selectedBatch?.expected_students)
+    ? appData.selectedBatch.expected_students
+    : (tryParseJson(appData.selectedBatch?.expected_students, []) || []);
+  checkAndAutofillExpectedStudent();
 
   if (!appData.selectedBatch || !appData.selectedBatch.targets.length) {
     targetSelect.innerHTML = '<option value="">-- Đợt này chưa có đối tượng tiếp nhận --</option>';
@@ -186,6 +296,10 @@ function onRecTargetSelected() {
 
   appData.selectedTarget = target;
   previewClass.textContent = target.default_class || 'Theo quy định';
+  const recClassName = document.getElementById('recClassName');
+  if (recClassName && !recClassName.value && target.default_class) {
+    recClassName.value = target.default_class;
+  }
   previewDesc.textContent = target.description || 'Học viên đối tượng đào tạo theo chỉ tiêu kế hoạch của Học viện.';
 
   const docs = Array.isArray(target.required_documents) ? target.required_documents : [];
@@ -433,6 +547,10 @@ function populateReviewSummary() {
   document.getElementById('sumPhone').textContent = document.getElementById('recPhone').value;
   document.getElementById('sumTarget').textContent = appData.selectedTarget ? appData.selectedTarget.name : '';
   
+  const className = document.getElementById('recClassName')?.value.trim() || (appData.selectedTarget ? appData.selectedTarget.default_class : '');
+  const sumClassEl = document.getElementById('sumClassName');
+  if (sumClassEl) sumClassEl.textContent = className || '--';
+
   const docsCount = Object.keys(appData.uploadedDocs).length;
   document.getElementById('sumDocsCount').textContent = `${docsCount} tệp văn bằng/chứng chỉ`;
 }
@@ -479,7 +597,7 @@ async function submitReceptionForm(event) {
       educationLevel: document.getElementById('recEducationLevel').value.trim(),
       phone: document.getElementById('recPhone').value.trim(),
       email: document.getElementById('recEmail').value.trim(),
-      className: appData.selectedTarget ? appData.selectedTarget.default_class : '',
+      className: document.getElementById('recClassName')?.value.trim() || (appData.selectedTarget ? appData.selectedTarget.default_class : ''),
       declarationDate: new Date().toISOString().slice(0, 10),
       declarationPlace: 'Hà Nội',
       documents

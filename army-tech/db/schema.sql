@@ -285,6 +285,7 @@ BEGIN
     start_date NVARCHAR(50) NULL,
     end_date NVARCHAR(50) NULL,
     target_ids NVARCHAR(MAX) NULL,
+    expected_students NVARCHAR(MAX) NULL,
     status NVARCHAR(50) DEFAULT 'Open',
     note NVARCHAR(MAX) NULL,
     is_active INT DEFAULT 1,

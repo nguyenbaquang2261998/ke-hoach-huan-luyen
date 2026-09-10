@@ -4,12 +4,18 @@ GitHub Actions builds `army-tech` as a Docker image, pushes it to Docker Hub, th
 TEST CICD
 Required GitHub repository secrets:
 
-- `VPS_HOST`
-- `VPS_PASSWORD`
-- `VPS_PORT`
-- `VPS_USER`
-- `DOCKERHUB_USERNAME`
-- `DOCKERHUB_TOKEN`
+- `VPS_HOST`: Địa chỉ IP hoặc domain của VPS
+- `VPS_PORT`: Cổng SSH (thường là `22`)
+- `VPS_USER`: Tên tài khoản SSH (ví dụ: `root` hoặc `ubuntu`)
+- `VPS_SSH_KEY` **(Khuyên dùng)**: Nội dung Private Key SSH để đăng nhập VPS không cần mật khẩu.
+  *Hoặc* `VPS_PASSWORD`: Mật khẩu tài khoản VPS (yêu cầu VPS phải bật `PasswordAuthentication yes`).
+- `DOCKERHUB_USERNAME`: Tên tài khoản Docker Hub
+- `DOCKERHUB_TOKEN`: Personal Access Token của Docker Hub
+
+> **Lưu ý lỗi `Permission denied (publickey)`**:
+> - Nếu gặp lỗi này, máy chủ VPS của bạn đang tắt xác thực mật khẩu.
+> - **Cách 1 (Khuyên dùng)**: Thêm private key vào secret `VPS_SSH_KEY`, đồng thời đảm bảo public key tương ứng đã nằm trong `~/.ssh/authorized_keys` trên VPS.
+> - **Cách 2**: SSH vào VPS và bật mật khẩu bằng cách sửa `/etc/ssh/sshd_config` (hoặc `/etc/ssh/sshd_config.d/*.conf`): chuyển `PasswordAuthentication yes`, sau đó chạy `sudo systemctl restart sshd`.
 
 One-time VPS setup:
 
