@@ -7,6 +7,7 @@ const crypto = require('crypto');
 const JSZip = require('jszip');
 const db = require('./db/sqlserver');
 const { ensureAdmissionTables } = require('./db/ensure_admission_tables');
+const { ensureSharedAiTables } = require('./db/ensure_ai_tables');
 
 function loadLocalEnv() {
   const envPath = path.join(__dirname, '.env');
@@ -775,6 +776,7 @@ async function requireApiAccess(req, res, next) {
       (req.method === 'GET' && (
         pathName.startsWith('/admission-batches') ||
         pathName.startsWith('/admission-targets') ||
+        pathName.startsWith('/ai/shared') ||
         pathName.includes('/receipt-doc') ||
         pathName.includes('/download-bundle') ||
         pathName.includes('/export-excel')
@@ -3043,6 +3045,96 @@ app.get('/api/ai/history', async (req, res) => {
   }
 });
 
+// --- KHO TRỢ LÝ AI DÙNG CHUNG (SHARED AI ASSISTANTS) ---
+app.get('/api/ai/shared', async (req, res) => {
+  try {
+    const rows = await db.all('SELECT * FROM shared_ai_assistants WHERE is_active = 1 ORDER BY order_index ASC, id ASC');
+    res.json(rows);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.post('/api/ai/shared', async (req, res) => {
+  try {
+    const name = cleanText(req.body?.name);
+    let url = cleanText(req.body?.url);
+    if (!name) throw httpError(400, 'Vui lòng nhập tên Trợ lý AI.');
+    if (!url) throw httpError(400, 'Vui lòng nhập đường dẫn URL liên kết.');
+
+    if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('#')) {
+      url = 'https://' + url;
+    }
+
+    const description = cleanText(req.body?.description || '');
+    const category = cleanText(req.body?.category || 'Chung');
+    const icon_type = cleanText(req.body?.icon_type || 'bot');
+    const badge = cleanText(req.body?.badge || '');
+    const color = cleanText(req.body?.color || '#166534');
+    const access_scope = cleanText(req.body?.access_scope || 'Dùng chung');
+    const order_index = Number(req.body?.order_index || 0);
+    const created_by = cleanText(req.headers?.['x-user'] || req.body?.created_by || 'Học viện');
+
+    const info = await db.run(`
+      INSERT INTO shared_ai_assistants(name, url, description, category, icon_type, badge, color, access_scope, order_index, created_by, is_active)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
+    `, [name, url, description, category, icon_type, badge, color, access_scope, order_index, created_by]);
+
+    const row = await db.get('SELECT * FROM shared_ai_assistants WHERE id = ?', [info.lastInsertRowid]);
+    await auditLog('Create', 'SharedAiAssistant', row?.id, row, null, req);
+    res.status(201).json(row);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.put('/api/ai/shared/:id', async (req, res) => {
+  try {
+    const current = await db.get('SELECT * FROM shared_ai_assistants WHERE id = ?', [req.params.id]);
+    if (!current) return res.status(404).json({ message: 'Không tìm thấy Trợ lý AI.' });
+
+    const name = cleanText(req.body?.name) || current.name;
+    let url = cleanText(req.body?.url) || current.url;
+    if (url && !url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('#')) {
+      url = 'https://' + url;
+    }
+
+    const description = req.body?.description !== undefined ? cleanText(req.body.description) : current.description;
+    const category = req.body?.category !== undefined ? cleanText(req.body.category) : current.category;
+    const icon_type = req.body?.icon_type !== undefined ? cleanText(req.body.icon_type) : current.icon_type;
+    const badge = req.body?.badge !== undefined ? cleanText(req.body.badge) : current.badge;
+    const color = req.body?.color !== undefined ? cleanText(req.body.color) : current.color;
+    const access_scope = req.body?.access_scope !== undefined ? cleanText(req.body.access_scope) : current.access_scope;
+    const order_index = req.body?.order_index !== undefined ? Number(req.body.order_index) : current.order_index;
+    const is_active = req.body?.is_active !== undefined ? (req.body.is_active ? 1 : 0) : current.is_active;
+
+    await db.run(`
+      UPDATE shared_ai_assistants
+      SET name = ?, url = ?, description = ?, category = ?, icon_type = ?, badge = ?, color = ?, access_scope = ?, order_index = ?, is_active = ?, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
+      WHERE id = ?
+    `, [name, url, description, category, icon_type, badge, color, access_scope, order_index, is_active, current.id]);
+
+    const updated = await db.get('SELECT * FROM shared_ai_assistants WHERE id = ?', [current.id]);
+    await auditLog('Update', 'SharedAiAssistant', current.id, updated, current, req);
+    res.json(updated);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.delete('/api/ai/shared/:id', async (req, res) => {
+  try {
+    const current = await db.get('SELECT * FROM shared_ai_assistants WHERE id = ?', [req.params.id]);
+    if (!current) return res.status(404).json({ message: 'Không tìm thấy Trợ lý AI.' });
+
+    await db.run('UPDATE shared_ai_assistants SET is_active = 0, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120) WHERE id = ?', [current.id]);
+    await auditLog('Delete', 'SharedAiAssistant', current.id, null, current, req);
+    res.json({ ok: true });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 app.get('/api/audit-logs', async (req, res) => {
   try {
     const limit = parseLimit(req.query.limit, 50, 200);
@@ -3830,7 +3922,7 @@ async function buildAdmissionReceiptDocx(student) {
     ${p(`   • Số điện thoại:                               ${student.phone || ''}`, false, 'left')}
     ${student.id_card ? p(`   • Số CCCD/CMND:                            ${student.id_card}`, false, 'left') : ''}
     ${p('')}
-    ${p('Ghi chú: Chuẩn bị bản photocopy văn bằng (đã kê khai) kèm bản gốc để đối chiếu tại bàn tiếp nhận học viên nhập học.', true, 'left')}
+    ${p('Ghi chú: Chuẩn bị bản photocopy văn bằng (đã kê khai) kèm bản gốc để đối chiếu tại bàn tiếp nhận học viên.', true, 'left')}
     ${p('')}
     ${p('Tôi xin cam đoan các thông tin kê khai trên là hoàn toàn chính xác và chấp hành nghiêm chỉnh mọi quy chế, quy định của Học viện.', false, 'left')}
     ${p('')}
@@ -3894,6 +3986,7 @@ async function startServer() {
   try {
     await ensureDefaultAdminAccount();
     await ensureAdmissionTables();
+    await ensureSharedAiTables();
     app.listen(PORT, () => {
       console.log(`🚀 ArmyTech Website running on SQL Server at http://localhost:${PORT}`);
     });

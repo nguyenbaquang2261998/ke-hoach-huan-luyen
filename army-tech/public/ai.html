@@ -62,57 +62,136 @@
         </div>
       </div>
       <nav class="nav">
-        <a href="index.html">Dashboard</a>
-        <a href="calendar.html">Lịch tuần</a>
-        <a href="students.html">Tiếp nhận học viên</a>
-        <a href="exam.html">Thi tốt nghiệp</a>
-        <a href="tasks.html">Nhắc việc</a>
-        <a class="active" href="ai.html">AI Assistant</a>
-        <a href="admin.html">Quản trị</a>
+        <a href="index.html" title="Dashboard" style="--item-color: #3b82f6; --item-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
+          <span class="nav-label">Dashboard</span>
+        </a>
+        <a href="calendar.html" title="Lịch tuần" style="--item-color: #8b5cf6; --item-gradient: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+          <span class="nav-label">Lịch tuần</span>
+        </a>
+        <a href="students.html" title="Tiếp nhận học viên" style="--item-color: #0284c7; --item-gradient: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          <span class="nav-label">Tiếp nhận học viên</span>
+        </a>
+        <a href="exam.html" title="Thi tốt nghiệp" style="--item-color: #f43f5e; --item-gradient: linear-gradient(135deg, #f43f5e 0%, #be123c 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #f43f5e 0%, #be123c 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+          <span class="nav-label">Thi tốt nghiệp</span>
+        </a>
+        <a href="tasks.html" title="Nhắc việc" style="--item-color: #22c55e; --item-gradient: linear-gradient(135deg, #22c55e 0%, #15803d 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+          <span class="nav-label">Nhắc việc</span>
+        </a>
+        <a class="active" href="ai.html" title="AI Assistant" style="--item-color: #8b5cf6; --item-gradient: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <span class="nav-label">AI Assistant</span>
+        </a>
+        <a href="admin.html" title="Quản trị" style="--item-color: #64748b; --item-gradient: linear-gradient(135deg, #64748b 0%, #334155 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #64748b 0%, #334155 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg></span>
+          <span class="nav-label">Quản trị</span>
+        </a>
       </nav>
     </aside>
 
     <div class="workspace">
       <header class="topbar">
         <div>
-          <h2>Trợ lý ảo AI Assistant</h2>
+          <p class="eyebrow">Trí tuệ nhân tạo &amp; Công nghệ số</p>
+          <h2>Kho Trợ lý ảo AI Assistant</h2>
         </div>
         <div class="topbar-actions">
           <span id="todayLabel" class="date-chip"></span>
+          <button class="btn btn-primary" onclick="openSharedAiModal()" title="Thêm Trợ lý AI mới vào kho dùng chung">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            <span>Thêm AI vào kho</span>
+          </button>
         </div>
       </header>
 
       <main>
         <section id="ai" class="section">
-          <div class="section-title">
-            <div>
-              <h3>Tra cứu tri thức & Hướng dẫn nghiệp vụ</h3>
-              <p>Hỏi đáp tự động dựa trên tài liệu docs, quy định đào tạo, bốc thăm giám thị và an toàn thông tin.</p>
+          <!-- Header Banner & Navigation Tabs -->
+          <div class="ai-section-top">
+            <div class="ai-tab-bar">
+              <button id="tabBtnSharedAi" class="ai-tab-btn active" onclick="switchAiTab('shared')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                <span>Kho AI dùng chung</span>
+                <span id="badgeSharedAiCount" class="tab-badge">0</span>
+              </button>
+              <button id="tabBtnInternalChat" class="ai-tab-btn" onclick="switchAiTab('internal')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+                <span>Hỏi đáp quy chế nội bộ</span>
+              </button>
             </div>
           </div>
 
-          <div class="ai-layout">
-            <div class="data-card chat-card">
-              <div class="chat-card-header">
-                <span class="chat-avatar">AI</span>
-                <div>
-                  <h4>Trợ lý AI chuyên trách Học viện</h4>
-                  <p>Truy xuất nguồn chính xác theo các tài liệu Markdown nội bộ.</p>
+          <!-- PANEL 1: KHO AI DÙNG CHUNG (MẶC ĐỊNH) -->
+          <div id="panelSharedAi" class="ai-panel active">
+            <!-- Search and Filter Bar -->
+            <div class="ai-toolbar-card">
+              <div class="ai-search-row">
+                <div class="ai-search-wrap">
+                  <svg class="search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                  <input id="sharedAiSearch" type="text" placeholder="Tìm kiếm Trợ lý AI theo tên, mô tả, chức năng..." oninput="onSharedAiSearchChange()" />
+                  <button id="btnClearSearch" class="btn-clear-search hidden" onclick="clearSharedAiSearch()" aria-label="Xóa tìm kiếm">&times;</button>
+                </div>
+                <div class="ai-toolbar-meta">
+                  <span class="meta-label">Tổng cộng:</span>
+                  <strong id="sharedAiTotalCount" class="meta-val">0</strong>
+                  <span class="meta-unit">trợ lý AI</span>
                 </div>
               </div>
-              <div id="aiMessages" class="chat-log"></div>
-              <form class="chat-form" onsubmit="askAi(event, 'main')">
-                <input id="aiQuestion" placeholder="Hỏi về lịch tuần, thi tốt nghiệp, phân quyền, quy chế..." />
-                <button class="primary" type="submit">Gửi câu hỏi</button>
-              </form>
+
+              <!-- Category Filter Pills -->
+              <div class="ai-cat-pills-wrap">
+                <span class="cat-filter-label">Chuyên mục:</span>
+                <div class="ai-cat-pills" id="aiCategoryPills">
+                  <button type="button" class="ai-cat-pill active" onclick="setSharedAiCategory('all')">Tất cả</button>
+                  <button type="button" class="ai-cat-pill" onclick="setSharedAiCategory('Văn bản & Báo cáo')">Văn bản &amp; Báo cáo</button>
+                  <button type="button" class="ai-cat-pill" onclick="setSharedAiCategory('Tra cứu & Nghiên cứu')">Tra cứu &amp; Nghiên cứu</button>
+                  <button type="button" class="ai-cat-pill" onclick="setSharedAiCategory('Lập trình & Kỹ thuật')">Lập trình &amp; Kỹ thuật</button>
+                  <button type="button" class="ai-cat-pill" onclick="setSharedAiCategory('Đồ họa & Thiết kế')">Đồ họa &amp; Thiết kế</button>
+                  <button type="button" class="ai-cat-pill" onclick="setSharedAiCategory('Chung / Khác')">Khác</button>
+                </div>
+              </div>
             </div>
 
-            <div class="data-card">
-              <h4>
-                <span>Kho tài liệu nguồn (Docs)</span>
-                <span class="status-pill status-ok" style="font-size: 11px;">Indexed</span>
-              </h4>
-              <div id="aiDocuments" class="stack-list"></div>
+            <!-- Danh sách AI Assistant dùng chung -->
+            <div class="ai-list-container">
+              <div id="sharedAiList" class="ai-repo-list">
+                <div style="padding: 40px 20px; text-align: center; color: var(--text-muted); background: #ffffff; border-radius: 14px; border: 1px dashed #cbd5e1;">
+                  <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite; margin: 0 auto 10px; display: block; color: #166534;"><circle cx="12" cy="12" r="10" stroke-opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"/></svg>
+                  <p style="font-size: 14px; font-weight: 500; margin: 0;">Đang nạp dữ liệu kho Trợ lý AI...</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PANEL 2: HỎI ĐÁP TÀI LIỆU NỘI BỘ (DOCS) -->
+          <div id="panelInternalChat" class="ai-panel">
+            <div class="ai-layout">
+              <div class="data-card chat-card">
+                <div class="chat-card-header">
+                  <span class="chat-avatar">AI</span>
+                  <div>
+                    <h4>Trợ lý AI chuyên trách Học viện</h4>
+                    <p>Truy xuất nguồn chính xác theo các tài liệu Markdown quy chế &amp; kế hoạch nội bộ.</p>
+                  </div>
+                </div>
+                <div id="aiMessages" class="chat-log"></div>
+                <form class="chat-form" onsubmit="askAi(event, 'main')">
+                  <input id="aiQuestion" placeholder="Hỏi về lịch tuần, thi tốt nghiệp, phân quyền, quy chế..." />
+                  <button class="primary" type="submit">Gửi câu hỏi</button>
+                </form>
+              </div>
+
+              <div class="data-card">
+                <h4>
+                  <span>Kho tài liệu nguồn (Docs)</span>
+                  <span class="status-pill status-ok" style="font-size: 11px;">Indexed</span>
+                </h4>
+                <div id="aiDocuments" class="stack-list"></div>
+              </div>
             </div>
           </div>
         </section>
@@ -120,29 +199,87 @@
     </div>
   </div>
 
-  <!-- Bottom Navigation Bar (Mobile <1024px) -->
-  <nav class="bottom-nav"></nav>
-
-  <!-- Floating AI Assistant Widget -->
-  <div id="aiWidget" class="ai-widget collapsed">
-    <button class="ai-toggle" onclick="toggleAiWidget()" aria-label="Mở trợ lý AI" title="Trợ lý AI">
-      <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 5.8C4 4.25 5.25 3 6.8 3h10.4C18.75 3 20 4.25 20 5.8v6.9c0 1.55-1.25 2.8-2.8 2.8H11l-4.6 3.2c-.66.46-1.57-.01-1.57-.82V15.4C3.8 15.08 3 14.11 3 12.95V5.8Zm3-.8c-.44 0-.8.36-.8.8v7.15c0 .44.36.8.8.8h.83v2.58l2.55-1.78.26-.18h6.56c.44 0 .8-.36.8-.8V5.8c0-.44-.36-.8-.8-.8H7Zm1.25 3.2h7.5v1.6h-7.5V8.2Zm0 3.2h5.5V13h-5.5v-1.6Z"/></svg>
-    </button>
-    <div class="ai-widget-panel">
-      <div class="ai-widget-header">
-        <span class="chat-avatar">AI</span>
-        <div>
-          <strong>Trợ lý AI</strong>
-          <small>Tra cứu nhanh quy chế & tài liệu</small>
-        </div>
+  <!-- Modal Thêm / Chỉnh sửa AI Assistant vào kho dùng chung -->
+  <div id="sharedAiModal" class="modal-backdrop hidden" onclick="if(event.target===this) closeSharedAiModal()">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <h3 id="sharedAiModalTitle">Thêm Trợ lý AI vào kho dùng chung</h3>
+        <button class="icon-action-btn" onclick="closeSharedAiModal()" aria-label="Đóng">&times;</button>
       </div>
-      <div id="aiWidgetMessages" class="chat-log small"></div>
-      <form class="chat-form" onsubmit="askAi(event, 'widget')">
-        <input id="aiWidgetQuestion" placeholder="Nhập câu hỏi tra cứu..." />
-        <button class="primary" type="submit">Gửi</button>
+      <form id="sharedAiForm" onsubmit="saveSharedAi(event)">
+        <input type="hidden" id="sharedAiId" />
+        <div class="modal-body modal-scroll">
+          <div class="form-group">
+            <label for="sharedAiName">Tên Trợ lý AI *</label>
+            <input id="sharedAiName" required placeholder="VD: ChatGPT Plus, Google Gemini, Claude 3.5..." />
+          </div>
+          <div class="form-group">
+            <label for="sharedAiUrl">Đường dẫn liên kết (URL) *</label>
+            <input id="sharedAiUrl" required placeholder="VD: https://chatgpt.com hoặc chat.deepseek.com" />
+            <small class="form-hint">Hệ thống sẽ tự động bổ sung https:// nếu thiếu giao thức.</small>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="sharedAiCategory">Chuyên mục / Phân loại *</label>
+              <select id="sharedAiCategory" required>
+                <option value="Văn bản & Báo cáo">Văn bản &amp; Báo cáo</option>
+                <option value="Tra cứu & Nghiên cứu">Tra cứu &amp; Nghiên cứu</option>
+                <option value="Lập trình & Kỹ thuật">Lập trình &amp; Kỹ thuật</option>
+                <option value="Đồ họa & Thiết kế">Đồ họa &amp; Thiết kế</option>
+                <option value="Chung / Khác">Chung / Khác</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="sharedAiBadge">Nhãn nổi bật (Badge)</label>
+              <input id="sharedAiBadge" placeholder="VD: Phổ biến, Khuyên dùng, Nội bộ..." />
+            </div>
+          </div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <label for="sharedAiIcon">Biểu tượng đại diện</label>
+              <select id="sharedAiIcon">
+                <option value="bot">Trợ lý Robot (bot)</option>
+                <option value="sparkles">Tia sáng thông minh (sparkles)</option>
+                <option value="brain">Bộ não trí tuệ (brain)</option>
+                <option value="search">Kính lúp tra cứu (search)</option>
+                <option value="code">Mã nguồn kỹ thuật (code)</option>
+                <option value="image">Hình ảnh thiết kế (image)</option>
+                <option value="book">Sách / Tài liệu (book)</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="sharedAiColor">Màu sắc chủ đạo</label>
+              <select id="sharedAiColor">
+                <option value="#166534">Xanh quân đội (#166534)</option>
+                <option value="#10a37f">Xanh ngọc lục bảo (#10a37f)</option>
+                <option value="#1a73e8">Xanh dương công nghệ (#1a73e8)</option>
+                <option value="#d97706">Vàng hổ phách (#d97706)</option>
+                <option value="#4f46e5">Tím chàm Indigo (#4f46e5)</option>
+                <option value="#7c3aed">Tím violet (#7c3aed)</option>
+                <option value="#0d9488">Xanh mòng két Teal (#0d9488)</option>
+                <option value="#dc2626">Đỏ hồng (#dc2626)</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="sharedAiDesc">Mô tả công dụng &amp; Hướng dẫn sử dụng</label>
+            <textarea id="sharedAiDesc" rows="3" placeholder="Mô tả tóm tắt tính năng, phạm vi ứng dụng hoặc lưu ý khi dùng chung..."></textarea>
+          </div>
+          <div class="form-group">
+            <label for="sharedAiOrder">Thứ tự hiển thị</label>
+            <input id="sharedAiOrder" type="number" value="0" placeholder="0" />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" onclick="closeSharedAiModal()">Hủy</button>
+          <button type="submit" class="btn btn-primary" id="btnSaveSharedAi">Lưu Trợ lý AI</button>
+        </div>
       </form>
     </div>
   </div>
+
+  <!-- Bottom Navigation Bar (Mobile <1024px) -->
+  <nav class="bottom-nav"></nav>
 
   <div id="toast" class="toast hidden"></div>
   <script src="app.js"></script>

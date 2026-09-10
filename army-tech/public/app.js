@@ -19,6 +19,10 @@ const state = {
   users: [],
   auditLogs: [],
   aiDocuments: [],
+  sharedAi: [],
+  sharedAiCategory: 'all',
+  sharedAiSearch: '',
+  editingSharedAiId: null,
   calendarWeekMeta: [],
   aiMessages: [],
   calendarCursor: new Date(),
@@ -124,18 +128,6 @@ const navItems = [
     category: 'ops'
   },
   { 
-    key: 'tasks', 
-    label: 'Nhắc việc', 
-    shortLabel: 'Nhắc việc', 
-    desc: 'Sổ tay & tiến độ công việc', 
-    href: 'tasks.html', 
-    permission: 'tasks', 
-    icon: 'tasks', 
-    color: '#22c55e', 
-    gradient: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
-    category: 'ops'
-  },
-  { 
     key: 'exam', 
     label: 'Thi tốt nghiệp', 
     shortLabel: 'Thi cử', 
@@ -145,6 +137,18 @@ const navItems = [
     icon: 'exam', 
     color: '#f43f5e', 
     gradient: 'linear-gradient(135deg, #f43f5e 0%, #be123c 100%)',
+    category: 'ops'
+  },
+  { 
+    key: 'tasks', 
+    label: 'Nhắc việc', 
+    shortLabel: 'Nhắc việc', 
+    desc: 'Sổ tay & tiến độ công việc', 
+    href: 'tasks.html', 
+    permission: 'tasks', 
+    icon: 'tasks', 
+    color: '#22c55e', 
+    gradient: 'linear-gradient(135deg, #22c55e 0%, #15803d 100%)',
     category: 'ops'
   },
   { 
@@ -160,7 +164,7 @@ const navItems = [
   },
   { 
     key: 'admin', 
-    label: 'Quản trị hệ thống', 
+    label: 'Quản trị', 
     shortLabel: 'Quản trị', 
     desc: 'Phân quyền tài khoản & nhật ký', 
     href: 'admin.html', 
@@ -173,13 +177,13 @@ const navItems = [
 ];
 
 const iconPaths = {
-  dashboard: '<rect x="3" y="3" width="7" height="7" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect><rect x="14" y="3" width="7" height="7" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect><rect x="3" y="14" width="7" height="7" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect><rect x="14" y="14" width="7" height="7" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect>',
-  calendar: '<rect x="3" y="4" width="18" height="17" rx="3" stroke="currentColor" stroke-width="2" fill="none"></rect><path d="M8 2v4M16 2v4M3 10h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path><circle cx="8" cy="14" r="1.2" fill="currentColor"></circle><circle cx="12" cy="14" r="1.2" fill="currentColor"></circle><circle cx="16" cy="14" r="1.2" fill="currentColor"></circle><circle cx="8" cy="17.5" r="1.2" fill="currentColor"></circle><circle cx="12" cy="17.5" r="1.2" fill="currentColor"></circle>',
-  students: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"></path><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="2" fill="none"></circle><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"></path>',
-  exam: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="2" fill="none"></path><path d="M14 2v6h6" stroke="currentColor" stroke-width="2" stroke-linejoin="round" fill="none"></path><path d="m9 15 2 2 4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>',
-  tasks: '<path d="M9 6h11M9 12h11M9 18h11" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path><path d="m4 6 1 1 2-2M4 12 5 13 7 11M4 18 5 19 7 17" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></path>',
-  ai: '<path d="M12 2l1.35 4.1L17.5 7.5l-4.15 1.4L12 13l-1.35-4.1L6.5 7.5l4.15-1.4L12 2z" stroke="currentColor" stroke-width="1.8" fill="currentColor" fill-opacity="0.25"></path><rect x="4" y="13" width="16" height="8" rx="3" stroke="currentColor" stroke-width="2" fill="none"></rect><circle cx="9" cy="17" r="1.1" fill="currentColor"></circle><circle cx="15" cy="17" r="1.1" fill="currentColor"></circle>',
-  admin: '<circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2" fill="none"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" stroke="currentColor" stroke-width="1.8" fill="none"></path>',
+  dashboard: '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+  calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+  students: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  exam: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+  tasks: '<polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/>',
+  ai: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  admin: '<circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/>',
   menu: '<path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"></path>',
   logout: '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" fill="none"></path><polyline points="16 17 21 12 16 7" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"></polyline><line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"></line>',
   panelClose: '<rect x="3" y="4" width="18" height="16" rx="2" stroke="currentColor" stroke-width="2" fill="none"></rect><path d="M9 4v16" stroke="currentColor" stroke-width="2"></path><path d="m16 10-2 2 2 2" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>',
@@ -279,7 +283,7 @@ function firstAccessibleHref(user = state.currentUser) {
 
 function navIcon(name) {
   const paths = iconPaths[name] || iconPaths.dashboard;
-  return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false">${paths}</svg>`;
+  return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths}</svg>`;
 }
 
 function inlineIcon(name) {
@@ -496,11 +500,11 @@ function renderNavigation() {
   const bottomNav = document.querySelector('.bottom-nav');
   if (bottomNav) {
     // 4 primary slots + 1 menu button
-    const defaultSlots = ['dashboard', 'calendar', 'tasks', 'exam'];
+    const defaultSlots = ['dashboard', 'calendar', 'exam', 'tasks'];
     const activeIsOther = !defaultSlots.includes(page) && ['students', 'ai', 'admin'].includes(page);
     
     const activeSlots = activeIsOther 
-      ? ['dashboard', 'calendar', 'tasks', page]
+      ? ['dashboard', 'calendar', 'exam', page]
       : defaultSlots;
 
     const visibleItems = activeSlots
@@ -704,12 +708,13 @@ async function loadData() {
   const shouldLoadStudents = page === 'students' && canAccessMenu('students');
   const shouldLoadTasks = page === 'tasks' && canAccessMenu('tasks');
   const shouldLoadAdmin = page === 'admin' && canAccessMenu('admin');
+  const shouldLoadSharedAi = page === 'ai';
   const shouldLoadAiDocuments = page === 'ai' && has('aiDocuments');
 
   const examBootstrapUrl = state.selectedExamSessionId
     ? `/api/bootstrap?examSessionId=${encodeURIComponent(state.selectedExamSessionId)}`
     : '/api/bootstrap';
-  const [examData, dashboard, calendar, calendarWeekMeta, students, admissionBatches, admissionTargets, tasks, notifications, users, auditLogs, aiDocuments] = await Promise.all([
+  const [examData, dashboard, calendar, calendarWeekMeta, students, admissionBatches, admissionTargets, tasks, notifications, users, auditLogs, aiDocuments, sharedAi] = await Promise.all([
     shouldLoadExam ? safeRequest(examBootstrapUrl, { teachers: {}, rooms: [], examSessions: [] }) : Promise.resolve({ teachers: {}, rooms: [], examSessions: [] }),
     shouldLoadDashboard ? safeRequest('/api/dashboard', null) : Promise.resolve(null),
     shouldLoadCalendar ? safeRequest('/api/calendar', []) : Promise.resolve([]),
@@ -721,7 +726,8 @@ async function loadData() {
     shouldLoadDashboard ? safeRequest('/api/notifications', []) : Promise.resolve([]),
     shouldLoadAdmin ? safeRequest('/api/users?includeInactive=1', []) : Promise.resolve([]),
     shouldLoadAdmin ? safeRequest('/api/audit-logs', []) : Promise.resolve([]),
-    shouldLoadAiDocuments ? safeRequest('/api/ai/documents', []) : Promise.resolve([])
+    shouldLoadAiDocuments ? safeRequest('/api/ai/documents', []) : Promise.resolve([]),
+    shouldLoadSharedAi ? safeRequest('/api/ai/shared', []) : Promise.resolve([])
   ]);
 
   state.examSessions = examData.examSessions || [];
@@ -740,6 +746,7 @@ async function loadData() {
   state.users = users;
   state.auditLogs = auditLogs;
   state.aiDocuments = aiDocuments;
+  state.sharedAi = sharedAi || [];
 
   renderDashboard();
   renderCalendar();
@@ -750,6 +757,7 @@ async function loadData() {
   renderLists();
   renderUsers();
   renderAuditLogs();
+  renderSharedAi();
   renderAiDocuments();
   renderAiMessages();
   loadHistory();
@@ -4808,6 +4816,280 @@ async function exportCurrent() {
     await downloadFile(`/api/history/${state.currentSessionId}/export`, `ket-qua-boc-tham-${state.currentSessionId}.docx`);
   } catch (error) {
     toast(error.message);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   SHARED AI ASSISTANT REPOSITORY (KHO AI DÙNG CHUNG)
+   -------------------------------------------------------------------------- */
+
+function getSharedAiIconSvg(iconType) {
+  switch (iconType) {
+    case 'sparkles':
+      return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3L12 3z"/></svg>`;
+    case 'brain':
+      return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.44-5.04z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.44-5.04z"/></svg>`;
+    case 'search':
+      return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>`;
+    case 'code':
+      return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`;
+    case 'image':
+      return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`;
+    case 'book':
+      return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>`;
+    case 'bot':
+    default:
+      return `<svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>`;
+  }
+}
+
+function displayDomain(url) {
+  if (!url) return '';
+  if (url === '#internal-docs') return 'Tài liệu nội bộ Học viện';
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return parsed.hostname.replace(/^www\./, '');
+  } catch (e) {
+    return url;
+  }
+}
+
+function openAiLink(url) {
+  if (!url) return;
+  if (url === '#internal-docs') {
+    switchAiTab('internal');
+    return;
+  }
+  const fullUrl = url.startsWith('http://') || url.startsWith('https://') ? url : `https://${url}`;
+  window.open(fullUrl, '_blank', 'noopener,noreferrer');
+}
+
+function switchAiTab(tab) {
+  const isShared = tab === 'shared';
+  el('tabBtnSharedAi')?.classList.toggle('active', isShared);
+  el('tabBtnInternalChat')?.classList.toggle('active', !isShared);
+  el('panelSharedAi')?.classList.toggle('active', isShared);
+  el('panelInternalChat')?.classList.toggle('active', !isShared);
+}
+
+function setSharedAiCategory(cat) {
+  state.sharedAiCategory = cat;
+  document.querySelectorAll('.ai-cat-pill').forEach(btn => {
+    const btnText = btn.textContent.trim();
+    if (cat === 'all' && btnText === 'Tất cả') {
+      btn.classList.add('active');
+    } else if (btnText.includes(cat) || (cat === 'Chung / Khác' && btnText === 'Khác')) {
+      btn.classList.add('active');
+    } else {
+      btn.classList.remove('active');
+    }
+  });
+  renderSharedAi();
+}
+
+function onSharedAiSearchChange() {
+  const query = (el('sharedAiSearch')?.value || '').trim();
+  state.sharedAiSearch = query;
+  const clearBtn = el('btnClearSearch');
+  if (clearBtn) {
+    clearBtn.classList.toggle('hidden', !query);
+  }
+  renderSharedAi();
+}
+
+function clearSharedAiSearch() {
+  const input = el('sharedAiSearch');
+  if (input) input.value = '';
+  onSharedAiSearchChange();
+}
+
+function renderSharedAi() {
+  const container = el('sharedAiList');
+  if (!container) return;
+
+  const allItems = state.sharedAi || [];
+  const query = (state.sharedAiSearch || '').toLowerCase();
+  const selectedCat = state.sharedAiCategory || 'all';
+
+  const filtered = allItems.filter(item => {
+    const matchCat = selectedCat === 'all' || 
+      (selectedCat === 'Chung / Khác' ? (item.category === 'Chung / Khác' || item.category === 'Khác' || item.category === 'Chung') : item.category === selectedCat);
+    if (!matchCat) return false;
+
+    if (!query) return true;
+    const nameMatch = (item.name || '').toLowerCase().includes(query);
+    const descMatch = (item.description || '').toLowerCase().includes(query);
+    const catMatch = (item.category || '').toLowerCase().includes(query);
+    const badgeMatch = (item.badge || '').toLowerCase().includes(query);
+    const urlMatch = (item.url || '').toLowerCase().includes(query);
+    return nameMatch || descMatch || catMatch || badgeMatch || urlMatch;
+  });
+
+  if (has('badgeSharedAiCount')) el('badgeSharedAiCount').textContent = allItems.length;
+  if (has('sharedAiTotalCount')) el('sharedAiTotalCount').textContent = filtered.length;
+
+  if (filtered.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state" style="padding: 40px 20px; text-align: center; background: #ffffff; border-radius: 12px; border: 1px dashed #cbd5e1; width: 100%;">
+        <svg viewBox="0 0 24 24" width="44" height="44" fill="none" stroke="#94a3b8" stroke-width="1.5" style="margin-bottom: 12px;"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <p style="font-size: 15px; font-weight: 600; color: #475569; margin-bottom: 6px;">Không tìm thấy Trợ lý AI phù hợp</p>
+        <p style="font-size: 13px; color: #94a3b8; margin-bottom: 16px;">Hãy thử tìm bằng từ khóa khác hoặc bấm nút bên dưới để xóa bộ lọc.</p>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="clearSharedAiSearch(); setSharedAiCategory('all');">Xóa bộ lọc tìm kiếm</button>
+      </div>
+    `;
+    return;
+  }
+
+  container.innerHTML = filtered.map(item => `
+    <div class="ai-repo-item" onclick="openAiLink('${escapeHtml(item.url)}')">
+      <div class="ai-repo-icon" style="background: ${item.color || '#166534'};">
+        ${getSharedAiIconSvg(item.icon_type)}
+      </div>
+      <div class="ai-repo-main">
+        <div class="ai-repo-header">
+          <div class="ai-repo-title-wrap">
+            <h4 class="ai-repo-name">${escapeHtml(item.name)}</h4>
+            <span class="ai-repo-cat-tag">${escapeHtml(item.category || 'Chung')}</span>
+            ${item.badge ? `<span class="ai-repo-badge">${escapeHtml(item.badge)}</span>` : ''}
+          </div>
+          <div class="ai-repo-url">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+            <span>${escapeHtml(displayDomain(item.url))}</span>
+          </div>
+        </div>
+        <p class="ai-repo-desc">${escapeHtml(item.description || 'Không có mô tả chi tiết.')}</p>
+      </div>
+      <div class="ai-repo-actions" onclick="event.stopPropagation()">
+        <button type="button" class="btn btn-sm btn-open-link" onclick="openAiLink('${escapeHtml(item.url)}')" title="Mở liên kết">
+          <span>Truy cập</span>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </button>
+        <button type="button" class="btn-icon-action" onclick="openSharedAiModal(${item.id})" title="Chỉnh sửa">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        </button>
+        <button type="button" class="btn-icon-action btn-danger" onclick="deleteSharedAi(${item.id})" title="Xóa khỏi kho">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
+        </button>
+      </div>
+    </div>
+  `).join('');
+}
+
+function openSharedAiModal(id = null) {
+  state.editingSharedAiId = id;
+  const modal = el('sharedAiModal');
+  const title = el('sharedAiModalTitle');
+  const form = el('sharedAiForm');
+  if (!modal || !form) return;
+
+  if (id) {
+    const item = (state.sharedAi || []).find(i => i.id === id);
+    if (!item) return;
+    title.textContent = 'Chỉnh sửa Trợ lý AI';
+    el('sharedAiId').value = item.id;
+    el('sharedAiName').value = item.name || '';
+    el('sharedAiUrl').value = item.url || '';
+    el('sharedAiCategory').value = item.category || 'Văn bản & Báo cáo';
+    el('sharedAiBadge').value = item.badge || '';
+    el('sharedAiIcon').value = item.icon_type || 'bot';
+    el('sharedAiColor').value = item.color || '#166534';
+    el('sharedAiDesc').value = item.description || '';
+    el('sharedAiOrder').value = item.order_index || 0;
+  } else {
+    title.textContent = 'Thêm Trợ lý AI vào kho dùng chung';
+    form.reset();
+    el('sharedAiId').value = '';
+    el('sharedAiCategory').value = 'Văn bản & Báo cáo';
+    el('sharedAiIcon').value = 'bot';
+    el('sharedAiColor').value = '#166534';
+    el('sharedAiOrder').value = 0;
+  }
+
+  modal.classList.remove('hidden');
+  document.body.classList.add('modal-open');
+}
+
+function closeSharedAiModal() {
+  const modal = el('sharedAiModal');
+  if (modal) modal.classList.add('hidden');
+  document.body.classList.remove('modal-open');
+}
+
+async function saveSharedAi(event) {
+  event.preventDefault();
+  const id = el('sharedAiId').value;
+  const name = el('sharedAiName').value.trim();
+  let url = el('sharedAiUrl').value.trim();
+  const category = el('sharedAiCategory').value;
+  const badge = el('sharedAiBadge').value.trim();
+  const icon_type = el('sharedAiIcon').value;
+  const color = el('sharedAiColor').value;
+  const description = el('sharedAiDesc').value.trim();
+  const order_index = Number(el('sharedAiOrder').value || 0);
+
+  if (!name) return toast('Vui lòng nhập tên Trợ lý AI.');
+  if (!url) return toast('Vui lòng nhập đường dẫn liên kết.');
+
+  if (!url.startsWith('http://') && !url.startsWith('https://') && !url.startsWith('#')) {
+    url = 'https://' + url;
+  }
+
+  const payload = {
+    name,
+    url,
+    category,
+    badge,
+    icon_type,
+    color,
+    description,
+    order_index
+  };
+
+  const btn = el('btnSaveSharedAi');
+  if (btn) btn.disabled = true;
+
+  try {
+    if (id) {
+      const updated = await request(`/api/ai/shared/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload)
+      });
+      const index = state.sharedAi.findIndex(i => i.id === Number(id));
+      if (index >= 0) state.sharedAi[index] = updated;
+      toast('Đã cập nhật thông tin Trợ lý AI thành công.');
+    } else {
+      const created = await request('/api/ai/shared', {
+        method: 'POST',
+        body: JSON.stringify(payload)
+      });
+      state.sharedAi.unshift(created);
+      toast('Đã thêm Trợ lý AI mới vào kho dùng chung.');
+    }
+
+    closeSharedAiModal();
+    renderSharedAi();
+  } catch (err) {
+    toast(err.message || 'Lỗi khi lưu Trợ lý AI.');
+  } finally {
+    if (btn) btn.disabled = false;
+  }
+}
+
+async function deleteSharedAi(id) {
+  const item = (state.sharedAi || []).find(i => i.id === id);
+  if (!item) return;
+
+  if (!confirm(`Bạn có chắc chắn muốn xóa Trợ lý AI "${item.name}" khỏi kho dùng chung?`)) {
+    return;
+  }
+
+  try {
+    await request(`/api/ai/shared/${id}`, { method: 'DELETE' });
+    state.sharedAi = state.sharedAi.filter(i => i.id !== id);
+    toast(`Đã gỡ bỏ Trợ lý AI "${item.name}".`);
+    renderSharedAi();
+  } catch (err) {
+    toast(err.message || 'Lỗi khi xóa Trợ lý AI.');
   }
 }
 

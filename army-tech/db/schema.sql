@@ -439,3 +439,25 @@ BEGIN
   )
 END
 GO
+
+-- 18. Bảng [shared_ai_assistants] - Kho Trợ lý AI dùng chung
+IF OBJECT_ID('dbo.shared_ai_assistants', 'U') IS NULL
+BEGIN
+  CREATE TABLE dbo.shared_ai_assistants (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    name NVARCHAR(255) NOT NULL,
+    url NVARCHAR(1000) NOT NULL,
+    description NVARCHAR(MAX) NULL,
+    category NVARCHAR(100) DEFAULT N'Chung',
+    icon_type NVARCHAR(50) DEFAULT 'bot',
+    badge NVARCHAR(100) NULL,
+    color NVARCHAR(50) DEFAULT '#166534',
+    access_scope NVARCHAR(100) DEFAULT N'Dùng chung',
+    created_by NVARCHAR(255) NULL,
+    order_index INT DEFAULT 0,
+    is_active INT DEFAULT 1,
+    created_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120),
+    updated_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120)
+  );
+END
+GO
