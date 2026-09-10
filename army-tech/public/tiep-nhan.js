@@ -748,7 +748,7 @@ function renderTrackResult(student) {
     statusBannerHtml = `
       <div class="track-status-banner banner-success">
         <strong>Chúc mừng đồng chí đã được phê duyệt tiếp nhận!</strong>
-        <p>Lớp biên chế: <strong>${escapeHtml(student.class_name || 'Lớp 23C')}</strong></p>
+        <p>Lớp: <strong>${escapeHtml(student.class_name)}</strong></p>
         <div class="track-actions-row">
           <a href="/api/students/${student.id}/receipt-doc" class="btn primary btn-sm">Tải Phiếu tiếp nhận (.docx)</a>
           <a href="/api/students/${student.id}/download-bundle" class="btn secondary btn-sm">Tải trọn gói ZIP hồ sơ</a>

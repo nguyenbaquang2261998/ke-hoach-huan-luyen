@@ -3919,7 +3919,7 @@ async function buildAdmissionReceiptDocx(student) {
   const dMonth = parts[1] || '08';
   const dDay = parts[2] || '03';
 
-  const targetTitle = (student.target_name || 'ĐÀO TẠO NGẮN HẠN CHÍNH ỦY TRUNG, LỮ ĐOÀN').toUpperCase();
+  const targetTitle = (student.target_name).toUpperCase();
   const orderText = student.order_index ? String(student.order_index) : '......';
 
   const body = `

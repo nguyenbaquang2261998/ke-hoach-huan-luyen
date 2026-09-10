@@ -2584,8 +2584,8 @@ function closePrintModal() {
 }
 
 function populatePrintSlip(student) {
-  const targetTitle = (student.target_name || 'ĐÀO TẠO NGẮN HẠN CHÍNH ỦY TRUNG, LỮ ĐOÀN').toUpperCase();
-  const classTitle = student.class_name ? ` – ${student.class_name.toUpperCase()}` : ' – LỚP 23C';
+  const targetTitle = (student.target_name).toUpperCase();
+  const classTitle = student.class_name ? ` – ${student.class_name.toUpperCase()}` : '';
   el('printDocTitle').textContent = `PHIẾU ĐĂNG KÝ NHẬP HỌC ${targetTitle}${classTitle}`;
 
   el('printFullName').textContent = student.full_name || '';
