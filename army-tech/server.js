@@ -3804,7 +3804,6 @@ async function buildAdmissionReceiptDocx(student) {
   const dDay = parts[2] || '03';
 
   const targetTitle = (student.target_name || 'ĐÀO TẠO NGẮN HẠN CHÍNH ỦY TRUNG, LỮ ĐOÀN').toUpperCase();
-  const classTitle = student.class_name ? ` – ${student.class_name.toUpperCase()}` : ' – LỚP 23C';
   const orderText = student.order_index ? String(student.order_index) : '......';
 
   const body = `
@@ -3812,15 +3811,14 @@ async function buildAdmissionReceiptDocx(student) {
     ${p('Độc lập – Tự do – Hạnh phúc', true, 'center')}
     ${p('_______________________', false, 'center')}
     ${p('')}
-    ${p(`PHIẾU ĐĂNG KÝ NHẬP HỌC ${targetTitle}${classTitle}`, true, 'center')}
+    ${p(`PHIẾU ĐĂNG KÝ NHẬP HỌC ${targetTitle}`, true, 'center')}
     ${p('Kính gửi: Phòng Đào tạo/Học viện Chính trị', false, 'center')}
     ${p('')}
     ${p('I. THÔNG TIN HỌC VIÊN', true, 'left')}
-    ${p(`   1. Số thứ tự (theo DS trên bảng):   ${orderText}`, false, 'left')}
-    ${p(`   2. Họ và tên:                                  ${student.full_name || ''}`, false, 'left')}
-    ${p(`   3. Ngày sinh:                                  ${student.birthday || ''}`, false, 'left')}
-    ${p(`   4. Nơi sinh:                                   ${student.birthplace || ''}`, false, 'left')}
-    ${p(`   5. Quê quán:                                  ${student.hometown || ''}`, false, 'left')}
+    ${p(`   1. Họ và tên:                                  ${student.full_name || ''}`, false, 'left')}
+    ${p(`   2. Ngày sinh:                                  ${student.birthday || ''}`, false, 'left')}
+    ${p(`   3. Nơi sinh:                                   ${student.birthplace || ''}`, false, 'left')}
+    ${p(`   4. Quê quán:                                  ${student.hometown || ''}`, false, 'left')}
     ${p('')}
     ${p('II. THÔNG TIN CÔNG TÁC', true, 'left')}
     ${p(`   1. Cấp bậc:                                     ${student.rank || ''}`, false, 'left')}
