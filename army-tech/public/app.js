@@ -2202,16 +2202,32 @@ function renderStudents() {
   if (has('badgeBatchCount')) el('badgeBatchCount').textContent = batches.length;
   if (has('badgeTargetCount')) el('badgeTargetCount').textContent = targets.length;
 
-  // 2. Thống kê KPI Cards
-  const total = students.length;
-  const pending = students.filter(s => s.status === 'PendingReview').length;
-  const approved = students.filter(s => s.status === 'Approved').length;
-  const rejected = students.filter(s => s.status === 'Rejected').length;
+  // 2. Thống kê KPI Cards — tính theo Đợt tiếp nhận đang chọn
+  const kpiBatchId = admissionState.filters.batchId;
+  const kpiStudents = kpiBatchId
+    ? students.filter(s => String(s.batch_id) === String(kpiBatchId))
+    : students;
+  const total = kpiStudents.length;
+  const pending = kpiStudents.filter(s => s.status === 'PendingReview' || s.status === 'Created').length;
+  const approved = kpiStudents.filter(s => s.status === 'Approved' || s.status === 'Completed').length;
+  const rejected = kpiStudents.filter(s => s.status === 'Rejected').length;
 
   if (has('kpiTotalStudents')) el('kpiTotalStudents').textContent = total;
   if (has('kpiPendingStudents')) el('kpiPendingStudents').textContent = pending;
   if (has('kpiApprovedStudents')) el('kpiApprovedStudents').textContent = approved;
   if (has('kpiRejectedStudents')) el('kpiRejectedStudents').textContent = rejected;
+
+  // Hiển thị tên đợt đang xem bên dưới KPI
+  if (has('kpiBatchContext')) {
+    if (kpiBatchId) {
+      const selectedBatch = batches.find(b => String(b.id) === String(kpiBatchId));
+      el('kpiBatchContext').textContent = selectedBatch ? selectedBatch.name : 'Đợt #' + kpiBatchId;
+      el('kpiBatchContext').closest('.kpi-batch-context')?.classList.remove('hidden');
+    } else {
+      el('kpiBatchContext').textContent = 'Tất cả các đợt tiếp nhận';
+      el('kpiBatchContext').closest('.kpi-batch-context')?.classList.remove('hidden');
+    }
+  }
 
   // 3. Đổ dữ liệu vào các bộ lọc Dropdown nếu chưa có
   populateFilterOptions();
@@ -2257,20 +2273,15 @@ function renderStudents() {
 
   tbody.innerHTML = pageItems.map((item, index) => {
     index = start + index;
-    const orderIndexDisplay = item.order_index ? `<strong>${item.order_index}</strong>` : `<span style="color:var(--text-muted);">${index + 1}</span>`;
     const docCountBadge = item.document_count > 0
       ? `<span class="badge-pill tag-success" title="${item.document_count} tệp văn bằng">${item.document_count} ảnh</span>`
       : `<span class="badge-pill tag-muted">0 ảnh</span>`;
 
-    let statusBadge = '<span class="status-badge">Mới tạo</span>';
-    if (item.status === 'PendingReview') {
-      statusBadge = '<span class="status-badge pending">Chờ duyệt</span>';
-    } else if (item.status === 'Approved') {
+    let statusBadge = '<span class="status-badge pending">Chờ duyệt</span>';
+    if (item.status === 'Approved' || item.status === 'Completed') {
       statusBadge = '<span class="status-badge approved">Đã duyệt</span>';
     } else if (item.status === 'Rejected') {
-      statusBadge = '<span class="status-badge rejected">Cần bổ sung</span>';
-    } else if (item.status === 'Completed') {
-      statusBadge = '<span class="status-badge completed">Đã vào lớp</span>';
+      statusBadge = '<span class="status-badge rejected">Hủy yêu cầu</span>';
     }
 
     const birthInfo = item.birthday ? `${escapeHtml(item.birthday)}` : '';
@@ -2278,7 +2289,6 @@ function renderStudents() {
 
     return `
       <tr>
-        <td style="text-align: center;">${orderIndexDisplay}</td>
         <td><strong>${escapeHtml(item.student_code)}</strong></td>
         <td>
           <a href="javascript:void(0)" onclick="openStudentDetailModal(${item.id})" class="student-name-link">
@@ -2300,6 +2310,11 @@ function renderStudents() {
         <td style="text-align: center;">${statusBadge}</td>
         <td style="text-align: right;">
           <div class="row-actions-group">
+            ${item.status !== 'Approved' && item.status !== 'Completed' ? `
+              <button class="action-btn-sm success" onclick="quickApproveStudent(${item.id})" title="Duyệt nhanh hồ sơ này">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              </button>
+            ` : ''}
             <button class="action-btn-sm" onclick="openStudentDetailModal(${item.id})" title="Xem chi tiết & Thẩm định">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
             </button>
@@ -2384,22 +2399,28 @@ async function openStudentDetailModal(id) {
     // Badge trạng thái
     let badgeHtml = 'Chờ duyệt';
     let badgeClass = 'status-badge pending';
-    if (student.status === 'Approved') {
+    if (student.status === 'Approved' || student.status === 'Completed') {
       badgeHtml = 'Đã duyệt';
       badgeClass = 'status-badge approved';
     } else if (student.status === 'Rejected') {
-      badgeHtml = 'Cần bổ sung';
+      badgeHtml = 'Hủy yêu cầu';
       badgeClass = 'status-badge rejected';
-    } else if (student.status === 'Completed') {
-      badgeHtml = 'Đã vào lớp';
-      badgeClass = 'status-badge completed';
     }
     const badgeEl = el('modalStudentBadge');
     badgeEl.textContent = badgeHtml;
     badgeEl.className = badgeClass;
 
+    // Toggle nút Duyệt nhanh trong banner chi tiết
+    const quickApproveBtn = el('btnQuickApproveDetail');
+    if (quickApproveBtn) {
+      if (student.status === 'Approved' || student.status === 'Completed') {
+        quickApproveBtn.classList.add('hidden');
+      } else {
+        quickApproveBtn.classList.remove('hidden');
+      }
+    }
+
     // Điền dữ liệu Section I, II, III
-    el('detOrderIndex').textContent = student.order_index || 'Chưa xếp STT';
     el('detFullName').textContent = student.full_name || '--';
     el('detBirthday').textContent = student.birthday || '--';
     el('detBirthplace').textContent = student.birthplace || '--';
@@ -2419,9 +2440,8 @@ async function openStudentDetailModal(id) {
     el('detDeclarationDate').textContent = student.declaration_date || student.created_at || '--';
 
     // Điền khung duyệt
-    el('reviewStatus').value = student.status || 'PendingReview';
+    el('reviewStatus').value = (student.status === 'Approved' || student.status === 'Completed') ? 'Approved' : (student.status === 'Rejected' ? 'Rejected' : 'PendingReview');
     el('reviewClassName').value = student.class_name || '';
-    el('reviewOrderIndex').value = student.order_index || '';
     el('reviewNotes').value = student.review_notes || '';
 
     // Render Gallery văn bằng chứng chỉ
@@ -2468,7 +2488,6 @@ async function submitReview(event) {
     const body = {
       status: el('reviewStatus').value,
       class_name: el('reviewClassName').value.trim(),
-      order_index: el('reviewOrderIndex').value ? Number(el('reviewOrderIndex').value) : null,
       review_notes: el('reviewNotes').value.trim()
     };
 
@@ -2478,6 +2497,50 @@ async function submitReview(event) {
     });
 
     toast('Đã lưu quyết định thẩm định hồ sơ!');
+    closeStudentDetailModal();
+    loadData();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+async function quickApproveStudent(id) {
+  const student = (state.students || []).find(s => s.id === id);
+  const name = student ? student.full_name : 'học viên';
+  if (!confirm(`Xác nhận phê duyệt nhanh hồ sơ của ${name}?`)) return;
+
+  try {
+    await request(`/api/students/${id}/review`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        status: 'Approved',
+        review_notes: 'Cán bộ phê duyệt nhanh tiếp nhận'
+      })
+    });
+
+    toast(`Đã phê duyệt hồ sơ của ${name}!`);
+    loadData();
+  } catch (err) {
+    toast(err.message);
+  }
+}
+
+async function quickApproveCurrentStudent() {
+  const id = admissionState.currentStudentId;
+  if (!id) return;
+  const name = admissionState.selectedStudentFull?.full_name || 'học viên';
+  if (!confirm(`Xác nhận phê duyệt nhanh hồ sơ của ${name}?`)) return;
+
+  try {
+    await request(`/api/students/${id}/review`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        status: 'Approved',
+        review_notes: 'Cán bộ phê duyệt nhanh tiếp nhận'
+      })
+    });
+
+    toast(`Đã phê duyệt hồ sơ của ${name}!`);
     closeStudentDetailModal();
     loadData();
   } catch (err) {
@@ -2517,7 +2580,6 @@ function populatePrintSlip(student) {
   const classTitle = student.class_name ? ` – ${student.class_name.toUpperCase()}` : ' – LỚP 23C';
   el('printDocTitle').textContent = `PHIẾU ĐĂNG KÝ NHẬP HỌC ${targetTitle}${classTitle}`;
 
-  el('printOrderIndex').textContent = student.order_index || '......';
   el('printFullName').textContent = student.full_name || '';
   el('printBirthday').textContent = student.birthday || '';
   el('printBirthplace').textContent = student.birthplace || '';
@@ -2667,7 +2729,6 @@ async function handleImportStudentsFile(event) {
 
       const record = {
         fullName,
-        orderIndex: getVal(['stt', 'số thứ tự', 'order']),
         birthday: getVal(['ngày sinh', 'birthday', 'ngaysinh']),
         birthplace: getVal(['nơi sinh', 'birthplace']),
         hometown: getVal(['quê quán', 'que quan', 'hometown']),
@@ -2788,7 +2849,6 @@ function openStudentFormModal(id = null) {
     const item = (state.students || []).find(s => s.id === id);
     if (item) {
       el('editFullName').value = item.full_name || '';
-      el('editOrderIndex').value = item.order_index || '';
       el('editBirthday').value = item.birthday || '';
       el('editBirthplace').value = item.birthplace || '';
       el('editHometown').value = item.hometown || '';
@@ -2838,7 +2898,6 @@ async function saveStudent(event) {
   const id = el('editStudentId').value;
   const body = {
     full_name: el('editFullName').value.trim(),
-    order_index: el('editOrderIndex').value ? Number(el('editOrderIndex').value) : null,
     birthday: el('editBirthday').value,
     birthplace: el('editBirthplace').value.trim(),
     hometown: el('editHometown').value.trim(),
@@ -2914,15 +2973,17 @@ function renderAdmissionBatches() {
         <td class="td-center">${statusBadge}</td>
         <td class="td-center"><strong>${batch.student_count || 0}</strong></td>
         <td class="td-right">
-          <button class="btn btn-ghost btn-icon" onclick="openBatchQrModal(${batch.id})" title="Link & Mã QR riêng cho đợt này">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-          </button>
-          <button class="btn btn-ghost btn-icon" onclick="openBatchFormModal(${batch.id})" title="Sửa">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-          </button>
-          <button class="btn btn-ghost btn-icon" onclick="deleteBatch(${batch.id})" title="Xóa" style="color:var(--danger)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </button>
+          <div class="row-actions-group">
+            <button class="action-btn-sm" onclick="openBatchQrModal(${batch.id})" title="Link & Mã QR riêng cho đợt này">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+            </button>
+            <button class="action-btn-sm" onclick="openBatchFormModal(${batch.id})" title="Chỉnh sửa đợt">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            </button>
+            <button class="action-btn-sm danger" onclick="deleteBatch(${batch.id})" title="Xóa đợt">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          </div>
         </td>
       </tr>
     `;
@@ -3062,12 +3123,14 @@ function renderAdmissionTargets() {
         <td class="td-center"><strong>${t.quota || 0}</strong></td>
         <td class="td-center"><strong style="color:var(--ok)">${t.student_count || 0}</strong></td>
         <td class="td-right">
-          <button class="btn btn-ghost btn-icon" onclick="openTargetFormModal(${t.id})" title="Sửa">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-          </button>
-          <button class="btn btn-ghost btn-icon" onclick="deleteTarget(${t.id})" title="Xóa" style="color:var(--danger)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-          </button>
+          <div class="row-actions-group">
+            <button class="action-btn-sm" onclick="openTargetFormModal(${t.id})" title="Chỉnh sửa đối tượng">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+            </button>
+            <button class="action-btn-sm danger" onclick="deleteTarget(${t.id})" title="Xóa đối tượng">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+            </button>
+          </div>
         </td>
       </tr>
     `;

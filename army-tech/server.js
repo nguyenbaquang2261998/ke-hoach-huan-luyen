@@ -74,7 +74,7 @@ const AUTH_TOKEN_SECRET = process.env.AUTH_TOKEN_SECRET || 'exam-draw-dev-secret
 const AUTH_TOKEN_TTL_SECONDS = Number(process.env.AUTH_TOKEN_TTL_SECONDS || 86400);
 const PLANS = ['Phương án 1', 'Phương án 2', 'Phương án 3', 'Phương án 4'];
 const CALENDAR_STATUSES = ['Draft', 'Published', 'Archived'];
-const STUDENT_STATUSES = ['Created', 'PendingReview', 'Approved', 'Rejected', 'Completed'];
+const STUDENT_STATUSES = ['PendingReview', 'Approved', 'Rejected'];
 const TASK_STATUSES = ['New', 'InProgress', 'Pending', 'Completed', 'Overdue', 'Cancelled'];
 const NOTIFICATION_STATUSES = ['Pending', 'Queued', 'Sent', 'Failed', 'Read'];
 const OPENAI_API_KEY = cleanEnv(process.env.OPENAI_API_KEY);
@@ -1396,7 +1396,7 @@ function normalizeStudentPayload(body, current = {}) {
     admissionDate: ensureDate(body.admission_date ?? body.admissionDate ?? current.admission_date),
     declarationDate: cleanText(body.declaration_date ?? body.declarationDate ?? current.declaration_date) || new Date().toISOString().slice(0, 10),
     declarationPlace: cleanText(body.declaration_place ?? body.declarationPlace ?? current.declaration_place) || 'Hà Nội',
-    status: normalizeStatus(body.status ?? current.status, STUDENT_STATUSES, 'Created'),
+    status: normalizeStatus(body.status ?? current.status, STUDENT_STATUSES, 'PendingReview'),
     reviewNotes: cleanText(body.review_notes ?? body.reviewNotes ?? current.review_notes),
     reviewedBy: cleanText(body.reviewed_by ?? body.reviewedBy ?? current.reviewed_by),
     reviewedAt: cleanText(body.reviewed_at ?? body.reviewedAt ?? current.reviewed_at),
@@ -2279,7 +2279,7 @@ app.get('/api/students/export-excel', async (req, res) => {
         escapeCsv(r.batch_name || ''),
         escapeCsv(r.target_name || ''),
         escapeCsv(r.class_name || ''),
-        escapeCsv(r.status || ''),
+        escapeCsv(r.status === 'Approved' ? 'Đã duyệt' : (r.status === 'Rejected' ? 'Hủy yêu cầu' : 'Chờ duyệt')),
         escapeCsv(r.education_level || ''),
         escapeCsv(r.review_notes || '')
       ].join(','));
@@ -2470,12 +2470,13 @@ app.put('/api/students/:id/review', async (req, res) => {
     const current = await db.get('SELECT * FROM students WHERE id = ? AND is_active = 1', [req.params.id]);
     if (!current) throw httpError(404, 'Không tìm thấy hồ sơ học viên.');
     const status = cleanText(req.body.status);
-    if (!['Approved', 'Rejected', 'PendingReview', 'Completed'].includes(status)) {
+    if (!['Approved', 'Rejected', 'PendingReview'].includes(status)) {
       throw httpError(400, 'Trạng thái duyệt không hợp lệ.');
     }
     const reviewNotes = cleanText(req.body.review_notes ?? req.body.reviewNotes ?? current.review_notes);
     const className = cleanText(req.body.class_name ?? req.body.className ?? current.class_name);
     const orderIndex = (req.body.order_index ?? req.body.orderIndex ?? current.order_index) ? Number(req.body.order_index ?? req.body.orderIndex ?? current.order_index) : null;
+    const reviewedBy = cleanText(req.body.reviewed_by ?? req.body.reviewedBy ?? current.reviewed_by) || 'Cán bộ tuyển sinh';
     const reviewedAt = new Date().toISOString().replace('T', ' ').slice(0, 19);
 
     await db.run(`
@@ -2485,7 +2486,11 @@ app.put('/api/students/:id/review', async (req, res) => {
       WHERE id = ?
     `, [status, reviewNotes, className, orderIndex, reviewedBy, reviewedAt, current.id]);
 
-    const notifTitle = status === 'Approved' ? `Hồ sơ học viên ${current.full_name} đã được phê duyệt` : `Hồ sơ học viên ${current.full_name}: yêu cầu bổ sung`;
+    const notifTitle = status === 'Approved'
+      ? `Hồ sơ học viên ${current.full_name} đã được phê duyệt`
+      : (status === 'Rejected'
+          ? `Hồ sơ học viên ${current.full_name}: đã hủy yêu cầu`
+          : `Hồ sơ học viên ${current.full_name}: đang chờ duyệt`);
     await db.run(`
       INSERT INTO notifications (title, message, priority, entity_name, entity_id)
       VALUES (?, ?, ?, 'Students', ?)

@@ -780,6 +780,179 @@
     .doc-thumb-item img { width: 100%; height: 90px; object-fit: cover; display: block; }
     .doc-thumb-label { padding: 5px 8px; font-size: 10px; font-weight: 600; color: #374151; background: #f8fafc; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; }
 
+    /* Gallery card (JS render) — thumbnail thu nhỏ, click mở rộng */
+    .gallery-card {
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .gallery-card:hover {
+      transform: scale(1.03);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .gallery-img-thumb {
+      position: relative;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    .gallery-img-thumb img {
+      width: 100%;
+      height: 90px;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.2s;
+    }
+    .gallery-card:hover .gallery-img-thumb img {
+      transform: scale(1.05);
+    }
+    .gallery-zoom-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0,0,0,0.35);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+      color: #fff;
+    }
+    .gallery-img-thumb:hover .gallery-zoom-overlay {
+      opacity: 1;
+    }
+    .gallery-caption {
+      padding: 6px 8px;
+      background: #f8fafc;
+    }
+    .gallery-caption strong {
+      display: block;
+      font-size: 10px;
+      font-weight: 700;
+      color: #374151;
+      line-height: 1.3;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .gallery-caption small {
+      display: block;
+      font-size: 9px;
+      color: #94a3b8;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      margin-top: 1px;
+    }
+    .gallery-download-link {
+      display: inline-block;
+      font-size: 10px;
+      color: #15803d;
+      font-weight: 600;
+      margin-top: 3px;
+      text-decoration: none;
+    }
+    .gallery-download-link:hover {
+      text-decoration: underline;
+    }
+
+    /* KPI Batch Context subtitle */
+    .kpi-batch-context {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      margin-top: 8px;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+      border-radius: 8px;
+      font-size: 12px;
+      color: #15803d;
+    }
+    .kpi-batch-context span { font-weight: 500; }
+    .kpi-batch-context strong { font-weight: 800; }
+
+    /* Fix scroll cho form bên trong modal dialog */
+    .modal-dialog > form {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* =====================================================
+       ROW ACTIONS & ACTION BUTTONS UNIFICATION
+       ===================================================== */
+    .row-actions-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      justify-content: flex-end;
+    }
+
+    .action-btn-sm {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      border: 1px solid #e2e8f0;
+      background: #fff;
+      color: #64748b;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.15s ease;
+      padding: 0;
+      line-height: 1;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+    }
+
+    .action-btn-sm:hover {
+      background: #f0fdf4;
+      color: #15803d;
+      border-color: #86efac;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+    }
+
+    .action-btn-sm.success {
+      color: #15803d;
+      background: #f0fdf4;
+      border-color: #bbf7d0;
+    }
+
+    .action-btn-sm.success:hover {
+      background: #15803d;
+      color: #fff;
+      border-color: #15803d;
+    }
+
+    .action-btn-sm.danger {
+      color: #dc2626;
+    }
+
+    .action-btn-sm.danger:hover {
+      background: #fef2f2;
+      color: #b91c1c;
+      border-color: #fecaca;
+    }
+
+    /* Status badge styles */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .status-badge.pending, .badge-pending { background: #fef9c3; color: #854d0e; }
+    .status-badge.approved, .badge-approved { background: #dcfce7; color: #15803d; }
+    .status-badge.rejected, .badge-rejected { background: #fee2e2; color: #991b1b; }
+
     /* =====================================================
        PRINT MODAL & A4 SHEET
        ===================================================== */
@@ -1102,10 +1275,15 @@
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="7.86 2 16.14 2 22 7.86 22 16.14 16.14 22 7.86 22 2 16.14 2 7.86 7.86 2"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
               </div>
               <div>
-                <div class="kpi-label">Yêu cầu bổ sung / Từ chối</div>
+                <div class="kpi-label">Hủy yêu cầu</div>
                 <div class="kpi-value" id="kpiRejectedStudents">0</div>
               </div>
             </div>
+          </div>
+          <div class="kpi-batch-context">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+            <span>Thống kê theo đợt:</span>
+            <strong id="kpiBatchContext">Tất cả các đợt tiếp nhận</strong>
           </div>
 
           <!-- Filter Bar -->
@@ -1135,9 +1313,7 @@
                 <option value="">-- Tất cả trạng thái --</option>
                 <option value="PendingReview">Chờ duyệt</option>
                 <option value="Approved">Đã duyệt</option>
-                <option value="Rejected">Yêu cầu bổ sung</option>
-                <option value="Completed">Đã vào lớp</option>
-                <option value="Created">Mới tạo</option>
+                <option value="Rejected">Hủy yêu cầu</option>
               </select>
             </div>
             <div class="filter-actions">
@@ -1161,7 +1337,6 @@
             <table>
               <thead>
                 <tr>
-                  <th style="width:48px">STT</th>
                   <th style="width:130px">Mã hồ sơ</th>
                   <th>Họ và tên</th>
                   <th style="width:100px">Ngày sinh</th>
@@ -1170,7 +1345,7 @@
                   <th>Đối tượng / Lớp</th>
                   <th style="width:90px;text-align:center">Văn bằng</th>
                   <th style="width:130px;text-align:center">Trạng thái</th>
-                  <th style="width:190px;text-align:right">Hành động</th>
+                  <th style="width:220px;text-align:right">Hành động</th>
                 </tr>
               </thead>
               <tbody id="studentTableBody">
@@ -1277,6 +1452,10 @@
             <strong id="detailStudentCode">HVCT-2026-0027</strong> &bull; <span id="detailStudentName">Học viên</span>
           </div>
           <div class="banner-buttons">
+            <button id="btnQuickApproveDetail" class="btn btn-primary btn-sm" onclick="quickApproveCurrentStudent()" title="Phê duyệt nhanh hồ sơ này">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+              Duyệt nhanh
+            </button>
             <button class="btn btn-secondary btn-sm" onclick="printStudentReceiptCurrent()">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
               In phiếu (A4)
@@ -1298,7 +1477,6 @@
             <div class="detail-section-card">
               <h4 class="section-badge-title">I. Thông tin học viên</h4>
               <table class="detail-info-table">
-                <tr><td class="lbl">Số thứ tự bảng:</td><td class="val"><strong id="detOrderIndex">--</strong></td></tr>
                 <tr><td class="lbl">Họ và tên:</td><td class="val"><strong id="detFullName">--</strong></td></tr>
                 <tr><td class="lbl">Ngày sinh:</td><td class="val" id="detBirthday">--</td></tr>
                 <tr><td class="lbl">Nơi sinh:</td><td class="val" id="detBirthplace">--</td></tr>
@@ -1334,24 +1512,17 @@
                 <div class="form-group-compact">
                   <label>Trạng thái duyệt:</label>
                   <select id="reviewStatus" required>
-                    <option value="Approved">Approved — Phê duyệt tiếp nhận</option>
-                    <option value="Rejected">Rejected — Yêu cầu bổ sung hồ sơ</option>
-                    <option value="Completed">Completed — Đã vào lớp học</option>
-                    <option value="PendingReview">PendingReview — Đang chờ thẩm định</option>
+                    <option value="Approved">Đã duyệt (Phê duyệt tiếp nhận)</option>
+                    <option value="PendingReview">Chờ duyệt (Đang thẩm định)</option>
+                    <option value="Rejected">Hủy yêu cầu (Không tiếp nhận)</option>
                   </select>
                 </div>
-                <div class="form-row-2">
-                  <div class="form-group-compact">
-                    <label>Lớp biên chế:</label>
-                    <input id="reviewClassName" placeholder="VD: Lớp 23C" />
-                  </div>
-                  <div class="form-group-compact">
-                    <label>STT theo bảng:</label>
-                    <input id="reviewOrderIndex" type="number" placeholder="VD: 27" />
-                  </div>
+                <div class="form-group-compact">
+                  <label>Lớp biên chế:</label>
+                  <input id="reviewClassName" placeholder="VD: Lớp 23C" />
                 </div>
                 <div class="form-group-compact">
-                  <label>Ghi chú thẩm định / Lý do yêu cầu bổ sung:</label>
+                  <label>Ghi chú thẩm định / Lý do hủy yêu cầu:</label>
                   <textarea id="reviewNotes" rows="3" placeholder="Nhận xét của cán bộ (học viên sẽ nhìn thấy khi tra cứu)"></textarea>
                 </div>
                 <button type="submit" class="btn btn-primary full-width">Lưu quyết định thẩm định</button>
@@ -1404,11 +1575,10 @@
           <div class="sheet-content">
             <div class="sheet-section">
               <h3 class="sheet-section-heading">I. THÔNG TIN HỌC VIÊN</h3>
-              <div class="sheet-data-row"><span class="sheet-data-item"><span class="sheet-num">1.</span> Số thứ tự (theo DS trên bảng): <strong id="printOrderIndex" class="sheet-val">27</strong></span></div>
-              <div class="sheet-data-row"><span class="sheet-data-item"><span class="sheet-num">2.</span> Họ và tên: <strong id="printFullName" class="sheet-val">Bàn Trung Nam</strong></span></div>
-              <div class="sheet-data-row"><span class="sheet-data-item"><span class="sheet-num">3.</span> Ngày sinh: <span id="printBirthday" class="sheet-val">1985-01-30</span></span></div>
-              <div class="sheet-data-row"><span class="sheet-data-item"><span class="sheet-num">4.</span> Nơi sinh: <span id="printBirthplace" class="sheet-val">Thái Nguyên</span></span></div>
-              <div class="sheet-data-row"><span class="sheet-data-item"><span class="sheet-num">5.</span> Quê quán: <span id="printHometown" class="sheet-val">Xã Kim Phượng, tỉnh Thái Nguyên</span></span></div>
+              <div class="sheet-data-row"><span class="sheet-data-item"><span class="sheet-num">1.</span> Họ và tên: <strong id="printFullName" class="sheet-val">Bàn Trung Nam</strong></span></div>
+              <div class="sheet-data-row"><span class="sheet-data-item"><span class="sheet-num">2.</span> Ngày sinh: <span id="printBirthday" class="sheet-val">1985-01-30</span></span></div>
+              <div class="sheet-data-row"><span class="sheet-data-item"><span class="sheet-num">3.</span> Nơi sinh: <span id="printBirthplace" class="sheet-val">Thái Nguyên</span></span></div>
+              <div class="sheet-data-row"><span class="sheet-data-item"><span class="sheet-num">4.</span> Quê quán: <span id="printHometown" class="sheet-val">Xã Kim Phượng, tỉnh Thái Nguyên</span></span></div>
             </div>
             <div class="sheet-section">
               <h3 class="sheet-section-heading">II. THÔNG TIN CÔNG TÁC</h3>
@@ -1466,7 +1636,6 @@
         <div class="modal-body modal-scroll">
           <div class="form-grid-2">
             <div class="form-group"><label>Họ và tên học viên *</label><input id="editFullName" required placeholder="VD: Bàn Trung Nam" /></div>
-            <div class="form-group"><label>Số thứ tự (theo DS bảng)</label><input id="editOrderIndex" type="number" placeholder="VD: 27" /></div>
             <div class="form-group"><label>Ngày sinh *</label><input id="editBirthday" type="date" required /></div>
             <div class="form-group"><label>Nơi sinh *</label><input id="editBirthplace" required placeholder="VD: Thái Nguyên" /></div>
             <div class="form-group full-col"><label>Quê quán *</label><input id="editHometown" required placeholder="VD: Xã Kim Phượng, tỉnh Thái Nguyên" /></div>
@@ -1491,9 +1660,7 @@
               <select id="editStatus">
                 <option value="PendingReview">Chờ duyệt (PendingReview)</option>
                 <option value="Approved">Đã duyệt (Approved)</option>
-                <option value="Rejected">Yêu cầu bổ sung (Rejected)</option>
-                <option value="Completed">Hoàn thành / Vào lớp (Completed)</option>
-                <option value="Created">Mới tạo (Created)</option>
+                <option value="Rejected">Hủy yêu cầu (Rejected)</option>
               </select>
             </div>
           </div>

@@ -467,7 +467,6 @@ async function submitReceptionForm(event) {
     const payload = {
       batchId: Number(document.getElementById('recBatchSelect').value),
       targetId: Number(document.getElementById('recTargetSelect').value),
-      orderIndex: document.getElementById('recOrderIndex').value ? Number(document.getElementById('recOrderIndex').value) : null,
       fullName: document.getElementById('recFullName').value.trim().toUpperCase(),
       birthday,
       gender: document.getElementById('recGender').value,
@@ -631,7 +630,7 @@ function renderTrackResult(student) {
     statusBannerHtml = `
       <div class="track-status-banner banner-success">
         <strong>Chúc mừng đồng chí đã được phê duyệt tiếp nhận!</strong>
-        <p>Lớp biên chế: <strong>${escapeHtml(student.class_name || 'Lớp 23C')}</strong> ${student.order_index ? `&bull; STT bảng: <strong>${student.order_index}</strong>` : ''}</p>
+        <p>Lớp biên chế: <strong>${escapeHtml(student.class_name || 'Lớp 23C')}</strong></p>
         <div class="track-actions-row">
           <a href="/api/students/${student.id}/receipt-doc" class="btn primary btn-sm">Tải Phiếu tiếp nhận (.docx)</a>
           <a href="/api/students/${student.id}/download-bundle" class="btn secondary btn-sm">Tải trọn gói ZIP hồ sơ</a>
@@ -639,12 +638,11 @@ function renderTrackResult(student) {
       </div>
     `;
   } else if (student.status === 'Rejected') {
-    statusBadgeHtml = '<span class="status-badge rejected">YÊU CẦU BỔ SUNG</span>';
+    statusBadgeHtml = '<span class="status-badge rejected">HỦY YÊU CẦU</span>';
     statusBannerHtml = `
       <div class="track-status-banner banner-warning">
-        <strong>Hồ sơ cần bổ sung / chỉnh sửa:</strong>
-        <p class="review-comment">"${escapeHtml(student.review_notes || 'Cán bộ yêu cầu nộp bổ sung ảnh văn bằng/chứng chỉ.')}"</p>
-        <button class="btn primary btn-sm" onclick="openSupplementModal()">Bổ sung ảnh văn bằng ngay</button>
+        <strong>Hồ sơ đã hủy yêu cầu tiếp nhận:</strong>
+        <p class="review-comment">"${escapeHtml(student.review_notes || 'Hồ sơ đã hủy yêu cầu tiếp nhận.')}"</p>
       </div>
     `;
   } else {
