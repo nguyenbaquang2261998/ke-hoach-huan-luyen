@@ -2198,6 +2198,15 @@ function switchAdmissionTab(tab) {
   if (tab === 'targets') renderAdmissionTargets();
 }
 
+function removeVietnameseTones(str) {
+  if (!str) return '';
+  return String(str)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D');
+}
+
 function renderStudents() {
   if (!has('studentTableBody') && !has('studentBody')) return;
 
@@ -2242,6 +2251,7 @@ function renderStudents() {
 
   // 4. Lọc dữ liệu theo bộ lọc
   const kw = (admissionState.filters.keyword || '').toLowerCase().trim();
+  const kwNoTone = removeVietnameseTones(kw);
   const bId = admissionState.filters.batchId;
   const tId = admissionState.filters.targetId;
   const st = admissionState.filters.status;
@@ -2251,13 +2261,31 @@ function renderStudents() {
     if (tId && String(item.target_id) !== String(tId)) return false;
     if (st && item.status !== st) return false;
     if (kw) {
-      // const matchCode = (item.student_code || '').toLowerCase().includes(kw);
-      const matchName = (item.full_name || '').toLowerCase().includes(kw);
-      const matchIdCard = (item.id_card || '').toLowerCase().includes(kw);
-      const matchPhone = (item.phone || '').toLowerCase().includes(kw);
-      const matchUnit = (item.unit || '').toLowerCase().includes(kw);
-      const matchRank = (item.rank || '').toLowerCase().includes(kw);
-      if (!matchCode && !matchName && !matchIdCard && !matchPhone && !matchUnit && !matchRank) return false;
+      const matchField = (val) => {
+        if (!val) return false;
+        const str = String(val).toLowerCase();
+        if (str.includes(kw)) return true;
+        if (kwNoTone && removeVietnameseTones(str).includes(kwNoTone)) return true;
+        return false;
+      };
+
+      const matched =
+        matchField(item.student_code) ||
+        matchField(item.full_name) ||
+        matchField(item.id_card) ||
+        matchField(item.phone) ||
+        matchField(item.email) ||
+        matchField(item.rank) ||
+        matchField(item.position) ||
+        matchField(item.unit) ||
+        matchField(item.class_name) ||
+        matchField(item.target_name) ||
+        matchField(item.batch_name) ||
+        matchField(item.hometown) ||
+        matchField(item.birthplace) ||
+        matchField(item.birthday);
+
+      if (!matched) return false;
     }
     return true;
   });
@@ -2373,21 +2401,22 @@ function handleStudentFilterChange() {
   admissionState.filters.batchId = el('studentFilterBatch')?.value || '';
   admissionState.filters.targetId = el('studentFilterTarget')?.value || '';
   admissionState.filters.status = el('studentFilterStatus')?.value || '';
+  admissionState.studentPage = 1;
   renderStudents();
 }
 
 function resetStudentFilters() {
-  // Chỉ tải lại danh sách, giữ nguyên toàn bộ giá trị bộ lọc hiện tại
-  loadData();
-}
-
-function clearStudentFilters() {
   if (has('studentSearchKeyword')) el('studentSearchKeyword').value = '';
   if (has('studentFilterBatch')) el('studentFilterBatch').value = '';
   if (has('studentFilterTarget')) el('studentFilterTarget').value = '';
   if (has('studentFilterStatus')) el('studentFilterStatus').value = '';
   admissionState.filters = { batchId: '', targetId: '', status: '', keyword: '' };
+  admissionState.studentPage = 1;
   loadData();
+}
+
+function clearStudentFilters() {
+  resetStudentFilters();
 }
 
 
@@ -2565,6 +2594,7 @@ async function printStudentReceipt(id) {
     admissionState.selectedStudentFull = student;
     populatePrintSlip(student);
     el('studentPrintModal').classList.remove('hidden');
+    document.body.classList.add('print-receipt-mode');
   } catch (err) {
     toast(err.message);
   }
@@ -2581,6 +2611,190 @@ function printStudentReceiptCurrent() {
 function closePrintModal() {
   el('studentPrintModal').classList.add('hidden');
   document.body.classList.remove('print-receipt-mode');
+}
+
+function printAdmissionReceipt() {
+  const printArea = document.getElementById('admissionReceiptPrintArea');
+  if (!printArea) {
+    window.print();
+    return;
+  }
+
+  // Remove existing print iframe if present
+  const oldIframe = document.getElementById('receiptPrintIframe');
+  if (oldIframe) {
+    oldIframe.remove();
+  }
+
+  const iframe = document.createElement('iframe');
+  iframe.id = 'receiptPrintIframe';
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0';
+  iframe.style.bottom = '0';
+  iframe.style.width = '0';
+  iframe.style.height = '0';
+  iframe.style.border = '0';
+  iframe.style.visibility = 'hidden';
+  document.body.appendChild(iframe);
+
+  const doc = iframe.contentWindow.document;
+  doc.open();
+  doc.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Bản in Phiếu tiếp nhận học viên</title>
+  <style>
+    @page {
+      size: A4 portrait;
+      margin: 12mm 15mm 12mm 15mm;
+    }
+    * {
+      box-sizing: border-box;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #000;
+      font-family: 'Times New Roman', Times, serif;
+      font-size: 13.5pt;
+      line-height: 1.45;
+    }
+    .admission-receipt-sheet {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      box-shadow: none;
+      box-sizing: border-box;
+    }
+    .sheet-header {
+      text-align: center;
+      margin-bottom: 8px;
+    }
+    .sheet-national-title {
+      font-size: 13pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin: 0 0 2px 0;
+    }
+    .sheet-motto {
+      font-size: 13pt;
+      font-weight: normal;
+      margin: 0;
+    }
+    .sheet-divider {
+      width: 120px;
+      height: 1px;
+      background: #000;
+      margin: 5px auto 10px auto;
+    }
+    .sheet-title-box {
+      text-align: center;
+      margin: 10px 0 12px 0;
+    }
+    .sheet-main-title {
+      font-size: 14pt;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin: 0 0 5px 0;
+      line-height: 1.35;
+    }
+    .sheet-sub-recipient {
+      font-size: 13pt;
+      font-style: italic;
+      margin: 0;
+    }
+    .sheet-section {
+      margin-bottom: 8px;
+    }
+    .sheet-section-heading {
+      font-size: 13pt;
+      font-weight: bold;
+      text-decoration: underline;
+      margin: 0 0 4px 0;
+    }
+    .sheet-data-row {
+      margin-bottom: 3.5px;
+      line-height: 1.4;
+    }
+    .sheet-num {
+      font-weight: bold;
+    }
+    .sheet-val {
+      font-weight: bold;
+    }
+    .sheet-note-box {
+      border: 1px solid #555;
+      padding: 6px 10px;
+      border-radius: 4px;
+      margin: 10px 0;
+      font-size: 12pt;
+      line-height: 1.35;
+    }
+    .sheet-note-box p {
+      margin: 0;
+    }
+    .sheet-commitment {
+      font-style: italic;
+      font-size: 12.5pt;
+      margin: 8px 0 10px 0;
+      line-height: 1.35;
+    }
+    .sheet-commitment p {
+      margin: 0;
+    }
+    .sheet-signature-block {
+      margin-top: 14px;
+      page-break-inside: avoid;
+    }
+    .sig-date-row {
+      text-align: right;
+      margin-bottom: 8px;
+      font-style: italic;
+      font-size: 13pt;
+    }
+    .sig-columns {
+      display: flex;
+      justify-content: space-between;
+    }
+    .sig-col {
+      text-align: center;
+      width: 46%;
+    }
+    .sig-col strong {
+      display: block;
+      font-size: 13pt;
+      margin-bottom: 2px;
+    }
+    .sig-col p {
+      font-style: italic;
+      font-size: 11.5pt;
+      margin: 0;
+    }
+    .sig-space {
+      height: 44px;
+    }
+  </style>
+</head>
+<body>
+  ${printArea.outerHTML}
+</body>
+</html>`);
+  doc.close();
+
+  setTimeout(() => {
+    try {
+      iframe.contentWindow.focus();
+      iframe.contentWindow.print();
+    } catch (err) {
+      console.error('Print iframe failed, fallback to window.print():', err);
+      window.print();
+    }
+  }, 250);
 }
 
 function populatePrintSlip(student) {

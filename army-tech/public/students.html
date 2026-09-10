@@ -1083,21 +1083,91 @@
        PRINT STYLES
        ===================================================== */
     @media print {
-      @page { size: A4 portrait; margin: 10mm; }
-      body, html { margin: 0; padding: 0; background: #fff; }
-      .shell { display: block; height: auto; }
-      .sidebar, .topbar, .tab-bar, .filter-bar, .modal-header, .modal-footer, .banner-buttons, .detail-action-banner, #toast, .btn { display: none !important; }
-      .modal-backdrop { position: static !important; background: none !important; padding: 0 !important; overflow: visible !important; }
-      .modal-dialog { box-shadow: none !important; max-width: none !important; margin: 0 !important; animation: none !important; }
-      .modal-body { padding: 0 !important; overflow: visible !important; }
-      
-      .admission-receipt-sheet { 
-        box-shadow: none !important; 
-        width: 100% !important; 
-        min-height: auto !important; 
-        margin: 0 !important; 
+      @page {
+        size: A4 portrait;
+        margin: 12mm 15mm 12mm 15mm;
+      }
+
+      html, body {
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #fff !important;
+        color: #000 !important;
+        height: auto !important;
+        overflow: visible !important;
+      }
+
+      /* Hide shell and all other UI elements */
+      .shell,
+      .sidebar,
+      .topbar,
+      .main-content,
+      .tab-bar,
+      .filter-bar,
+      .modal-header,
+      .modal-footer,
+      .banner-buttons,
+      .detail-action-banner,
+      #toast,
+      .btn,
+      .icon-action-btn,
+      .pagination-bar,
+      .table-container,
+      .lightbox-overlay,
+      #studentDetailModal,
+      #studentFormModal,
+      #batchModal,
+      #targetModal,
+      #importExcelModal,
+      #qrCodeModal,
+      #docPreviewModal {
+        display: none !important;
+      }
+
+      /* Make sure hidden modals stay hidden */
+      .modal-backdrop.hidden,
+      .hidden {
+        display: none !important;
+      }
+
+      /* When print modal is active, isolate and format cleanly */
+      #studentPrintModal:not(.hidden) {
+        display: block !important;
+        position: static !important;
+        background: transparent !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+      }
+
+      #studentPrintModal:not(.hidden) .modal-dialog,
+      #studentPrintModal:not(.hidden) .modal-body {
+        position: static !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        overflow: visible !important;
+        box-shadow: none !important;
+        max-width: 100% !important;
+        width: 100% !important;
+        border: none !important;
+        background: transparent !important;
+      }
+
+      .admission-receipt-sheet {
+        display: block !important;
+        box-shadow: none !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-height: auto !important;
+        height: auto !important;
+        margin: 0 !important;
         padding: 0 !important;
         page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+      }
+
+      .sheet-signature-block {
+        page-break-inside: avoid !important;
       }
     }
 
@@ -1538,7 +1608,7 @@
       <div class="modal-header no-print">
         <h3>Bản in Phiếu tiếp nhận học viên</h3>
         <div class="modal-header-actions">
-          <button class="btn btn-primary" onclick="window.print()">
+          <button class="btn btn-primary" onclick="printAdmissionReceipt()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
             In ngay (A4)
           </button>

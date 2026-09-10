@@ -2208,9 +2208,9 @@ app.get('/api/students', async (req, res) => {
       params.push(status);
     }
     if (keyword) {
-      whereSql += ' AND (s.student_code LIKE ? OR s.full_name LIKE ? OR s.id_card LIKE ? OR s.phone LIKE ? OR s.unit LIKE ? OR s.rank LIKE ?)';
+      whereSql += ' AND (s.student_code LIKE ? OR s.full_name LIKE ? OR s.id_card LIKE ? OR s.phone LIKE ? OR s.unit LIKE ? OR s.rank LIKE ? OR s.position LIKE ? OR s.class_name LIKE ?)';
       const kwPattern = `%${keyword}%`;
-      params.push(kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern);
+      params.push(kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern);
     }
 
     params.unshift(limit);
@@ -2257,9 +2257,9 @@ app.get('/api/students/export-excel', async (req, res) => {
       params.push(status);
     }
     if (keyword) {
-      whereSql += ' AND (s.student_code LIKE ? OR s.full_name LIKE ? OR s.id_card LIKE ? OR s.phone LIKE ? OR s.unit LIKE ? OR s.rank LIKE ?)';
+      whereSql += ' AND (s.student_code LIKE ? OR s.full_name LIKE ? OR s.id_card LIKE ? OR s.phone LIKE ? OR s.unit LIKE ? OR s.rank LIKE ? OR s.position LIKE ? OR s.class_name LIKE ?)';
       const kwPattern = `%${keyword}%`;
-      params.push(kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern);
+      params.push(kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern);
     }
 
     const rows = await db.all(`
