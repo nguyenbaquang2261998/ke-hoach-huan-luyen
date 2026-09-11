@@ -13,6 +13,9 @@ class WeeklyScheduleMeta extends BaseEntity {
     this.week_start = BaseEntity.cleanString(data.week_start || data.weekStart);
     this.duty_summary = BaseEntity.cleanString(data.duty_summary || data.dutySummary) || null;
     this.room_summary = BaseEntity.cleanString(data.room_summary || data.roomSummary) || null;
+    this.daily_duty_officers = typeof data.daily_duty_officers === 'object'
+      ? JSON.stringify(data.daily_duty_officers)
+      : (BaseEntity.cleanString(data.daily_duty_officers || data.dailyDutyOfficers) || null);
     this.created_at = data.created_at ?? null;
     this.updated_at = data.updated_at ?? null;
   }

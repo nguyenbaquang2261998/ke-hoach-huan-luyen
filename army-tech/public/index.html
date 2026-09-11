@@ -143,11 +143,11 @@
                 </div>
               </div>
 
-              <div class="weather-header-actions">
+              <!-- <div class="weather-header-actions">
                 <button type="button" class="weather-refresh-btn" onclick="refreshWeatherData()" title="Cập nhật lại thời tiết" aria-label="Làm mới thời tiết">
                   <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M21 12a9 9 0 0 1-15 6.7L3 16M3 21v-5h5M3 12a9 9 0 0 1 15-6.7L21 8M21 3v5h-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
                 </button>
-              </div>
+              </div> -->
             </div>
 
             <!-- Current Weather Overview -->
@@ -170,7 +170,11 @@
               <!-- Middle: Detailed Metrics -->
               <div class="weather-metrics-col">
                 <div class="weather-metric-row">
-                  <span>Khả năng có mưa:</span>
+                  <span>Lượng mưa:</span>
+                  <strong id="weatherPrecipitation">0.0 mm</strong>
+                </div>
+                <div class="weather-metric-row">
+                  <span>Khả năng mưa:</span>
                   <strong id="weatherRainProb">--%</strong>
                 </div>
                 <div class="weather-metric-row">
@@ -191,19 +195,24 @@
               </div>
             </div>
 
-            <!-- Interactive Metric Tabs (Nhiệt độ / Lượng mưa / Gió) -->
+            <!-- Interactive Metric Tabs (Nhiệt độ / Lượng mưa / Gió) & Date Indicator -->
             <div class="weather-tabs-bar">
               <div class="weather-tabs-nav" role="tablist">
                 <button type="button" class="weather-tab-btn active" id="wtab-temp" onclick="switchWeatherTab('temperature')">Nhiệt độ</button>
                 <button type="button" class="weather-tab-btn" id="wtab-rain" onclick="switchWeatherTab('precipitation')">Lượng mưa</button>
                 <button type="button" class="weather-tab-btn" id="wtab-wind" onclick="switchWeatherTab('wind')">Gió</button>
               </div>
+              <div class="weather-chart-date-bar">
+                <span class="weather-chart-date-icon">📅</span>
+                <span id="weatherChartDateTitle" class="weather-chart-date-title">Hôm nay</span>
+                <button type="button" id="weatherBackTodayBtn" class="weather-back-today-btn hidden" onclick="resetWeatherToToday()" title="Quay về biểu đồ hôm nay">Về Hôm nay</button>
+              </div>
             </div>
 
             <!-- Hourly Chart / Forecast Curve -->
-            <div class="weather-hourly-container">
+            <!-- <div class="weather-hourly-container">
               <div id="weatherHourlyChart" class="weather-hourly-chart"></div>
-            </div>
+            </div> -->
 
             <!-- 7-Day / Daily Forecast Row -->
             <div class="weather-daily-scroll-wrap">

@@ -24,10 +24,12 @@ const state = {
   sharedAiSearch: '',
   editingSharedAiId: null,
   calendarWeekMeta: [],
+  dutyOfficersPool: [],
+  dutyAssignWeekStart: null,
   aiMessages: [],
   calendarCursor: new Date(),
-  selectedCalendarDate: null,
-  calendarView: 'month',
+  selectedCalendarDate: localDateString(new Date()),
+  calendarView: 'week',
   drawStep: 0,
   drawBusy: false,
   sidebarCollapsed: false,
@@ -45,6 +47,7 @@ const state = {
     unit: localStorage.getItem('armyTechWeatherUnit') || 'C',
     activeTab: 'temperature',
     selectedDayIndex: 0,
+    todayIndex: 0,
     data: null,
     loading: false
   }
@@ -714,11 +717,12 @@ async function loadData() {
   const examBootstrapUrl = state.selectedExamSessionId
     ? `/api/bootstrap?examSessionId=${encodeURIComponent(state.selectedExamSessionId)}`
     : '/api/bootstrap';
-  const [examData, dashboard, calendar, calendarWeekMeta, students, admissionBatches, admissionTargets, tasks, notifications, users, auditLogs, aiDocuments, sharedAi] = await Promise.all([
+  const [examData, dashboard, calendar, calendarWeekMeta, dutyOfficersData, students, admissionBatches, admissionTargets, tasks, notifications, users, auditLogs, aiDocuments, sharedAi] = await Promise.all([
     shouldLoadExam ? safeRequest(examBootstrapUrl, { teachers: {}, rooms: [], examSessions: [] }) : Promise.resolve({ teachers: {}, rooms: [], examSessions: [] }),
     shouldLoadDashboard ? safeRequest('/api/dashboard', null) : Promise.resolve(null),
     shouldLoadCalendar ? safeRequest('/api/calendar', []) : Promise.resolve([]),
     shouldLoadCalendar ? safeRequest('/api/calendar/week-meta', []) : Promise.resolve([]),
+    shouldLoadCalendar ? safeRequest('/api/calendar/duty-officers-pool', { officers: [] }) : Promise.resolve({ officers: [] }),
     shouldLoadStudents ? safeRequest('/api/students', []) : Promise.resolve([]),
     shouldLoadStudents ? safeRequest('/api/admission-batches', []) : Promise.resolve([]),
     shouldLoadStudents ? safeRequest('/api/admission-targets', []) : Promise.resolve([]),
@@ -738,6 +742,8 @@ async function loadData() {
   state.dashboard = dashboard;
   state.calendar = calendar;
   state.calendarWeekMeta = calendarWeekMeta;
+  state.dutyOfficersPool = dutyOfficersData?.officers || [];
+  populateDutyOfficersDatalist();
   state.students = students;
   state.admissionBatches = admissionBatches || [];
   state.admissionTargets = admissionTargets || [];
@@ -768,7 +774,7 @@ async function loadData() {
    WEATHER ENGINE (GOOGLE WEATHER STYLE)
    -------------------------------------------------------------------------- */
 const weatherLocations = {
-  hanoi: { name: 'Hà Nội', region: 'Học viện Chính trị', lat: 21.0285, lon: 105.8542 },
+  hanoi: { name: 'Hà Nội', region: 'Học viện Chính trị', lat: 20.9729, lon: 105.7689 },
   sontay: { name: 'Sơn Tây', region: 'Hà Nội', lat: 21.1394, lon: 105.5039 },
   thainguyen: { name: 'Thái Nguyên', region: 'Quân khu 1', lat: 21.5928, lon: 105.8442 },
   haiphong: { name: 'Hải Phòng', region: 'Quân khu 3', lat: 20.8449, lon: 106.6881 },
@@ -779,12 +785,14 @@ const weatherLocations = {
 };
 
 function getWeatherCondition(code) {
-  if (code === 0) return { text: 'Trời quang đãng, nắng đẹp', icon: 'sunny', color: '#f59e0b' };
-  if ([1, 2, 3].includes(code)) return { text: 'Có mây rải rác', icon: 'partly_cloudy', color: '#38bdf8' };
-  if ([45, 48].includes(code)) return { text: 'Có sương mù nhẹ', icon: 'fog', color: '#94a3b8' };
-  if ([51, 53, 55].includes(code)) return { text: 'Mưa phùn rải rác', icon: 'drizzle', color: '#60a5fa' };
-  if ([61, 63, 65, 80, 81, 82].includes(code)) return { text: 'Mưa rào rải rác', icon: 'rain', color: '#2563eb' };
-  if ([95, 96, 99].includes(code)) return { text: 'Có giông rải rác, sấm sét', icon: 'thunderstorm', color: '#f59e0b' };
+  if (code === 0) return { text: 'Trời quang đãng, không mây', icon: 'sunny', color: '#f59e0b' };
+  if (code === 1) return { text: 'Trời nắng, ít mây', icon: 'sunny', color: '#f59e0b' };
+  if ([2, 3].includes(code)) return { text: 'Có mây rải rác', icon: 'partly_cloudy', color: '#38bdf8' };
+  if ([45, 48].includes(code)) return { text: 'Có sương mù', icon: 'fog', color: '#94a3b8' };
+  if ([51, 53, 55].includes(code)) return { text: 'Mưa phùn nhẹ', icon: 'drizzle', color: '#60a5fa' };
+  if ([61, 63, 65].includes(code)) return { text: 'Mưa rào', icon: 'rain', color: '#2563eb' };
+  if ([80, 81, 82].includes(code)) return { text: 'Mưa rào từng đợt', icon: 'rain', color: '#2563eb' };
+  if ([95, 96, 99].includes(code)) return { text: 'Có dông, sấm sét', icon: 'thunderstorm', color: '#f59e0b' };
   return { text: 'Nhiều mây', icon: 'overcast', color: '#64748b' };
 }
 
@@ -806,6 +814,13 @@ function getWeatherIconSvg(iconKey, size = 52) {
       <path d="M48 44H20a10 10 0 0 1-1.7-19.8A14 14 0 0 1 48 26a9 9 0 0 1 0 18z" fill="#94a3b8" fill-opacity="0.95"/>
     </svg>`;
   }
+  if (iconKey === 'drizzle') {
+    return `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
+      <path d="M48 36H20a10 10 0 0 1-1.7-19.8A14 14 0 0 1 48 20a9 9 0 0 1 0 16z" fill="#94a3b8"/>
+      <line x1="26" y1="42" x2="22" y2="48" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round"/>
+      <line x1="38" y1="42" x2="34" y2="48" stroke="#60a5fa" stroke-width="2.5" stroke-linecap="round"/>
+    </svg>`;
+  }
   if (iconKey === 'rain') {
     return `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
       <path d="M48 34H20a10 10 0 0 1-1.7-19.8A14 14 0 0 1 48 18a9 9 0 0 1 0 16z" fill="#64748b"/>
@@ -816,13 +831,9 @@ function getWeatherIconSvg(iconKey, size = 52) {
   }
   if (iconKey === 'thunderstorm') {
     return `<svg viewBox="0 0 64 64" width="${size}" height="${size}" aria-hidden="true">
-      <!-- Sun peek -->
       <circle cx="20" cy="18" r="9" fill="#f59e0b"/>
-      <!-- Main Cloud -->
       <path d="M50 36H22a10 10 0 0 1-1.7-19.8A14 14 0 0 1 50 20a9 9 0 0 1 0 16z" fill="#64748b"/>
-      <!-- Lightning bolt -->
       <polygon points="34,34 26,46 32,46 27,58 42,42 35,42" fill="#eab308" stroke="#ca8a04" stroke-width="1.2"/>
-      <!-- Rain drops -->
       <line x1="18" y1="44" x2="14" y2="54" stroke="#0284c7" stroke-width="3" stroke-linecap="round"/>
       <line x1="48" y1="44" x2="44" y2="54" stroke="#0284c7" stroke-width="3" stroke-linecap="round"/>
     </svg>`;
@@ -847,69 +858,128 @@ function formatTempDisplay(celsius) {
   return Math.round(celsius);
 }
 
+function getLocalDateString(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function getWindDirectionText(deg) {
+  if (deg === null || deg === undefined || isNaN(deg)) return '';
+  const directions = ['Bắc', 'Đông Bắc', 'Đông', 'Đông Nam', 'Nam', 'Tây Nam', 'Tây', 'Tây Bắc'];
+  const idx = Math.round(deg / 45) % 8;
+  return directions[idx];
+}
+
 function generateFallbackWeatherData(loc) {
   const now = new Date();
   const times = [];
   const hourlyTemp = [];
   const hourlyRain = [];
+  const hourlyPrecip = [];
   const hourlyWind = [];
   for (let i = 0; i < 24 * 7; i++) {
     const d = new Date(now.getTime() + i * 3600 * 1000);
-    times.push(d.toISOString());
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const h = String(d.getHours()).padStart(2, '0');
+    times.push(`${y}-${m}-${day}T${h}:00`);
     const hour = d.getHours();
-    const baseTemp = 28 + Math.sin((hour - 8) / 12 * Math.PI) * 5;
-    hourlyTemp.push(Math.round(baseTemp));
-    hourlyRain.push(hour >= 14 && hour <= 18 ? 45 : 15);
-    hourlyWind.push(Math.round(10 + Math.random() * 6));
+    const baseTemp = 26 + Math.sin((hour - 8) / 12 * Math.PI) * 5;
+    hourlyTemp.push(Math.round(baseTemp * 10) / 10);
+    const rainP = hour >= 14 && hour <= 18 ? 40 : 10;
+    hourlyRain.push(rainP);
+    hourlyPrecip.push(rainP > 30 ? 1.5 : 0.0);
+    hourlyWind.push(Math.round(10 + Math.random() * 5));
   }
+
+  const dailyDates = [];
+  for (let d = 0; d < 8; d++) {
+    const target = new Date(now.getTime() + d * 86400000);
+    dailyDates.push(getLocalDateString(target));
+  }
+
   return {
     current: {
-      temperature_2m: 31,
-      relative_humidity_2m: 79,
-      weather_code: 95,
-      wind_speed_10m: 11
+      temperature_2m: 25.5,
+      relative_humidity_2m: 85,
+      apparent_temperature: 28.0,
+      precipitation: 0.0,
+      rain: 0.0,
+      weather_code: 1,
+      wind_speed_10m: 11.5,
+      wind_direction_10m: 330
     },
     hourly: {
       time: times,
       temperature_2m: hourlyTemp,
       precipitation_probability: hourlyRain,
+      precipitation: hourlyPrecip,
+      rain: hourlyPrecip,
       wind_speed_10m: hourlyWind,
-      weather_code: times.map(() => 95)
+      wind_direction_10m: times.map(() => 330),
+      weather_code: times.map(() => 1)
     },
     daily: {
-      time: [0, 1, 2, 3, 4, 5, 6, 7].map(d => new Date(now.getTime() + d * 86400000).toISOString().slice(0, 10)),
-      weather_code: [95, 95, 95, 95, 61, 2, 95, 95],
-      temperature_2m_max: [31, 33, 31, 32, 33, 33, 32, 31],
-      temperature_2m_min: [26, 27, 27, 27, 27, 27, 27, 26],
-      precipitation_probability_max: [38, 55, 60, 40, 30, 20, 45, 38]
+      time: dailyDates,
+      weather_code: [1, 2, 80, 80, 1, 2, 80, 1],
+      temperature_2m_max: [30.5, 31.0, 30.0, 28.5, 27.5, 28.0, 29.0, 29.5],
+      temperature_2m_min: [23.0, 23.5, 24.0, 23.5, 23.0, 23.5, 24.0, 23.5],
+      precipitation_sum: [0.0, 0.0, 4.5, 12.0, 8.0, 2.0, 5.0, 0.0],
+      precipitation_probability_max: [15, 20, 60, 75, 65, 30, 50, 15],
+      wind_speed_10m_max: [14.0, 13.0, 15.0, 18.0, 16.0, 12.0, 14.0, 12.0]
     }
   };
 }
 
 async function fetchWeatherData(locationKey, force = false) {
   const loc = weatherLocations[locationKey] || weatherLocations.hanoi;
-  const cacheKey = `armyTechWeather_${locationKey}`;
+  const cacheKey = `armyTechWeather_v3_${locationKey}_${loc.lat}_${loc.lon}`;
   const cached = localStorage.getItem(cacheKey);
+  const todayStr = getLocalDateString();
 
   if (!force && cached) {
     try {
       const parsed = JSON.parse(cached);
-      if (Date.now() - parsed.timestamp < 30 * 60 * 1000) {
+      const hasToday = Array.isArray(parsed.data?.daily?.time) && parsed.data.daily.time.includes(todayStr);
+      if (hasToday && (Date.now() - parsed.timestamp < 30 * 60 * 1000)) {
         state.weather.data = parsed.data;
         return parsed.data;
       }
     } catch (e) {}
   }
 
+  const queryParams = new URLSearchParams({
+    latitude: loc.lat,
+    longitude: loc.lon,
+    current: 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m,wind_direction_10m',
+    hourly: 'temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,rain,weather_code,wind_speed_10m,wind_direction_10m',
+    daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max',
+    timezone: 'Asia/Bangkok'
+  });
+
   try {
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&hourly=temperature_2m,precipitation_probability,wind_speed_10m,weather_code&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Asia%2FBangkok`;
+    const url = `https://api.open-meteo.com/v1/forecast?${queryParams.toString()}`;
     const res = await fetch(url);
-    if (!res.ok) throw new Error('Weather API Error');
+    if (!res.ok) throw new Error('Weather API Error: ' + res.status);
     const data = await res.json();
     state.weather.data = data;
     localStorage.setItem(cacheKey, JSON.stringify({ data, timestamp: Date.now() }));
     return data;
   } catch (err) {
+    // Try backend proxy as backup if browser environment restricts external API calls
+    try {
+      const proxyRes = await fetch(`/api/weather?${queryParams.toString()}`);
+      if (proxyRes.ok) {
+        const proxyData = await proxyRes.json();
+        state.weather.data = proxyData;
+        localStorage.setItem(cacheKey, JSON.stringify({ data: proxyData, timestamp: Date.now() }));
+        return proxyData;
+      }
+    } catch (e) {}
+
     const fallback = generateFallbackWeatherData(loc);
     state.weather.data = fallback;
     return fallback;
@@ -932,13 +1002,13 @@ function selectWeatherLocation(locKey) {
   document.querySelectorAll('.weather-loc-item').forEach(b => {
     b.classList.toggle('active', b.getAttribute('onclick')?.includes(locKey));
   });
-  fetchWeatherData(locKey, true).then(() => renderWeatherWidget());
+  fetchWeatherData(locKey, true).then(() => renderWeatherWidget(true));
 }
 
 function refreshWeatherData() {
   toast('Đang cập nhật lại thời tiết...');
   fetchWeatherData(state.weather.locationKey, true).then(() => {
-    renderWeatherWidget();
+    renderWeatherWidget(true);
     toast('Đã cập nhật thời tiết mới nhất.');
   });
 }
@@ -967,7 +1037,19 @@ function selectWeatherDay(dayIndex) {
   renderWeatherHourlyChart();
 }
 
-function renderWeatherWidget() {
+function resetWeatherToToday() {
+  const data = state.weather.data;
+  const todayStr = getLocalDateString();
+  let todayIdx = data?.daily?.time?.findIndex(t => t === todayStr);
+  if (todayIdx === undefined || todayIdx < 0) todayIdx = 0;
+  state.weather.selectedDayIndex = todayIdx;
+  document.querySelectorAll('.weather-day-pill').forEach((pill, idx) => {
+    pill.classList.toggle('active', idx === todayIdx);
+  });
+  renderWeatherHourlyChart();
+}
+
+function renderWeatherWidget(forceDefaultToday = false) {
   if (!has('weatherWidgetCard')) return;
   const loc = weatherLocations[state.weather.locationKey] || weatherLocations.hanoi;
   const data = state.weather.data;
@@ -977,32 +1059,59 @@ function renderWeatherWidget() {
   }
 
   if (!data || !data.current) {
-    fetchWeatherData(state.weather.locationKey).then(() => renderWeatherWidget());
+    fetchWeatherData(state.weather.locationKey).then(() => renderWeatherWidget(true));
     return;
   }
 
   const current = data.current;
   const condition = getWeatherCondition(current.weather_code);
   const now = new Date();
+  const todayStr = getLocalDateString(now);
 
-  // Update current metrics
+  // Find index of Today in daily forecast array
+  const dailyTimes = data.daily?.time || [];
+  let todayIdx = dailyTimes.findIndex(t => t === todayStr);
+  if (todayIdx < 0) todayIdx = 0;
+  state.weather.todayIndex = todayIdx;
+
+  // Luôn hiển thị mặc định ngày hôm nay if forceDefaultToday is true or selectedDayIndex is out of range
+  if (forceDefaultToday || state.weather.selectedDayIndex === undefined || state.weather.selectedDayIndex === null || state.weather.selectedDayIndex >= dailyTimes.length) {
+    state.weather.selectedDayIndex = todayIdx;
+  }
+
+  // Update current metrics (Nhiệt độ, Lượng mưa, Gió, Độ ẩm)
   if (has('weatherCurrentTemp')) el('weatherCurrentTemp').textContent = formatTempDisplay(current.temperature_2m);
   if (has('weatherCurrentIconWrap')) el('weatherCurrentIconWrap').innerHTML = getWeatherIconSvg(condition.icon, 54);
   if (has('weatherHumidity')) el('weatherHumidity').textContent = `${Math.round(current.relative_humidity_2m)}%`;
-  if (has('weatherWindSpeed')) el('weatherWindSpeed').textContent = `${Math.round(current.wind_speed_10m)} km/h`;
 
-  const rainProb = data.daily?.precipitation_probability_max?.[0] || 38;
+  // Gió (Tốc độ km/h và Hướng gió)
+  if (has('weatherWindSpeed')) {
+    const windSpeed = Math.round(current.wind_speed_10m || 0);
+    const dirText = getWindDirectionText(current.wind_direction_10m);
+    el('weatherWindSpeed').textContent = dirText ? `${windSpeed} km/h (${dirText})` : `${windSpeed} km/h`;
+  }
+
+  // Lượng mưa hiện tại & Khả năng mưa
+  const currentRainMm = current.precipitation !== undefined ? current.precipitation : (current.rain || 0);
+  const dailyPrecipSum = data.daily?.precipitation_sum?.[todayIdx];
+  if (has('weatherPrecipitation')) {
+    const sumText = dailyPrecipSum !== undefined ? ` (Cả ngày: ${dailyPrecipSum.toFixed(1)} mm)` : '';
+    el('weatherPrecipitation').textContent = `${currentRainMm.toFixed(1)} mm${sumText}`;
+  }
+
+  const rainProb = data.daily?.precipitation_probability_max?.[todayIdx] ?? (data.hourly?.precipitation_probability?.[now.getHours()] ?? 0);
   if (has('weatherRainProb')) el('weatherRainProb').textContent = `${rainProb}%`;
 
   if (has('weatherTimestamp')) {
     const daysMap = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    el('weatherTimestamp').textContent = `${timeStr} ${daysMap[now.getDay()]}`;
+    const dateFormatted = `${String(now.getDate()).padStart(2, '0')}/${String(now.getMonth() + 1).padStart(2, '0')}`;
+    el('weatherTimestamp').textContent = `${timeStr} · ${daysMap[now.getDay()]}, ${dateFormatted}`;
   }
 
   if (has('weatherConditionText')) el('weatherConditionText').textContent = condition.text;
 
-  // Render Daily Forecast Pills (7 Days)
+  // Render Daily Forecast Pills (7-8 Days)
   if (has('weatherDailyForecast') && data.daily) {
     const daily = data.daily;
     const daysShort = ['CN', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
@@ -1010,21 +1119,27 @@ function renderWeatherWidget() {
     let html = '';
 
     for (let i = 0; i < count; i++) {
-      const date = parseDateOnly(daily.time[i]) || new Date(now.getTime() + i * 86400000);
-      const dayName = i === 0 ? 'Hôm nay' : daysShort[date.getDay()];
+      const dateStr = daily.time[i];
+      const date = parseDateOnly(dateStr) || new Date(now.getTime() + i * 86400000);
+      const isToday = (i === todayIdx) || (dateStr === todayStr);
+      const dayName = isToday ? 'Hôm nay' : daysShort[date.getDay()];
+      const dayDateStr = `${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}`;
       const dayCond = getWeatherCondition(daily.weather_code[i]);
       const maxT = formatTempDisplay(daily.temperature_2m_max[i]);
       const minT = formatTempDisplay(daily.temperature_2m_min[i]);
+      const dayRainProb = daily.precipitation_probability_max?.[i] ?? 0;
       const isSelected = i === state.weather.selectedDayIndex;
 
       html += `
-        <button type="button" class="weather-day-pill ${isSelected ? 'active' : ''}" onclick="selectWeatherDay(${i})">
+        <button type="button" class="weather-day-pill ${isSelected ? 'active' : ''} ${isToday ? 'is-today' : ''}" onclick="selectWeatherDay(${i})" title="${isToday ? 'Hôm nay' : dayName} (${dayDateStr})">
           <span class="day-pill-name">${escapeHtml(dayName)}</span>
+          <span class="day-pill-date">${dayDateStr}</span>
           <div class="day-pill-icon">${getWeatherIconSvg(dayCond.icon, 28)}</div>
           <div class="day-pill-temps">
             <strong>${maxT}°</strong>
             <span>${minT}°</span>
           </div>
+          ${dayRainProb > 0 ? `<span class="day-pill-rain" title="Xác suất mưa ${dayRainProb}%">💧 ${dayRainProb}%</span>` : '<span class="day-pill-rain empty">0%</span>'}
         </button>
       `;
     }
@@ -1037,24 +1152,62 @@ function renderWeatherWidget() {
 function renderWeatherHourlyChart() {
   if (!has('weatherHourlyChart') || !state.weather.data) return;
   const data = state.weather.data;
-  const dayIdx = state.weather.selectedDayIndex || 0;
+  const dayIdx = state.weather.selectedDayIndex ?? state.weather.todayIndex ?? 0;
   const tab = state.weather.activeTab || 'temperature';
+  const now = new Date();
+  const todayStr = getLocalDateString(now);
 
-  // Extract 8 hourly sample points for the selected day (e.g. 01:00, 04:00, 07:00, 10:00, 13:00, 16:00, 19:00, 22:00)
-  const startHour = dayIdx * 24;
-  const sampleIndices = [1, 4, 7, 10, 13, 16, 19, 22].map(h => startHour + h);
+  const selectedDateStr = data.daily?.time?.[dayIdx] || todayStr;
+  const selectedDate = parseDateOnly(selectedDateStr) || now;
+  const isSelectedToday = selectedDateStr === todayStr;
+
+  // Update chart date header title
+  const daysFull = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+  const dayNameFull = daysFull[selectedDate.getDay()];
+  const dateFormatted = `${String(selectedDate.getDate()).padStart(2, '0')}/${String(selectedDate.getMonth() + 1).padStart(2, '0')}/${selectedDate.getFullYear()}`;
+
+  if (has('weatherChartDateTitle')) {
+    el('weatherChartDateTitle').textContent = isSelectedToday
+      ? `Hôm nay - ${dayNameFull}, ${dateFormatted}`
+      : `${dayNameFull}, ${dateFormatted}`;
+  }
+  if (has('weatherBackTodayBtn')) {
+    el('weatherBackTodayBtn').classList.toggle('hidden', isSelectedToday);
+  }
+
+  // Filter hourly entries strictly matching selectedDateStr (24 hours)
+  const matchingIndices = [];
+  if (data.hourly?.time) {
+    for (let i = 0; i < data.hourly.time.length; i++) {
+      if (data.hourly.time[i].startsWith(selectedDateStr)) {
+        matchingIndices.push(i);
+      }
+    }
+  }
+
+  // Sample 8 representative hours across the day (00:00, 03:00, 06:00, 09:00, 12:00, 15:00, 18:00, 21:00)
+  const hourSteps = [0, 3, 6, 9, 12, 15, 18, 21];
+  const sampleIndices = matchingIndices.length >= 24
+    ? hourSteps.map(h => matchingIndices[h])
+    : (matchingIndices.length ? matchingIndices : hourSteps.map(h => dayIdx * 24 + h));
 
   const points = sampleIndices.map(idx => {
     const timeRaw = data.hourly?.time?.[idx];
     let hourStr = '00:00';
+    let hourNum = 0;
     if (timeRaw) {
-      const d = new Date(timeRaw);
-      hourStr = `${String(d.getHours()).padStart(2, '0')}:00`;
+      const match = timeRaw.match(/T(\d{2}):(\d{2})/);
+      if (match) {
+        hourNum = Number(match[1]);
+        hourStr = `${match[1]}:00`;
+      }
     }
-    const temp = data.hourly?.temperature_2m?.[idx] ?? 30;
-    const rain = data.hourly?.precipitation_probability?.[idx] ?? 20;
+    const temp = data.hourly?.temperature_2m?.[idx] ?? 28;
+    const rainProb = data.hourly?.precipitation_probability?.[idx] ?? 0;
+    const rainMm = data.hourly?.precipitation?.[idx] ?? data.hourly?.rain?.[idx] ?? 0;
     const wind = data.hourly?.wind_speed_10m?.[idx] ?? 10;
-    return { hourStr, temp, rain, wind };
+    const isNow = isSelectedToday && Math.abs(now.getHours() - hourNum) < 2;
+    return { hourStr, hourNum, temp, rainProb, rainMm, wind, isNow };
   });
 
   // Calculate SVG curve coordinates
@@ -1071,12 +1224,12 @@ function renderWeatherHourlyChart() {
   let fillColor = 'rgba(245, 158, 11, 0.12)';
 
   if (tab === 'precipitation') {
-    values = points.map(p => p.rain);
+    values = points.map(p => p.rainProb);
     unitSuffix = '%';
     lineColor = '#0284c7';
     fillColor = 'rgba(2, 132, 199, 0.12)';
   } else if (tab === 'wind') {
-    values = points.map(p => p.wind);
+    values = points.map(p => Math.round(p.wind));
     unitSuffix = ' km/h';
     lineColor = '#0d9488';
     fillColor = 'rgba(13, 148, 136, 0.12)';
@@ -1087,14 +1240,18 @@ function renderWeatherHourlyChart() {
     fillColor = 'rgba(245, 158, 11, 0.12)';
   }
 
-  const minVal = Math.min(...values) - 2;
-  const maxVal = Math.max(...values) + 2;
+  const minVal = Math.min(...values) - (tab === 'wind' ? 1 : 2);
+  const maxVal = Math.max(...values) + (tab === 'wind' ? 1 : 2);
   const range = maxVal - minVal || 1;
 
   const coords = points.map((p, i) => {
     const x = padX + (i / (points.length - 1)) * w;
     const y = padY + h - ((values[i] - minVal) / range) * h;
-    return { x, y, val: values[i], hour: p.hourStr };
+    let label = `${values[i]}${unitSuffix}`;
+    if (tab === 'precipitation' && p.rainMm > 0) {
+      label = `${p.rainProb}% (${p.rainMm}mm)`;
+    }
+    return { x, y, val: values[i], label, hour: p.hourStr, isNow: p.isNow };
   });
 
   // Build smooth bezier path
@@ -1122,9 +1279,9 @@ function renderWeatherHourlyChart() {
       <path d="${pathD}" fill="none" stroke="${lineColor}" stroke-width="2.5" stroke-linecap="round"/>
       <!-- Value Labels & Dots -->
       ${coords.map(c => `
-        <text x="${c.x}" y="${c.y - 8}" text-anchor="middle" class="chart-val-text">${c.val}${unitSuffix}</text>
-        <circle cx="${c.x}" cy="${c.y}" r="3.5" fill="#ffffff" stroke="${lineColor}" stroke-width="2.5"/>
-        <text x="${c.x}" y="${svgHeight + 16}" text-anchor="middle" class="chart-hour-text">${c.hour}</text>
+        <text x="${c.x}" y="${c.y - 8}" text-anchor="middle" class="chart-val-text ${c.isNow ? 'is-now-text' : ''}">${c.label}</text>
+        <circle cx="${c.x}" cy="${c.y}" r="${c.isNow ? '5.5' : '3.5'}" fill="${c.isNow ? lineColor : '#ffffff'}" stroke="${lineColor}" stroke-width="${c.isNow ? '3' : '2.5'}"/>
+        <text x="${c.x}" y="${svgHeight + 16}" text-anchor="middle" class="chart-hour-text ${c.isNow ? 'is-now-hour' : ''}">${c.hour}${c.isNow ? ' •' : ''}</text>
       `).join('')}
     </svg>
   `;
@@ -1178,8 +1335,8 @@ function renderDashboard() {
   const dash = state.dashboard || {};
   const kpis = dash.kpis || {};
 
-  // 1. Render Google Weather Widget
-  renderWeatherWidget();
+  // 1. Render Google Weather Widget (mặc định hôm nay)
+  renderWeatherWidget(true);
 
   // 2. Render KPI Metrics Bar
   if (has('kpiCalendar')) el('kpiCalendar').textContent = kpis.calendarToday || 0;
@@ -1351,21 +1508,12 @@ function renderCalendar() {
 }
 
 function renderCalendarView() {
-  const eventsByDate = groupCalendarByDate();
   const today = localDateString(new Date());
-  if (!state.selectedCalendarDate || (!eventsByDate.has(state.selectedCalendarDate) && eventsByDate.size > 0)) {
-    if (eventsByDate.has(today)) {
-      state.selectedCalendarDate = today;
-    } else {
-      const allDates = [...eventsByDate.keys()].sort();
-      const upcomingDate = allDates.find(d => d >= today);
-      state.selectedCalendarDate = upcomingDate || allDates[allDates.length - 1] || today;
-    }
-    const selDateObj = parseDateOnly(state.selectedCalendarDate);
-    if (selDateObj) {
-      state.calendarCursor = new Date(selDateObj.getFullYear(), selDateObj.getMonth(), 1);
-    }
+  if (!state.selectedCalendarDate) {
+    state.selectedCalendarDate = today;
   }
+  const selDateObj = parseDateOnly(state.selectedCalendarDate) || new Date();
+  state.calendarCursor = new Date(selDateObj.getFullYear(), selDateObj.getMonth(), 1);
 
   renderCalendarViewButtons();
   if (state.calendarView === 'week') {
@@ -1592,6 +1740,18 @@ function renderCalendarSelectedDay(eventsByDate = groupCalendarByDate()) {
     el('dailyEventCountBadge').textContent = events.length ? `${events.length} lịch công tác` : '0 lịch công tác';
   }
 
+  // Display assigned Training Duty Officer for the selected date
+  const weekStart = getWeekStart(dateObj);
+  const weekStartKey = localDateString(weekStart);
+  const weekMeta = getWeekMeta(weekStartKey);
+  const dailyDutyMap = parseDailyDutyOfficers(weekMeta);
+  const dayDutyOfficer = dailyDutyMap[selected] || firstText(events.map(event => event.duty_officer)) || '';
+
+  if (has('dailyDutyOfficerName')) {
+    el('dailyDutyOfficerName').textContent = dayDutyOfficer || 'Chưa phân công';
+    el('dailyDutyOfficerName').classList.toggle('unassigned', !dayDutyOfficer);
+  }
+
   if (has('calendarSelectedDate')) {
     el('calendarSelectedDate').textContent = `${weekdays[dateObj.getDay()]}, ${String(dateObj.getDate()).padStart(2, '0')}/${months[dateObj.getMonth()]}/${dateObj.getFullYear()}`;
   }
@@ -1692,13 +1852,19 @@ function renderCalendarSelectedDay(eventsByDate = groupCalendarByDate()) {
 
 function openCreateCalendarModal(prefillDate) {
   const selectedDate = prefillDate || state.selectedCalendarDate || localDateString(new Date());
+  const dateObj = parseDateOnly(selectedDate) || new Date();
+  const weekStart = getWeekStart(dateObj);
+  const weekMeta = getWeekMeta(localDateString(weekStart));
+  const dailyDutyMap = parseDailyDutyOfficers(weekMeta);
+  const defaultDuty = dailyDutyMap[selectedDate] || '';
+
   if (has('modalCalendarDate')) el('modalCalendarDate').value = selectedDate;
   if (has('modalCalendarTitle')) el('modalCalendarTitle').value = '';
   if (has('modalCalendarStart')) el('modalCalendarStart').value = '';
   if (has('modalCalendarEnd')) el('modalCalendarEnd').value = '';
   if (has('modalCalendarLocation')) el('modalCalendarLocation').value = '';
   if (has('modalCalendarOwner')) el('modalCalendarOwner').value = '';
-  if (has('modalCalendarDutyOfficer')) el('modalCalendarDutyOfficer').value = '';
+  if (has('modalCalendarDutyOfficer')) el('modalCalendarDutyOfficer').value = defaultDuty;
   if (has('modalCalendarBan')) el('modalCalendarBan').value = '';
   if (has('modalCalendarColor')) el('modalCalendarColor').value = '#15803d';
   if (has('modalCalendarTtHv')) el('modalCalendarTtHv').value = '';
@@ -1818,6 +1984,16 @@ function renderCalendarMiniStats() {
   `;
 }
 
+function parseDailyDutyOfficers(weekMeta) {
+  if (!weekMeta || !weekMeta.daily_duty_officers) return {};
+  if (typeof weekMeta.daily_duty_officers === 'object') return weekMeta.daily_duty_officers;
+  try {
+    return JSON.parse(weekMeta.daily_duty_officers) || {};
+  } catch (e) {
+    return {};
+  }
+}
+
 function renderWorkScheduleTable(eventsByDate = groupCalendarByDate()) {
   if (!has('workScheduleBody')) return;
   const selectedDate = parseDateOnly(state.selectedCalendarDate) || new Date();
@@ -1830,30 +2006,42 @@ function renderWorkScheduleTable(eventsByDate = groupCalendarByDate()) {
   ));
   const weekEnd = weekDays[weekDays.length - 1];
   const weekMeta = getWeekMeta(weekStartKey);
+  const dailyDutyMap = parseDailyDutyOfficers(weekMeta);
 
   renderWeekMetaInputs(weekStartKey, weekStart, weekEnd, weekMeta);
 
+  if (has('scheduleModalSubtitle')) {
+    el('scheduleModalSubtitle').textContent = `Tuần từ Thứ Hai ${formatShortDate(weekStart)} đến Chủ Nhật ${formatShortDate(weekEnd)}`;
+  }
   if (has('scheduleDutySummary')) {
     el('scheduleDutySummary').textContent = weekMeta.duty_summary
-      ? `TCH Học viện: ${weekMeta.duty_summary}`
-      : 'TCH Học viện: Chưa có dữ liệu';
+      ? weekMeta.duty_summary
+      : 'Chưa có dữ liệu';
   }
   if (has('scheduleRoomSummary')) {
     el('scheduleRoomSummary').textContent = weekMeta.room_summary
-      ? `TCH Phòng: ${weekMeta.room_summary}`
-      : 'TCH Phòng: Chưa có dữ liệu';
+      ? weekMeta.room_summary
+      : 'Chưa có dữ liệu';
   }
 
   el('workScheduleBody').innerHTML = weekDays.map((date, dayIndex) => {
     const dateKey = localDateString(date);
     const events = (eventsByDate.get(dateKey) || []).slice().sort(sortCalendarEvents);
     const rows = events.length ? events : [null];
+    const dutyOfficer = dailyDutyMap[dateKey] || firstText(events.map(event => event.duty_officer)) || '';
     return rows.map((item, rowIndex) => {
       const highlight = dayIndex % 2 === 1 || !item ? 'schedule-highlight' : '';
       return `
         <tr class="${highlight}">
           ${rowIndex === 0 ? `<td class="schedule-day" rowspan="${rows.length}">${formatScheduleDay(date)}</td>` : ''}
-          ${rowIndex === 0 ? `<td class="schedule-duty" rowspan="${rows.length}">${escapeHtml(firstText(events.map(event => event.duty_officer)))}</td>` : ''}
+          ${rowIndex === 0 ? `<td class="schedule-duty" rowspan="${rows.length}">
+            <div class="duty-cell-content">
+              <span class="duty-cell-name">${escapeHtml(dutyOfficer) || '<em class="unassigned-text">Chưa phân công</em>'}</span>
+              <button type="button" class="duty-cell-edit-btn" onclick="openAssignDutyModal('${dateKey}', '${escapeHtml(dutyOfficer).replace(/'/g, "\\'")}')" title="Phân công trực ban ngày ${dateKey}">
+                <svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+              </button>
+            </div>
+          </td>` : ''}
           <td class="schedule-time">${item ? escapeHtml(item.start_time || '') : ''}</td>
           <td class="schedule-content">${item ? escapeHtml(item.title || item.content || '') : ''}</td>
           <td>${item ? escapeHtml(item.tt_hv || '') : ''}</td>
@@ -1871,13 +2059,14 @@ function getWeekMeta(weekStartKey) {
   return state.calendarWeekMeta.find(item => item.week_start === weekStartKey) || {
     week_start: weekStartKey,
     duty_summary: '',
-    room_summary: ''
+    room_summary: '',
+    daily_duty_officers: '{}'
   };
 }
 
 function renderWeekMetaInputs(weekStartKey, weekStart, weekEnd, weekMeta) {
   if (has('weekMetaRange')) {
-    el('weekMetaRange').textContent = `Tuần ${formatShortDate(weekStart)} - ${formatShortDate(weekEnd)}`;
+    el('weekMetaRange').textContent = `Tuần: Thứ 2 ${formatShortDate(weekStart)} - CN ${formatShortDate(weekEnd)}`;
   }
   if (has('weekDutySummary') && el('weekDutySummary').dataset.weekStart !== weekStartKey) {
     el('weekDutySummary').value = weekMeta.duty_summary || '';
@@ -1887,20 +2076,72 @@ function renderWeekMetaInputs(weekStartKey, weekStart, weekEnd, weekMeta) {
     el('weekRoomSummary').value = weekMeta.room_summary || '';
     el('weekRoomSummary').dataset.weekStart = weekStartKey;
   }
+
+  if (has('weekDailyDutyInputs')) {
+    const dailyDutyMap = parseDailyDutyOfficers(weekMeta);
+    if (el('weekDailyDutyInputs').dataset.weekStart !== weekStartKey) {
+      el('weekDailyDutyInputs').dataset.weekStart = weekStartKey;
+      const weekdaysLabels = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
+      const weekDays = Array.from({ length: 7 }, (_, index) => new Date(
+        weekStart.getFullYear(),
+        weekStart.getMonth(),
+        weekStart.getDate() + index
+      ));
+      el('weekDailyDutyInputs').innerHTML = weekDays.map((d, idx) => {
+        const dKey = localDateString(d);
+        const dayLabel = weekdaysLabels[idx];
+        const dateFormatted = `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
+        const val = dailyDutyMap[dKey] || '';
+        const isSelected = dKey === state.selectedCalendarDate;
+        return `
+          <div class="week-duty-row ${isSelected ? 'is-selected-day' : ''}" data-date-row="${dKey}">
+            <div class="week-duty-day-badge">
+              <strong>${dayLabel}</strong>
+              <span>${dateFormatted}</span>
+            </div>
+            <input 
+              class="week-daily-duty-input" 
+              data-date="${dKey}" 
+              list="dutyOfficersPoolList"
+              value="${escapeHtml(val)}" 
+              placeholder="Trực ban huấn luyện" 
+              title="Trực ban HL ${dayLabel} (${dateFormatted})"
+            />
+          </div>
+        `;
+      }).join('');
+    } else {
+      el('weekDailyDutyInputs').querySelectorAll('.week-duty-row').forEach(row => {
+        const dKey = row.getAttribute('data-date-row');
+        row.classList.toggle('is-selected-day', dKey === state.selectedCalendarDate);
+      });
+    }
+  }
 }
 
 async function saveWeekMeta(event) {
-  event.preventDefault();
+  if (event) event.preventDefault();
   const selectedDate = parseDateOnly(state.selectedCalendarDate) || new Date();
   const weekStart = getWeekStart(selectedDate);
   const weekStartKey = localDateString(weekStart);
+
+  const dailyDutyOfficers = {};
+  if (has('weekDailyDutyInputs')) {
+    el('weekDailyDutyInputs').querySelectorAll('.week-daily-duty-input').forEach(inp => {
+      if (inp.dataset.date) {
+        dailyDutyOfficers[inp.dataset.date] = inp.value.trim();
+      }
+    });
+  }
+
   try {
     const row = await request('/api/calendar/week-meta', {
       method: 'PUT',
       body: JSON.stringify({
         weekStart: weekStartKey,
-        dutySummary: el('weekDutySummary').value,
-        roomSummary: el('weekRoomSummary').value
+        dutySummary: has('weekDutySummary') ? el('weekDutySummary').value.trim() : '',
+        roomSummary: has('weekRoomSummary') ? el('weekRoomSummary').value.trim() : '',
+        dailyDutyOfficers
       })
     });
     state.calendarWeekMeta = [
@@ -1909,7 +2150,287 @@ async function saveWeekMeta(event) {
     ];
     if (has('weekDutySummary')) el('weekDutySummary').dataset.weekStart = row.week_start;
     if (has('weekRoomSummary')) el('weekRoomSummary').dataset.weekStart = row.week_start;
-    toast('Đã lưu thông tin tuần.');
+    if (has('weekDailyDutyInputs')) el('weekDailyDutyInputs').dataset.weekStart = row.week_start;
+
+    state.calendar.forEach(item => {
+      if (dailyDutyOfficers[item.task_date] !== undefined) {
+        item.duty_officer = dailyDutyOfficers[item.task_date];
+      }
+    });
+
+    toast('Đã lưu thông tin trực ban tuần.');
+    renderCalendar();
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function changeWeekMetaOffset(offsetWeeks) {
+  const current = parseDateOnly(state.selectedCalendarDate) || new Date();
+  let next;
+  if (offsetWeeks === 0) {
+    next = new Date();
+  } else {
+    next = new Date(current.getFullYear(), current.getMonth(), current.getDate() + offsetWeeks * 7);
+  }
+  state.selectedCalendarDate = localDateString(next);
+  state.calendarCursor = new Date(next.getFullYear(), next.getMonth(), 1);
+  renderCalendar();
+}
+
+function openAssignDutyModal(dateKey, currentDuty) {
+  const targetDate = dateKey || state.selectedCalendarDate || localDateString(new Date());
+  const dateObj = parseDateOnly(targetDate) || new Date();
+  const weekdays = ['Chủ Nhật', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy'];
+  const formattedDate = `${weekdays[dateObj.getDay()]}, ngày ${String(dateObj.getDate()).padStart(2, '0')}/${String(dateObj.getMonth() + 1).padStart(2, '0')}/${dateObj.getFullYear()}`;
+
+  if (has('assignDutyDateHidden')) el('assignDutyDateHidden').value = targetDate;
+  if (has('assignDutyModalSubtitle')) el('assignDutyModalSubtitle').textContent = formattedDate;
+
+  let dutyVal = currentDuty;
+  if (dutyVal === undefined) {
+    const weekStart = getWeekStart(dateObj);
+    const weekMeta = getWeekMeta(localDateString(weekStart));
+    const dailyMap = parseDailyDutyOfficers(weekMeta);
+    dutyVal = dailyMap[targetDate] || '';
+  }
+  if (has('assignDutyOfficerInput')) {
+    el('assignDutyOfficerInput').value = dutyVal || '';
+    setTimeout(() => el('assignDutyOfficerInput').focus(), 60);
+  }
+
+  el('assignDutyModal')?.classList.remove('hidden');
+}
+
+function openAssignDutyModalForSelectedDate() {
+  const selected = state.selectedCalendarDate || localDateString(new Date());
+  openAssignDutyModal(selected);
+}
+
+function closeAssignDutyModal() {
+  el('assignDutyModal')?.classList.add('hidden');
+}
+
+async function submitAssignDailyDuty(event) {
+  event.preventDefault();
+  const dateStr = el('assignDutyDateHidden').value;
+  const dutyOfficer = el('assignDutyOfficerInput').value.trim();
+  if (!dateStr) return;
+
+  try {
+    const res = await request('/api/calendar/daily-duty', {
+      method: 'PUT',
+      body: JSON.stringify({
+        date: dateStr,
+        dutyOfficer
+      })
+    });
+
+    if (res.weekMeta) {
+      state.calendarWeekMeta = [
+        ...state.calendarWeekMeta.filter(item => item.week_start !== res.weekMeta.week_start),
+        res.weekMeta
+      ];
+      if (has('weekDailyDutyInputs')) {
+        el('weekDailyDutyInputs').dataset.weekStart = '';
+      }
+    }
+
+    state.calendar.forEach(item => {
+      if (item.task_date === dateStr) {
+        item.duty_officer = dutyOfficer;
+      }
+    });
+
+    closeAssignDutyModal();
+    toast(`Đã cập nhật trực ban HL cho ngày ${dateStr}`);
+    renderCalendar();
+  } catch (error) {
+    toast(error.message);
+  }
+}
+
+function populateDutyOfficersDatalist() {
+  const datalist = el('dutyOfficersPoolList');
+  if (!datalist) return;
+  const pool = state.dutyOfficersPool || [];
+  datalist.innerHTML = pool.map(item => `<option value="${escapeHtml(item.name || item)}"></option>`).join('');
+}
+
+function openDutyAssignmentModal(weekStartTarget) {
+  const modal = el('dutyAssignmentModal');
+  if (!modal) return;
+
+  const baseDate = weekStartTarget 
+    ? (parseDateOnly(weekStartTarget) || new Date()) 
+    : (parseDateOnly(state.selectedCalendarDate) || new Date());
+  const weekStart = getWeekStart(baseDate);
+  const weekStartKey = localDateString(weekStart);
+  state.dutyAssignWeekStart = weekStartKey;
+
+  const weekDays = Array.from({ length: 7 }, (_, index) => new Date(
+    weekStart.getFullYear(),
+    weekStart.getMonth(),
+    weekStart.getDate() + index
+  ));
+  const weekEnd = weekDays[weekDays.length - 1];
+  const weekMeta = getWeekMeta(weekStartKey);
+  const dailyDutyMap = parseDailyDutyOfficers(weekMeta);
+  const eventsByDate = groupCalendarByDate();
+  const todayStr = localDateString(new Date());
+
+  if (has('dutyAssignModalSubtitle')) {
+    const isCurrentWeek = weekStartKey === localDateString(getWeekStart(new Date()));
+    el('dutyAssignModalSubtitle').textContent = `Tuần từ Thứ Hai ${formatShortDate(weekStart)} đến Chủ Nhật ${formatShortDate(weekEnd)}${isCurrentWeek ? ' (Tuần hiện tại)' : ''}`;
+  }
+
+  if (has('dutyAssignTchHv')) el('dutyAssignTchHv').value = weekMeta.duty_summary || '';
+  if (has('dutyAssignTchPhong')) el('dutyAssignTchPhong').value = weekMeta.room_summary || '';
+
+  if (has('dutyAssignTableBody')) {
+    const weekdaysFull = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+    el('dutyAssignTableBody').innerHTML = weekDays.map((date, idx) => {
+      const dKey = localDateString(date);
+      const isToday = dKey === todayStr;
+      const events = (eventsByDate.get(dKey) || []).slice().sort(sortCalendarEvents);
+      const dutyOfficer = dailyDutyMap[dKey] || firstText(events.map(e => e.duty_officer)) || '';
+
+      const eventsBrief = events.length === 0
+        ? `<span class="no-events-badge">Chưa có lịch</span>`
+        : `<div class="day-events-brief">
+            ${events.slice(0, 3).map(e => `
+              <div class="event-brief-chip" title="${escapeHtml(e.title || '')}">
+                <span class="brief-time">${escapeHtml(e.start_time || 'Cả ngày')}</span>
+                <span class="brief-title">${escapeHtml(e.title || e.content || '')}</span>
+              </div>
+            `).join('')}
+            ${events.length > 3 ? `<span class="event-brief-more">+${events.length - 3} lịch nữa</span>` : ''}
+          </div>`;
+
+      return `
+        <tr class="${isToday ? 'row-today' : ''}">
+          <td class="day-cell">
+            <div class="day-cell-wrap">
+              <strong>${weekdaysFull[idx]}</strong>
+              <span class="day-date-sub">${String(date.getDate()).padStart(2, '0')}/${String(date.getMonth() + 1).padStart(2, '0')}/${date.getFullYear()}</span>
+              ${isToday ? '<span class="today-chip">Hôm nay</span>' : ''}
+            </div>
+          </td>
+          <td class="events-cell">
+            ${eventsBrief}
+          </td>
+          <td class="officer-input-cell">
+            <div class="duty-officer-input-wrapper">
+              <svg class="officer-field-icon" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+              </svg>
+              <input 
+                class="table-duty-officer-input" 
+                data-date="${dKey}" 
+                list="dutyOfficersPoolList" 
+                value="${escapeHtml(dutyOfficer)}" 
+                placeholder="Chọn hoặc nhập cán bộ trực ban..." 
+              />
+              <button type="button" class="btn-clear-cell-input" onclick="this.previousElementSibling.value=''; this.previousElementSibling.focus();" title="Xóa">&times;</button>
+            </div>
+          </td>
+          <td class="action-cell">
+            <button type="button" class="btn-clear-row" onclick="const inp = this.closest('tr').querySelector('.table-duty-officer-input'); if(inp){ inp.value=''; inp.focus(); }" title="Xóa trực ban ngày này">
+              Xóa
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  populateDutyOfficersDatalist();
+  modal.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDutyAssignmentModal() {
+  const modal = el('dutyAssignmentModal');
+  if (modal) {
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
+  }
+}
+
+function changeDutyAssignModalWeek(delta) {
+  const currentWeekStart = parseDateOnly(state.dutyAssignWeekStart) || getWeekStart(new Date());
+  let target;
+  if (delta === 0) {
+    target = getWeekStart(new Date());
+  } else {
+    target = new Date(currentWeekStart.getFullYear(), currentWeekStart.getMonth(), currentWeekStart.getDate() + delta * 7);
+  }
+  openDutyAssignmentModal(localDateString(target));
+}
+
+function clearAllDutyAssignInputs() {
+  const inputs = document.querySelectorAll('#dutyAssignTableBody .table-duty-officer-input');
+  inputs.forEach(inp => inp.value = '');
+  if (inputs[0]) inputs[0].focus();
+  toast('Đã làm trống bảng phân công.');
+}
+
+function autoFillDutyAssignFromPool() {
+  const inputs = document.querySelectorAll('#dutyAssignTableBody .table-duty-officer-input');
+  const pool = (state.dutyOfficersPool || []).map(item => item.name || item).filter(Boolean);
+  if (!pool.length) {
+    toast('Chưa có danh sách cán bộ mẫu.');
+    return;
+  }
+  inputs.forEach((inp, idx) => {
+    if (!inp.value.trim()) {
+      inp.value = pool[idx % pool.length];
+    }
+  });
+  toast('Đã gợi ý phân công theo danh sách cán bộ.');
+}
+
+async function saveDutyAssignmentFull(event) {
+  if (event) event.preventDefault();
+  const weekStartKey = state.dutyAssignWeekStart || localDateString(getWeekStart(new Date()));
+  const dutySummary = has('dutyAssignTchHv') ? el('dutyAssignTchHv').value.trim() : '';
+  const roomSummary = has('dutyAssignTchPhong') ? el('dutyAssignTchPhong').value.trim() : '';
+
+  const dailyDutyOfficers = {};
+  document.querySelectorAll('#dutyAssignTableBody .table-duty-officer-input').forEach(inp => {
+    const dKey = inp.dataset.date;
+    if (dKey) {
+      dailyDutyOfficers[dKey] = inp.value.trim();
+    }
+  });
+
+  try {
+    const row = await request('/api/calendar/week-meta', {
+      method: 'PUT',
+      body: JSON.stringify({
+        weekStart: weekStartKey,
+        dutySummary,
+        roomSummary,
+        dailyDutyOfficers
+      })
+    });
+
+    state.calendarWeekMeta = [
+      ...state.calendarWeekMeta.filter(item => item.week_start !== row.week_start),
+      row
+    ];
+
+    if (has('weekDutySummary')) el('weekDutySummary').dataset.weekStart = '';
+    if (has('weekRoomSummary')) el('weekRoomSummary').dataset.weekStart = '';
+    if (has('weekDailyDutyInputs')) el('weekDailyDutyInputs').dataset.weekStart = '';
+
+    state.calendar.forEach(item => {
+      if (dailyDutyOfficers[item.task_date] !== undefined) {
+        item.duty_officer = dailyDutyOfficers[item.task_date];
+      }
+    });
+
+    toast('Đã lưu phân công trực ban huấn luyện tuần thành công.');
     renderCalendar();
   } catch (error) {
     toast(error.message);

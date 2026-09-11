@@ -250,9 +250,19 @@ BEGIN
     week_start NVARCHAR(50) NOT NULL UNIQUE,
     duty_summary NVARCHAR(MAX) NULL,
     room_summary NVARCHAR(MAX) NULL,
+    daily_duty_officers NVARCHAR(MAX) NULL,
     created_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120),
     updated_at NVARCHAR(50) DEFAULT CONVERT(VARCHAR(19), GETDATE(), 120)
   )
+END
+GO
+
+IF NOT EXISTS (
+  SELECT * FROM sys.columns 
+  WHERE object_id = OBJECT_ID('dbo.weekly_schedule_meta') AND name = 'daily_duty_officers'
+)
+BEGIN
+  ALTER TABLE dbo.weekly_schedule_meta ADD daily_duty_officers NVARCHAR(MAX) NULL;
 END
 GO
 

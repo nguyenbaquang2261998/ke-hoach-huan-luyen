@@ -772,6 +772,7 @@ async function requireApiAccess(req, res, next) {
     if (
       pathName.startsWith('/auth') ||
       pathName.startsWith('/reception') ||
+      pathName.startsWith('/weather') ||
       pathName.startsWith('/student-documents') ||
       (req.method === 'GET' && (
         pathName.startsWith('/admission-batches') ||
@@ -1792,6 +1793,30 @@ app.get('/api/auth/profile', async (req, res) => {
 
 app.use('/api', requireApiAccess);
 
+app.get('/api/weather', async (req, res) => {
+  try {
+    const lat = Number(req.query.latitude) || 20.9729;
+    const lon = Number(req.query.longitude) || 105.7689;
+    const queryParams = new URLSearchParams({
+      latitude: lat,
+      longitude: lon,
+      current: 'temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,rain,weather_code,wind_speed_10m,wind_direction_10m',
+      hourly: 'temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,rain,weather_code,wind_speed_10m,wind_direction_10m',
+      daily: 'weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max',
+      timezone: 'Asia/Bangkok'
+    });
+    const url = `https://api.open-meteo.com/v1/forecast?${queryParams.toString()}`;
+    const response = await fetch(url);
+    if (!response.ok) {
+      throw httpError(502, `Dịch vụ Open-Meteo phản hồi lỗi HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
 app.get('/api/dashboard', async (req, res) => {
   try {
     const summary = await getDashboardSummary();
@@ -1823,7 +1848,8 @@ app.get('/api/calendar/week-meta', async (req, res) => {
       return res.json(row || {
         week_start: weekStart,
         duty_summary: '',
-        room_summary: ''
+        room_summary: '',
+        daily_duty_officers: '{}'
       });
     }
 
@@ -1836,30 +1862,155 @@ app.get('/api/calendar/week-meta', async (req, res) => {
 
 app.put('/api/calendar/week-meta', async (req, res) => {
   try {
-    const weekStart = ensureDate(req.body?.weekStart ?? req.body?.week_start);
+    const rawWeekStart = ensureDate(req.body?.weekStart ?? req.body?.week_start);
+    // Normalize to Monday of that week
+    const dateObj = new Date(rawWeekStart);
+    const offset = (dateObj.getDay() + 6) % 7;
+    dateObj.setDate(dateObj.getDate() - offset);
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    const weekStart = `${y}-${m}-${d}`;
+
+    let dailyDutyOfficers = req.body?.dailyDutyOfficers ?? req.body?.daily_duty_officers;
+    if (typeof dailyDutyOfficers === 'object' && dailyDutyOfficers !== null) {
+      dailyDutyOfficers = JSON.stringify(dailyDutyOfficers);
+    } else {
+      dailyDutyOfficers = cleanText(dailyDutyOfficers) || '{}';
+    }
+
     const payload = {
       weekStart,
       dutySummary: cleanText(req.body?.dutySummary ?? req.body?.duty_summary),
-      roomSummary: cleanText(req.body?.roomSummary ?? req.body?.room_summary)
+      roomSummary: cleanText(req.body?.roomSummary ?? req.body?.room_summary),
+      dailyDutyOfficers
     };
 
     const existing = await db.get('SELECT id FROM weekly_schedule_meta WHERE week_start = ?', [payload.weekStart]);
     if (existing) {
       await db.run(`
         UPDATE weekly_schedule_meta
-        SET duty_summary = ?, room_summary = ?, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
+        SET duty_summary = ?, room_summary = ?, daily_duty_officers = ?, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
         WHERE week_start = ?
-      `, [payload.dutySummary, payload.roomSummary, payload.weekStart]);
+      `, [payload.dutySummary, payload.roomSummary, payload.dailyDutyOfficers, payload.weekStart]);
     } else {
       await db.run(`
-        INSERT INTO weekly_schedule_meta(week_start, duty_summary, room_summary)
-        VALUES (?, ?, ?)
-      `, [payload.weekStart, payload.dutySummary, payload.roomSummary]);
+        INSERT INTO weekly_schedule_meta(week_start, duty_summary, room_summary, daily_duty_officers)
+        VALUES (?, ?, ?, ?)
+      `, [payload.weekStart, payload.dutySummary, payload.roomSummary, payload.dailyDutyOfficers]);
     }
+
+    // Sync duty_officer to weekly_tasks if dailyDutyOfficers has entries
+    try {
+      const dutyMap = JSON.parse(payload.dailyDutyOfficers || '{}');
+      for (const [dateStr, officer] of Object.entries(dutyMap)) {
+        if (dateStr && officer !== undefined) {
+          await db.run('UPDATE weekly_tasks SET duty_officer = ? WHERE task_date = ? AND is_active = 1', [String(officer).trim(), dateStr]);
+        }
+      }
+    } catch (e) {}
 
     const row = await db.get('SELECT * FROM weekly_schedule_meta WHERE week_start = ?', [payload.weekStart]);
     await auditLog('Update', 'WeeklyScheduleMeta', payload.weekStart, row, null, req);
     res.json(row);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.put('/api/calendar/daily-duty', async (req, res) => {
+  try {
+    const taskDate = ensureDate(req.body?.date ?? req.body?.task_date);
+    const dutyOfficer = cleanText(req.body?.dutyOfficer ?? req.body?.duty_officer);
+
+    // Calculate Monday of the week for taskDate
+    const dateObj = new Date(taskDate);
+    const offset = (dateObj.getDay() + 6) % 7;
+    dateObj.setDate(dateObj.getDate() - offset);
+    const y = dateObj.getFullYear();
+    const m = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const d = String(dateObj.getDate()).padStart(2, '0');
+    const weekStart = `${y}-${m}-${d}`;
+
+    const existing = await db.get('SELECT * FROM weekly_schedule_meta WHERE week_start = ?', [weekStart]);
+    let dailyMap = {};
+    if (existing?.daily_duty_officers) {
+      try { dailyMap = JSON.parse(existing.daily_duty_officers); } catch (e) {}
+    }
+    dailyMap[taskDate] = dutyOfficer;
+    const dailyDutyJson = JSON.stringify(dailyMap);
+
+    if (existing) {
+      await db.run(`
+        UPDATE weekly_schedule_meta
+        SET daily_duty_officers = ?, updated_at = CONVERT(VARCHAR(19), GETDATE(), 120)
+        WHERE week_start = ?
+      `, [dailyDutyJson, weekStart]);
+    } else {
+      await db.run(`
+        INSERT INTO weekly_schedule_meta(week_start, duty_summary, room_summary, daily_duty_officers)
+        VALUES (?, ?, ?, ?)
+      `, [weekStart, '', '', dailyDutyJson]);
+    }
+
+    if (dutyOfficer !== undefined) {
+      await db.run('UPDATE weekly_tasks SET duty_officer = ? WHERE task_date = ? AND is_active = 1', [dutyOfficer, taskDate]);
+    }
+
+    const row = await db.get('SELECT * FROM weekly_schedule_meta WHERE week_start = ?', [weekStart]);
+    await auditLog('Update', 'DailyDuty', taskDate, { date: taskDate, dutyOfficer }, null, req);
+    res.json({ date: taskDate, dutyOfficer, weekMeta: row });
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+app.get('/api/calendar/duty-officers-pool', async (req, res) => {
+  try {
+    const poolList = [];
+    const seen = new Set();
+
+    // 1. Get from users (cán bộ/sĩ quan)
+    try {
+      const userRows = await db.all('SELECT full_name, rank, unit FROM users WHERE is_active = 1 ORDER BY full_name ASC');
+      for (const u of userRows) {
+        if (!u.full_name) continue;
+        const rankPart = u.rank ? `${u.rank} ` : '';
+        const unitPart = u.unit ? ` (${u.unit})` : '';
+        const display = `Đ/c ${rankPart}${u.full_name}${unitPart}`.trim();
+        if (!seen.has(display)) {
+          seen.add(display);
+          poolList.push({ name: display, source: 'user', unit: u.unit || '' });
+        }
+      }
+    } catch (e) {}
+
+    // 2. Get from teachers (giảng viên)
+    try {
+      const teacherRows = await db.all('SELECT name, unit FROM teachers WHERE is_active = 1 ORDER BY name ASC');
+      for (const t of teacherRows) {
+        if (!t.name) continue;
+        const display = t.name.trim();
+        if (!seen.has(display)) {
+          seen.add(display);
+          poolList.push({ name: display, source: 'teacher', unit: t.unit || '' });
+        }
+      }
+    } catch (e) {}
+
+    // 3. Get distinct duty_officer from history
+    try {
+      const taskRows = await db.all("SELECT DISTINCT duty_officer FROM weekly_tasks WHERE is_active = 1 AND duty_officer IS NOT NULL AND duty_officer != ''");
+      for (const row of taskRows) {
+        const display = String(row.duty_officer || '').trim();
+        if (display && !seen.has(display)) {
+          seen.add(display);
+          poolList.push({ name: display, source: 'history', unit: '' });
+        }
+      }
+    } catch (e) {}
+
+    res.json({ officers: poolList });
   } catch (error) {
     sendError(res, error);
   }
@@ -4006,11 +4157,28 @@ app.get('/api/history/:id/export', async (req, res) => {
   }
 });
 
+async function ensureScheduleTables() {
+  try {
+    await db.exec(`
+      IF NOT EXISTS (
+        SELECT * FROM sys.columns 
+        WHERE object_id = OBJECT_ID('dbo.weekly_schedule_meta') AND name = 'daily_duty_officers'
+      )
+      BEGIN
+        ALTER TABLE dbo.weekly_schedule_meta ADD daily_duty_officers NVARCHAR(MAX) NULL;
+      END
+    `);
+  } catch (err) {
+    console.warn('⚠️ Could not verify daily_duty_officers column:', err.message);
+  }
+}
+
 async function startServer() {
   try {
     await ensureDefaultAdminAccount();
     await ensureAdmissionTables();
     await ensureSharedAiTables();
+    await ensureScheduleTables();
     app.listen(PORT, () => {
       console.log(`🚀 ArmyTech Website running on SQL Server at http://localhost:${PORT}`);
     });
