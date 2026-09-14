@@ -2337,9 +2337,9 @@ app.delete('/api/admission-batches/:id', async (req, res) => {
 // ==========================================================
 app.get('/api/students', async (req, res) => {
   try {
-    const limit = parseLimit(req.query.limit, 100, 500);
-    const batchId = req.query.batch_id ? Number(req.query.batch_id) : null;
-    const targetId = req.query.target_id ? Number(req.query.target_id) : null;
+    const rawLimit = req.query.limit;
+    const batchId = (req.query.batch_id || req.query.batchId) ? Number(req.query.batch_id || req.query.batchId) : null;
+    const targetId = (req.query.target_id || req.query.targetId) ? Number(req.query.target_id || req.query.targetId) : null;
     const status = cleanText(req.query.status);
     const keyword = cleanText(req.query.keyword || req.query.q);
 
@@ -2364,10 +2364,15 @@ app.get('/api/students', async (req, res) => {
       params.push(kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern);
     }
 
-    params.unshift(limit);
+    let selectTop = '';
+    if (rawLimit && rawLimit !== 'all' && rawLimit !== '0' && rawLimit !== '-1') {
+      const limit = parseLimit(rawLimit, 100, 10000);
+      selectTop = 'TOP (?) ';
+      params.unshift(limit);
+    }
 
     const rows = await db.all(`
-      SELECT TOP (?) s.*,
+      SELECT ${selectTop}s.*,
              b.name AS batch_name, b.code AS batch_code,
              t.name AS target_name, t.code AS target_code,
              (SELECT COUNT(*) FROM student_documents d WHERE d.student_id = s.id AND d.is_active = 1) AS document_count
@@ -2387,8 +2392,8 @@ app.get('/api/students', async (req, res) => {
 // Xuất danh sách học viên dạng Excel/CSV (UTF-8 BOM tương thích hoàn hảo với Microsoft Excel)
 app.get('/api/students/export-excel', async (req, res) => {
   try {
-    const batchId = req.query.batch_id ? Number(req.query.batch_id) : null;
-    const targetId = req.query.target_id ? Number(req.query.target_id) : null;
+    const batchId = (req.query.batch_id || req.query.batchId) ? Number(req.query.batch_id || req.query.batchId) : null;
+    const targetId = (req.query.target_id || req.query.targetId) ? Number(req.query.target_id || req.query.targetId) : null;
     const status = cleanText(req.query.status);
     const keyword = cleanText(req.query.keyword || req.query.q);
 

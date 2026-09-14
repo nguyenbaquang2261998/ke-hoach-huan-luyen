@@ -2680,6 +2680,13 @@ let admissionState = {
   pageSize: 10
 };
 
+function changeAdmissionPageSize(newSize) {
+  const parsed = String(newSize).toLowerCase() === 'all' ? 999999 : Number(newSize);
+  admissionState.pageSize = Number.isFinite(parsed) && parsed > 0 ? parsed : 10;
+  admissionState.studentPage = 1;
+  renderStudents();
+}
+
 function goAdmissionPage(type, page) {
   if (type === 'student') { admissionState.studentPage = page; renderStudents(); }
   if (type === 'batch') { admissionState.batchPage = page; renderAdmissionBatches(); }
@@ -2687,13 +2694,81 @@ function goAdmissionPage(type, page) {
 }
 
 function buildAdmissionPagination(total, page, pageSize, type) {
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  if (totalPages <= 1) return '';
-  let html = '';
-  for (let i = 1; i <= totalPages; i++) {
-    html += `<button class="page-btn ${i === page ? 'active' : ''}" onclick="goAdmissionPage('${type}', ${i})">${i}</button>`;
+  if (!total || total <= 0) return '';
+  const effectivePageSize = pageSize >= 9999 ? total : pageSize;
+  const totalPages = Math.max(1, Math.ceil(total / effectivePageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+
+  const from = Math.min((currentPage - 1) * effectivePageSize + 1, total);
+  const to = Math.min(currentPage * effectivePageSize, total);
+
+  const labelItem = type === 'student' ? 'hồ sơ' : 'mục';
+
+  let infoHtml = `
+    <div class="pagination-left">
+      <span class="pagination-info">Hiển thị <strong>${from} - ${to}</strong> trên <strong>${total}</strong> ${labelItem} (Trang <strong>${currentPage}/${totalPages}</strong>)</span>
+      ${type === 'student' ? `
+        <div class="pagination-size-wrap">
+          <label style="font-size:12px;color:var(--text-muted);">Hiển thị:</label>
+          <select class="pagination-size-select" onchange="changeAdmissionPageSize(this.value)">
+            <option value="10" ${pageSize === 10 ? 'selected' : ''}>10 / trang</option>
+            <option value="25" ${pageSize === 25 ? 'selected' : ''}>25 / trang</option>
+            <option value="50" ${pageSize === 50 ? 'selected' : ''}>50 / trang</option>
+            <option value="100" ${pageSize === 100 ? 'selected' : ''}>100 / trang</option>
+            <option value="all" ${pageSize >= 9999 ? 'selected' : ''}>Tất cả (${total})</option>
+          </select>
+        </div>
+      ` : ''}
+    </div>
+  `;
+
+  if (totalPages <= 1) {
+    return infoHtml;
   }
-  return html;
+
+  let navHtml = '<div class="pagination-nav">';
+
+  // First button «
+  navHtml += `<button class="page-btn" ${currentPage <= 1 ? 'disabled' : ''} onclick="goAdmissionPage('${type}', 1)" title="Trang đầu">&laquo;</button>`;
+  // Prev button ‹
+  navHtml += `<button class="page-btn" ${currentPage <= 1 ? 'disabled' : ''} onclick="goAdmissionPage('${type}', ${currentPage - 1})" title="Trang trước">&lsaquo;</button>`;
+
+  // Smart page numbers calculation
+  let pagesToShow = [];
+  if (totalPages <= 9) {
+    for (let i = 1; i <= totalPages; i++) pagesToShow.push(i);
+  } else {
+    pagesToShow.push(1);
+    if (currentPage > 4) pagesToShow.push(-1); // ellipsis
+
+    const startNearby = Math.max(2, currentPage - 2);
+    const endNearby = Math.min(totalPages - 1, currentPage + 2);
+    for (let i = startNearby; i <= endNearby; i++) {
+      pagesToShow.push(i);
+    }
+
+    if (currentPage < totalPages - 3) pagesToShow.push(-2); // ellipsis
+    pagesToShow.push(totalPages);
+  }
+
+  let lastPage = 0;
+  for (const p of pagesToShow) {
+    if (p < 0) {
+      navHtml += `<span class="page-ellipsis">...</span>`;
+    } else if (p !== lastPage) {
+      navHtml += `<button class="page-btn ${p === currentPage ? 'active' : ''}" onclick="goAdmissionPage('${type}', ${p})">${p}</button>`;
+      lastPage = p;
+    }
+  }
+
+  // Next button ›
+  navHtml += `<button class="page-btn ${currentPage >= totalPages ? 'disabled' : ''} onclick="goAdmissionPage('${type}', ${currentPage + 1})" title="Trang sau">&rsaquo;</button>`;
+  // Last button »
+  navHtml += `<button class="page-btn ${currentPage >= totalPages ? 'disabled' : ''} onclick="goAdmissionPage('${type}', ${totalPages})" title="Trang cuối">&raquo;</button>`;
+
+  navHtml += '</div>';
+
+  return `${infoHtml}${navHtml}`;
 }
 
 
@@ -2736,11 +2811,6 @@ function renderStudents() {
   const targets = state.admissionTargets || [];
 
   // 1. Cập nhật số lượng trên các badge tab
-  if (has('badgeStudentCount')) el('badgeStudentCount').textContent = students.length;
-  if (has('badgeBatchCount')) el('badgeBatchCount').textContent = batches.length;
-  if (has('badgeTargetCount')) el('badgeTargetCount').textContent = targets.length;
-
-  // 2. Thống kê KPI Cards — tính theo Đợt tiếp nhận đang chọn
   const kpiBatchId = admissionState.filters.batchId;
   const kpiStudents = kpiBatchId
     ? students.filter(s => String(s.batch_id) === String(kpiBatchId))
@@ -2750,6 +2820,11 @@ function renderStudents() {
   const approved = kpiStudents.filter(s => s.status === 'Approved' || s.status === 'Completed').length;
   const rejected = kpiStudents.filter(s => s.status === 'Rejected').length;
 
+  if (has('badgeStudentCount')) el('badgeStudentCount').textContent = kpiBatchId ? kpiStudents.length : students.length;
+  if (has('badgeBatchCount')) el('badgeBatchCount').textContent = batches.length;
+  if (has('badgeTargetCount')) el('badgeTargetCount').textContent = targets.length;
+
+  // 2. Thống kê KPI Cards — tính theo Đợt tiếp nhận đang chọn
   if (has('kpiTotalStudents')) el('kpiTotalStudents').textContent = total;
   if (has('kpiPendingStudents')) el('kpiPendingStudents').textContent = pending;
   if (has('kpiApprovedStudents')) el('kpiApprovedStudents').textContent = approved;
@@ -2759,10 +2834,10 @@ function renderStudents() {
   if (has('kpiBatchContext')) {
     if (kpiBatchId) {
       const selectedBatch = batches.find(b => String(b.id) === String(kpiBatchId));
-      el('kpiBatchContext').textContent = selectedBatch ? selectedBatch.name : 'Đợt #' + kpiBatchId;
+      el('kpiBatchContext').textContent = selectedBatch ? `${selectedBatch.name} (${total} hồ sơ)` : `Đợt #${kpiBatchId} (${total} hồ sơ)`;
       el('kpiBatchContext').closest('.kpi-batch-context')?.classList.remove('hidden');
     } else {
-      el('kpiBatchContext').textContent = 'Tất cả các đợt tiếp nhận';
+      el('kpiBatchContext').textContent = `Tất cả các đợt tiếp nhận (${students.length} hồ sơ)`;
       el('kpiBatchContext').closest('.kpi-batch-context')?.classList.remove('hidden');
     }
   }
@@ -2821,8 +2896,13 @@ function renderStudents() {
     return;
   }
 
-  const start = (admissionState.studentPage - 1) * admissionState.pageSize;
-  const pageItems = filtered.slice(start, start + admissionState.pageSize);
+  const effectivePageSize = admissionState.pageSize >= 9999 ? filtered.length : admissionState.pageSize;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / effectivePageSize));
+  if (admissionState.studentPage > totalPages) {
+    admissionState.studentPage = totalPages;
+  }
+  const start = (admissionState.studentPage - 1) * effectivePageSize;
+  const pageItems = filtered.slice(start, start + effectivePageSize);
   
   if (el('studentPagination')) {
     el('studentPagination').innerHTML = buildAdmissionPagination(filtered.length, admissionState.studentPage, admissionState.pageSize, 'student');
@@ -2903,14 +2983,15 @@ function populateFilterOptions() {
   const targetSelect = el('studentFilterTarget');
 
   if (batchSelect && state.admissionBatches && state.admissionBatches.length) {
-    const curVal = batchSelect.value;
-    batchSelect.innerHTML = '<option value="">-- Tất cả các đợt --</option>' +
-      state.admissionBatches.map(b => `<option value="${b.id}">${escapeHtml(b.name)}</option>`).join('');
+    const curVal = admissionState.filters.batchId || batchSelect.value;
+    const totalAll = state.students?.length || 0;
+    batchSelect.innerHTML = `<option value="">-- Tất cả các đợt (${totalAll} hồ sơ) --</option>` +
+      state.admissionBatches.map(b => `<option value="${b.id}">${escapeHtml(b.name)} (${b.student_count ?? 0} hồ sơ)</option>`).join('');
     batchSelect.value = curVal;
   }
 
   if (targetSelect && state.admissionTargets && state.admissionTargets.length) {
-    const curVal = targetSelect.value;
+    const curVal = admissionState.filters.targetId || targetSelect.value;
     targetSelect.innerHTML = '<option value="">-- Tất cả đối tượng --</option>' +
       state.admissionTargets.map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
     targetSelect.value = curVal;
@@ -3701,6 +3782,16 @@ async function deleteStudent(id) {
   await mutate(`/api/students/${id}`, { method: 'DELETE' }, 'Đã xóa hồ sơ học viên.');
 }
 
+function viewBatchStudents(batchId) {
+  admissionState.filters.batchId = String(batchId || '');
+  if (has('studentFilterBatch')) {
+    el('studentFilterBatch').value = String(batchId || '');
+  }
+  admissionState.studentPage = 1;
+  switchAdmissionTab('students');
+  renderStudents();
+}
+
 // ==========================================================
 // QUẢN LÝ ĐỢT TIẾP NHẬN (ADMISSION BATCHES)
 // ==========================================================
@@ -3735,13 +3826,24 @@ function renderAdmissionBatches() {
     return `
       <tr>
         <td class="td-code">${escapeHtml(batch.code)}</td>
-        <td class="td-name">${escapeHtml(batch.name)}</td>
+        <td class="td-name">
+          <a href="javascript:void(0)" onclick="viewBatchStudents(${batch.id})" style="font-weight:600;color:var(--primary);text-decoration:none;" title="Xem hồ sơ của đợt này">
+            ${escapeHtml(batch.name)}
+          </a>
+        </td>
         <td>${escapeHtml(batch.academic_year || '--')}</td>
         <td class="td-muted">${escapeHtml(batch.start_date || '...')} &rarr; ${escapeHtml(batch.end_date || '...')}</td>
         <td class="td-center">${statusBadge}</td>
-        <td class="td-center"><strong>${batch.student_count || 0}</strong></td>
+        <td class="td-center">
+          <button class="badge-pill ${batch.student_count > 0 ? 'tag-success' : 'tag-muted'}" onclick="viewBatchStudents(${batch.id})" style="cursor:pointer;border:none;font-weight:bold;" title="Bấm để xem danh sách ${batch.student_count || 0} hồ sơ của đợt này">
+            ${batch.student_count || 0} hồ sơ
+          </button>
+        </td>
         <td class="td-right">
           <div class="row-actions-group">
+            <button class="action-btn-sm" onclick="viewBatchStudents(${batch.id})" title="Xem ${batch.student_count || 0} hồ sơ của đợt này">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            </button>
             <button class="action-btn-sm" onclick="openBatchQrModal(${batch.id})" title="Link & Mã QR riêng cho đợt này">
               <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
             </button>
