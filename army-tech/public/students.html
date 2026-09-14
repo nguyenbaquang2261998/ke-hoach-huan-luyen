@@ -412,6 +412,32 @@
       white-space: nowrap;
     }
 
+    .table-wrap thead th.sortable-th {
+      cursor: pointer;
+      user-select: none;
+      transition: background 0.15s, color 0.15s;
+    }
+    .table-wrap thead th.sortable-th:hover {
+      background: #e2e8f0;
+      color: #0f172a;
+    }
+    .table-wrap thead th.sortable-th .sort-icon {
+      display: inline-block;
+      margin-left: 4px;
+      font-size: 11px;
+      color: #94a3b8;
+      vertical-align: middle;
+      font-weight: normal;
+    }
+    .table-wrap thead th.sortable-th.active-sort {
+      color: #15803d;
+      background: #f0fdf4;
+    }
+    .table-wrap thead th.sortable-th.active-sort .sort-icon {
+      color: #15803d;
+      font-weight: 900;
+    }
+
     .table-wrap tbody tr {
       border-bottom: 1px solid #f1f5f9;
       transition: background 0.1s;
@@ -1425,7 +1451,24 @@
                 <option value="Rejected">Hủy yêu cầu</option>
               </select>
             </div>
+            <div class="filter-group">
+              <span class="filter-label">Sắp xếp</span>
+              <select id="studentSortSelect" class="filter-select" onchange="handleStudentSortChange()">
+                <option value="default">Mặc định (theo STT)</option>
+                <option value="name_asc">Họ và tên (A → Z theo Tên)</option>
+                <option value="name_desc">Họ và tên (Z → A theo Tên)</option>
+                <option value="fullname_asc">Họ và tên (A → Z theo Họ)</option>
+                <option value="fullname_desc">Họ và tên (Z → A theo Họ)</option>
+                <option value="code_asc">Mã hồ sơ (A → Z)</option>
+                <option value="birthday_asc">Ngày sinh (Tăng dần)</option>
+                <option value="birthday_desc">Ngày sinh (Giảm dần)</option>
+              </select>
+            </div>
             <div class="filter-actions">
+              <button class="btn btn-secondary" onclick="reorderStudentsByName()" title="Sắp xếp và cập nhật số thứ tự (STT 1, 2, 3...) theo họ và tên từ A đến Z cho đợt/đối tượng đang chọn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 5h10M11 9h7M11 13h4M3 17l3 3 3-3M6 18V4"/></svg>
+                Sắp xếp STT (A-Z)
+              </button>
               <button class="btn btn-secondary" onclick="resetStudentFilters()" title="Làm mới bộ lọc">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2.5 2v6h6M21.5 22v-6h-6"/><path d="M22 11.5A10 10 0 0 0 3.2 7.2M2 12.5a10 10 0 0 0 18.8 4.3"/></svg>
                 Làm mới
@@ -1446,9 +1489,18 @@
             <table>
               <thead>
                 <tr>
-                  <th style="width:130px">Mã hồ sơ</th>
-                  <th>Họ và tên</th>
-                  <th style="width:110px">Ngày sinh</th>
+                  <th style="width:55px;text-align:center" class="sortable-th" id="thSortOrder" onclick="toggleStudentSort('order')" title="Sắp xếp theo Số thứ tự">
+                    STT <span id="sortIconOrder" class="sort-icon">⇅</span>
+                  </th>
+                  <th style="width:125px" class="sortable-th" id="thSortCode" onclick="toggleStudentSort('code')" title="Sắp xếp theo Mã hồ sơ">
+                    Mã hồ sơ <span id="sortIconCode" class="sort-icon">⇅</span>
+                  </th>
+                  <th class="sortable-th" id="thSortName" onclick="toggleStudentSort('name')" title="Nhấn để sắp xếp theo Họ và Tên (A-Z / Z-A theo Tên chuẩn tiếng Việt)">
+                    Họ và tên <span id="sortIconName" class="sort-icon">⇅</span>
+                  </th>
+                  <th style="width:110px" class="sortable-th" id="thSortBirthday" onclick="toggleStudentSort('birthday')" title="Sắp xếp theo Ngày sinh">
+                    Ngày sinh <span id="sortIconBirthday" class="sort-icon">⇅</span>
+                  </th>
                   <th>Cấp bậc / Chức vụ</th>
                   <th>Đơn vị</th>
                   <th>Đối tượng / Lớp</th>

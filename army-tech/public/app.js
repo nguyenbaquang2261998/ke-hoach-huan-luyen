@@ -226,13 +226,27 @@ function has(id) {
   return Boolean(el(id));
 }
 
-function toast(message) {
-  const box = el('toast');
-  if (!box) return;
+function showToast(message, type = 'info') {
+  let box = el('toast');
+  if (!box) {
+    box = document.createElement('div');
+    box.id = 'toast';
+    box.className = 'toast hidden';
+    document.body.appendChild(box);
+  }
   box.textContent = message;
+  box.className = `toast toast-${type}`;
   box.classList.remove('hidden');
-  setTimeout(() => box.classList.add('hidden'), 2800);
+  clearTimeout(box._timer);
+  box._timer = setTimeout(() => {
+    box.classList.add('hidden');
+  }, 3500);
 }
+
+function toast(message, type = 'info') {
+  showToast(message, type);
+}
+window.showToast = showToast;
 
 function currentPage() {
   return document.body?.dataset?.page || '';
@@ -680,8 +694,10 @@ async function downloadFile(url, fallbackFileName) {
   link.download = fileName || 'download';
   document.body.appendChild(link);
   link.click();
-  link.remove();
-  URL.revokeObjectURL(objectUrl);
+  setTimeout(() => {
+    link.remove();
+    URL.revokeObjectURL(objectUrl);
+  }, 1000);
 }
 
 async function safeRequest(url, fallback) {
@@ -2674,6 +2690,8 @@ let admissionState = {
     status: '',
     keyword: ''
   },
+  sortBy: 'default',
+  sortOrder: 'asc',
   studentPage: 1,
   batchPage: 1,
   targetPage: 1,
@@ -2803,6 +2821,81 @@ function removeVietnameseTones(str) {
     .replace(/Đ/g, 'D');
 }
 
+function parseVietnameseName(fullName) {
+  if (!fullName) return { firstName: '', restOfName: '' };
+  const parts = String(fullName).trim().split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0], restOfName: '' };
+  const firstName = parts[parts.length - 1];
+  const restOfName = parts.slice(0, parts.length - 1).join(' ');
+  return { firstName, restOfName };
+}
+
+function compareVietnameseNames(a, b) {
+  const nameA = parseVietnameseName(a);
+  const nameB = parseVietnameseName(b);
+  // So sánh Tên trước (theo từ điển tiếng Việt, D trước Đ)
+  const cmpFirst = nameA.firstName.localeCompare(nameB.firstName, 'vi', { sensitivity: 'base' });
+  if (cmpFirst !== 0) return cmpFirst;
+  // Xét dấu/hoa thường nếu cùng âm
+  const cmpFirstStrict = nameA.firstName.localeCompare(nameB.firstName, 'vi');
+  if (cmpFirstStrict !== 0) return cmpFirstStrict;
+  // Nếu Tên giống nhau thì so sánh Họ và tên đệm
+  const cmpRest = nameA.restOfName.localeCompare(nameB.restOfName, 'vi', { sensitivity: 'base' });
+  if (cmpRest !== 0) return cmpRest;
+  return nameA.restOfName.localeCompare(nameB.restOfName, 'vi');
+}
+
+function sortStudentsByCriteria(students, sortBy = 'default') {
+  if (!sortBy || sortBy === 'default') {
+    return [...students].sort((a, b) => {
+      const ordA = (a.order_index !== null && a.order_index !== undefined) ? Number(a.order_index) : 999999;
+      const ordB = (b.order_index !== null && b.order_index !== undefined) ? Number(b.order_index) : 999999;
+      if (ordA !== ordB) return ordA - ordB;
+      return (b.id || 0) - (a.id || 0);
+    });
+  }
+  const cloned = [...students];
+  if (sortBy === 'order_asc') {
+    return cloned.sort((a, b) => {
+      const ordA = (a.order_index !== null && a.order_index !== undefined) ? Number(a.order_index) : 999999;
+      const ordB = (b.order_index !== null && b.order_index !== undefined) ? Number(b.order_index) : 999999;
+      return ordA - ordB;
+    });
+  }
+  if (sortBy === 'order_desc') {
+    return cloned.sort((a, b) => {
+      const ordA = (a.order_index !== null && a.order_index !== undefined) ? Number(a.order_index) : 0;
+      const ordB = (b.order_index !== null && b.order_index !== undefined) ? Number(b.order_index) : 0;
+      return ordB - ordA;
+    });
+  }
+  if (sortBy === 'name_asc') {
+    return cloned.sort((a, b) => compareVietnameseNames(a.full_name, b.full_name));
+  }
+  if (sortBy === 'name_desc') {
+    return cloned.sort((a, b) => compareVietnameseNames(b.full_name, a.full_name));
+  }
+  if (sortBy === 'fullname_asc') {
+    return cloned.sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''), 'vi'));
+  }
+  if (sortBy === 'fullname_desc') {
+    return cloned.sort((a, b) => String(b.full_name || '').localeCompare(String(a.full_name || ''), 'vi'));
+  }
+  if (sortBy === 'code_asc') {
+    return cloned.sort((a, b) => String(a.student_code || '').localeCompare(String(b.student_code || '')));
+  }
+  if (sortBy === 'code_desc') {
+    return cloned.sort((a, b) => String(b.student_code || '').localeCompare(String(a.student_code || '')));
+  }
+  if (sortBy === 'birthday_asc') {
+    return cloned.sort((a, b) => String(a.birthday || '').localeCompare(String(b.birthday || '')));
+  }
+  if (sortBy === 'birthday_desc') {
+    return cloned.sort((a, b) => String(b.birthday || '').localeCompare(String(a.birthday || '')));
+  }
+  return cloned;
+}
+
 function renderStudents() {
   if (!has('studentTableBody') && !has('studentBody')) return;
 
@@ -2886,30 +2979,38 @@ function renderStudents() {
     return true;
   });
 
-  // 5. Render vào bảng chính
+  // 5. Sắp xếp danh sách theo tiêu chí đã chọn
+  const sorted = sortStudentsByCriteria(filtered, admissionState.sortBy);
+
+  // Cập nhật biểu tượng mũi tên trên các cột bảng
+  updateStudentSortIcons();
+
+  // 6. Render vào bảng chính
   const tbody = el('studentTableBody') || el('studentBody');
   if (!tbody) return;
 
-  if (!filtered.length) {
+  if (!sorted.length) {
     tbody.innerHTML = '<tr><td colspan="10" class="empty">Không tìm thấy hồ sơ học viên phù hợp.</td></tr>';
     if (el('studentPagination')) el('studentPagination').innerHTML = '';
     return;
   }
 
-  const effectivePageSize = admissionState.pageSize >= 9999 ? filtered.length : admissionState.pageSize;
-  const totalPages = Math.max(1, Math.ceil(filtered.length / effectivePageSize));
+  const effectivePageSize = admissionState.pageSize >= 9999 ? sorted.length : admissionState.pageSize;
+  const totalPages = Math.max(1, Math.ceil(sorted.length / effectivePageSize));
   if (admissionState.studentPage > totalPages) {
     admissionState.studentPage = totalPages;
   }
   const start = (admissionState.studentPage - 1) * effectivePageSize;
-  const pageItems = filtered.slice(start, start + effectivePageSize);
+  const pageItems = sorted.slice(start, start + effectivePageSize);
   
   if (el('studentPagination')) {
-    el('studentPagination').innerHTML = buildAdmissionPagination(filtered.length, admissionState.studentPage, admissionState.pageSize, 'student');
+    el('studentPagination').innerHTML = buildAdmissionPagination(sorted.length, admissionState.studentPage, admissionState.pageSize, 'student');
   }
 
+  const isSortedByName = admissionState.sortBy && admissionState.sortBy.startsWith('name');
+
   tbody.innerHTML = pageItems.map((item, index) => {
-    index = start + index;
+    const globalIdx = start + index;
     const docCountBadge = item.document_count > 0
       ? `<span class="badge-pill tag-success" title="${item.document_count} tệp văn bằng">${item.document_count} ảnh</span>`
       : `<span class="badge-pill tag-muted">0 ảnh</span>`;
@@ -2924,8 +3025,11 @@ function renderStudents() {
     const birthInfo = item.birthday ? `${escapeHtml(item.birthday)}` : '';
     const hometownInfo = item.hometown ? `<br><small style="color:var(--text-muted);">${escapeHtml(item.hometown)}</small>` : '';
 
+    const sttDisplay = isSortedByName ? (globalIdx + 1) : (item.order_index || (globalIdx + 1));
+
     return `
       <tr>
+        <td style="text-align: center; font-weight: 700; color: #64748b;">${sttDisplay}</td>
         <td><strong>${escapeHtml(item.student_code)}</strong></td>
         <td>
           <a href="javascript:void(0)" onclick="openStudentDetailModal(${item.id})" class="student-name-link">
@@ -2978,6 +3082,130 @@ function renderStudents() {
   renderAdmissionTargets();
 }
 
+function updateStudentSortIcons() {
+  const curSort = admissionState.sortBy || 'default';
+  const iconMap = {
+    order: el('sortIconOrder'),
+    code: el('sortIconCode'),
+    name: el('sortIconName'),
+    birthday: el('sortIconBirthday')
+  };
+  const thMap = {
+    order: el('thSortOrder'),
+    code: el('thSortCode'),
+    name: el('thSortName'),
+    birthday: el('thSortBirthday')
+  };
+
+  Object.keys(thMap).forEach(key => {
+    thMap[key]?.classList.remove('active-sort');
+    if (iconMap[key]) iconMap[key].textContent = '⇅';
+  });
+
+  if (curSort.startsWith('order')) {
+    thMap.order?.classList.add('active-sort');
+    if (iconMap.order) iconMap.order.textContent = curSort === 'order_desc' ? '▼' : '▲';
+  } else if (curSort.startsWith('name')) {
+    thMap.name?.classList.add('active-sort');
+    if (iconMap.name) iconMap.name.textContent = curSort === 'name_desc' ? '▼' : '▲';
+  } else if (curSort.startsWith('fullname')) {
+    thMap.name?.classList.add('active-sort');
+    if (iconMap.name) iconMap.name.textContent = curSort === 'fullname_desc' ? '▼' : '▲';
+  } else if (curSort.startsWith('code')) {
+    thMap.code?.classList.add('active-sort');
+    if (iconMap.code) iconMap.code.textContent = curSort === 'code_desc' ? '▼' : '▲';
+  } else if (curSort.startsWith('birthday')) {
+    thMap.birthday?.classList.add('active-sort');
+    if (iconMap.birthday) iconMap.birthday.textContent = curSort === 'birthday_desc' ? '▼' : '▲';
+  }
+
+  if (has('studentSortSelect') && el('studentSortSelect').value !== curSort) {
+    el('studentSortSelect').value = curSort;
+  }
+}
+
+function toggleStudentSort(column) {
+  const cur = admissionState.sortBy || 'default';
+  if (column === 'name') {
+    if (cur === 'name_asc') {
+      admissionState.sortBy = 'name_desc';
+    } else if (cur === 'name_desc') {
+      admissionState.sortBy = 'default';
+    } else {
+      admissionState.sortBy = 'name_asc';
+    }
+  } else if (column === 'order') {
+    if (cur === 'order_asc' || cur === 'default') {
+      admissionState.sortBy = 'order_desc';
+    } else {
+      admissionState.sortBy = 'order_asc';
+    }
+  } else if (column === 'code') {
+    if (cur === 'code_asc') {
+      admissionState.sortBy = 'code_desc';
+    } else if (cur === 'code_desc') {
+      admissionState.sortBy = 'default';
+    } else {
+      admissionState.sortBy = 'code_asc';
+    }
+  } else if (column === 'birthday') {
+    if (cur === 'birthday_asc') {
+      admissionState.sortBy = 'birthday_desc';
+    } else if (cur === 'birthday_desc') {
+      admissionState.sortBy = 'default';
+    } else {
+      admissionState.sortBy = 'birthday_asc';
+    }
+  }
+  admissionState.studentPage = 1;
+  renderStudents();
+}
+
+function handleStudentSortChange() {
+  const sel = el('studentSortSelect');
+  if (!sel) return;
+  admissionState.sortBy = sel.value || 'default';
+  admissionState.studentPage = 1;
+  renderStudents();
+}
+
+async function reorderStudentsByName() {
+  const bId = admissionState.filters.batchId;
+  const tId = admissionState.filters.targetId;
+  const batches = state.admissionBatches || [];
+  const targets = state.admissionTargets || [];
+
+  let scopeDesc = 'tất cả các đợt';
+  if (bId) {
+    const b = batches.find(item => String(item.id) === String(bId));
+    scopeDesc = b ? `đợt "${b.name}"` : `đợt #${bId}`;
+  }
+  if (tId) {
+    const t = targets.find(item => String(item.id) === String(tId));
+    scopeDesc += t ? `, đối tượng "${t.name}"` : `, đối tượng #${tId}`;
+  }
+
+  const confirmed = confirm(`Bạn có chắc chắn muốn sắp xếp và đánh lại số thứ tự (STT 1, 2, 3...) theo Họ và Tên (vần A-Z chuẩn tiếng Việt) cho ${scopeDesc} không?\n\nSố thứ tự mới sẽ được lưu vào cơ sở dữ liệu và tự động áp dụng khi in Phiếu tiếp nhận và xuất file Excel.`);
+  if (!confirmed) return;
+
+  try {
+    showToast('Đang sắp xếp và đánh lại số thứ tự theo họ tên...', 'info');
+    const res = await request('/api/students/reorder-by-name', {
+      method: 'POST',
+      body: JSON.stringify({
+        batch_id: bId ? Number(bId) : null,
+        target_id: tId ? Number(tId) : null
+      })
+    });
+
+    showToast(res.message || 'Đã sắp xếp thứ tự thành công!', 'success');
+    admissionState.sortBy = 'default';
+    await loadData();
+  } catch (err) {
+    showToast(err.message || 'Lỗi khi sắp xếp thứ tự học viên', 'error');
+  }
+}
+
 function populateFilterOptions() {
   const batchSelect = el('studentFilterBatch');
   const targetSelect = el('studentFilterTarget');
@@ -3012,7 +3240,9 @@ function resetStudentFilters() {
   if (has('studentFilterBatch')) el('studentFilterBatch').value = '';
   if (has('studentFilterTarget')) el('studentFilterTarget').value = '';
   if (has('studentFilterStatus')) el('studentFilterStatus').value = '';
+  if (has('studentSortSelect')) el('studentSortSelect').value = 'default';
   admissionState.filters = { batchId: '', targetId: '', status: '', keyword: '' };
+  admissionState.sortBy = 'default';
   admissionState.studentPage = 1;
   loadData();
 }
@@ -3462,13 +3692,22 @@ async function exportStudentsExcel() {
     if (admissionState.filters.targetId) params.append('targetId', admissionState.filters.targetId);
     if (admissionState.filters.status) params.append('status', admissionState.filters.status);
     if (admissionState.filters.keyword) params.append('keyword', admissionState.filters.keyword);
+    if (admissionState.sortBy && admissionState.sortBy !== 'default') params.append('sort_by', admissionState.sortBy);
 
     const query = params.toString() ? `?${params.toString()}` : '';
-    showToast('Đang xuất danh sách học viên...', 'info');
-    await downloadFile(`/api/students/export-excel${query}`, 'Danh_Sach_Tiep_Nhan_Hoc_Vien.csv');
-    showToast('Xuất danh sách học viên thành công!', 'success');
+
+    // Thông báo bộ lọc đang áp dụng
+    let filterDesc = 'tất cả các đợt';
+    if (admissionState.filters.batchId) {
+      const batch = (state.admissionBatches || []).find(b => String(b.id) === String(admissionState.filters.batchId));
+      if (batch) filterDesc = batch.name;
+    }
+    showToast(`Đang xuất Excel tổng hợp: ${filterDesc}...`, 'info');
+
+    await downloadFile(`/api/students/export-excel${query}`, 'Tong_Hop_Tiep_Nhan_Hoc_Vien.xlsx');
+    showToast('Xuất file Excel tổng hợp thành công!', 'success');
   } catch (err) {
-    showToast(err.message || 'Lỗi khi xuất danh sách học viên', 'error');
+    showToast(err.message || 'Lỗi khi xuất file Excel', 'error');
   }
 }
 

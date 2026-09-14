@@ -2335,6 +2335,63 @@ app.delete('/api/admission-batches/:id', async (req, res) => {
 // ==========================================================
 // STUDENTS (Hồ sơ học viên tiếp nhận - Quản trị viên)
 // ==========================================================
+
+function parseVietnameseName(fullName) {
+  if (!fullName) return { firstName: '', restOfName: '' };
+  const parts = String(fullName).trim().split(/\s+/);
+  if (parts.length === 1) return { firstName: parts[0], restOfName: '' };
+  const firstName = parts[parts.length - 1];
+  const restOfName = parts.slice(0, parts.length - 1).join(' ');
+  return { firstName, restOfName };
+}
+
+function compareVietnameseNames(a, b) {
+  const nameA = parseVietnameseName(a);
+  const nameB = parseVietnameseName(b);
+  // So sánh Tên trước (theo bảng chữ cái tiếng Việt, D trước Đ)
+  const cmpFirst = nameA.firstName.localeCompare(nameB.firstName, 'vi', { sensitivity: 'base' });
+  if (cmpFirst !== 0) return cmpFirst;
+  // Xét dấu/hoa thường nếu cùng âm
+  const cmpFirstStrict = nameA.firstName.localeCompare(nameB.firstName, 'vi');
+  if (cmpFirstStrict !== 0) return cmpFirstStrict;
+  // Nếu Tên trùng nhau thì so sánh Họ và tên đệm
+  const cmpRest = nameA.restOfName.localeCompare(nameB.restOfName, 'vi', { sensitivity: 'base' });
+  if (cmpRest !== 0) return cmpRest;
+  return nameA.restOfName.localeCompare(nameB.restOfName, 'vi');
+}
+
+function sortStudentsByCriteria(students, sortBy = 'default') {
+  if (!sortBy || sortBy === 'default' || sortBy === 'order_asc') {
+    return students;
+  }
+  const cloned = [...students];
+  if (sortBy === 'name_asc') {
+    return cloned.sort((a, b) => compareVietnameseNames(a.full_name, b.full_name));
+  }
+  if (sortBy === 'name_desc') {
+    return cloned.sort((a, b) => compareVietnameseNames(b.full_name, a.full_name));
+  }
+  if (sortBy === 'fullname_asc') {
+    return cloned.sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''), 'vi'));
+  }
+  if (sortBy === 'fullname_desc') {
+    return cloned.sort((a, b) => String(b.full_name || '').localeCompare(String(a.full_name || ''), 'vi'));
+  }
+  if (sortBy === 'code_asc') {
+    return cloned.sort((a, b) => String(a.student_code || '').localeCompare(String(b.student_code || '')));
+  }
+  if (sortBy === 'code_desc') {
+    return cloned.sort((a, b) => String(b.student_code || '').localeCompare(String(a.student_code || '')));
+  }
+  if (sortBy === 'birthday_asc') {
+    return cloned.sort((a, b) => String(a.birthday || '').localeCompare(String(b.birthday || '')));
+  }
+  if (sortBy === 'birthday_desc') {
+    return cloned.sort((a, b) => String(b.birthday || '').localeCompare(String(a.birthday || '')));
+  }
+  return cloned;
+}
+
 app.get('/api/students', async (req, res) => {
   try {
     const rawLimit = req.query.limit;
@@ -2342,6 +2399,7 @@ app.get('/api/students', async (req, res) => {
     const targetId = (req.query.target_id || req.query.targetId) ? Number(req.query.target_id || req.query.targetId) : null;
     const status = cleanText(req.query.status);
     const keyword = cleanText(req.query.keyword || req.query.q);
+    const sortBy = cleanText(req.query.sort_by || req.query.sortBy);
 
     let whereSql = 'WHERE s.is_active = 1';
     const params = [];
@@ -2383,7 +2441,8 @@ app.get('/api/students', async (req, res) => {
       ORDER BY (CASE WHEN s.order_index IS NULL THEN 9999 ELSE s.order_index END) ASC, s.id DESC
     `, params);
 
-    res.json(rows);
+    const sortedRows = sortBy ? sortStudentsByCriteria(rows, sortBy) : rows;
+    res.json(sortedRows);
   } catch (error) {
     sendError(res, error);
   }
@@ -2396,6 +2455,7 @@ app.get('/api/students/export-excel', async (req, res) => {
     const targetId = (req.query.target_id || req.query.targetId) ? Number(req.query.target_id || req.query.targetId) : null;
     const status = cleanText(req.query.status);
     const keyword = cleanText(req.query.keyword || req.query.q);
+    const sortBy = cleanText(req.query.sort_by || req.query.sortBy);
 
     let whereSql = 'WHERE s.is_active = 1';
     const params = [];
@@ -2418,10 +2478,10 @@ app.get('/api/students/export-excel', async (req, res) => {
       params.push(kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern, kwPattern);
     }
 
-    const rows = await db.all(`
+    let rows = await db.all(`
       SELECT s.*,
-             b.name AS batch_name,
-             t.name AS target_name
+             b.name AS batch_name, b.code AS batch_code,
+             t.name AS target_name, t.code AS target_code
       FROM students s
       LEFT JOIN admission_batches b ON b.id = s.batch_id
       LEFT JOIN admission_targets t ON t.id = s.target_id
@@ -2429,47 +2489,169 @@ app.get('/api/students/export-excel', async (req, res) => {
       ORDER BY (CASE WHEN s.order_index IS NULL THEN 9999 ELSE s.order_index END) ASC, s.id DESC
     `, params);
 
-    const escapeCsv = (val) => {
-      const str = String(val ?? '').replace(/"/g, '""');
-      return `"${str}"`;
+    if (sortBy) {
+      rows = sortStudentsByCriteria(rows, sortBy);
+    }
+
+    // Tạo dữ liệu bảng — Các cột theo đúng thông tin trên Phiếu tiếp nhận học viên (không bao gồm ảnh)
+    const statusLabel = (st) => {
+      if (st === 'Approved' || st === 'Completed') return 'Đã duyệt';
+      if (st === 'Rejected') return 'Hủy yêu cầu';
+      return 'Chờ duyệt';
     };
 
     const headers = [
-      'STT', 'Mã hồ sơ', 'Họ và tên', 'Ngày sinh', 'Nơi sinh', 'Quê quán',
-      'Cấp bậc', 'Chức vụ', 'Đơn vị cử đi học', 'Số CCCD/CMND', 'Số điện thoại',
-      'Email', 'Đợt tiếp nhận', 'Đối tượng tiếp nhận', 'Lớp biên chế',
-      'Trạng thái', 'Trình độ học vấn', 'Ghi chú thẩm định'
+      'STT',
+      'Mã hồ sơ',
+      'Đợt tiếp nhận',
+      'Đối tượng tiếp nhận',
+      'Họ và tên',
+      'Giới tính',
+      'Ngày sinh',
+      'Nơi sinh',
+      'Quê quán',
+      'Số CMT sĩ quan',
+      'Cấp bậc',
+      'Chức vụ',
+      'Đơn vị công tác',
+      'Lớp biên chế',
+      'Trình độ học vấn',
+      'Số điện thoại',
+      'Email',
+      'Ngày kê khai',
+      'Trạng thái',
+      'Ghi chú thẩm định'
     ];
 
-    const lines = [headers.map(escapeCsv).join(',')];
-    rows.forEach((r, idx) => {
-      lines.push([
-        escapeCsv(r.order_index || (idx + 1)),
-        escapeCsv(r.student_code || ''),
-        escapeCsv(r.full_name || ''),
-        escapeCsv(r.birthday || ''),
-        escapeCsv(r.birthplace || ''),
-        escapeCsv(r.hometown || ''),
-        escapeCsv(r.rank || ''),
-        escapeCsv(r.position || ''),
-        escapeCsv(r.unit || ''),
-        escapeCsv(r.id_card || ''),
-        escapeCsv(r.phone || ''),
-        escapeCsv(r.email || ''),
-        escapeCsv(r.batch_name || ''),
-        escapeCsv(r.target_name || ''),
-        escapeCsv(r.class_name || ''),
-        escapeCsv(r.status === 'Approved' ? 'Đã duyệt' : (r.status === 'Rejected' ? 'Hủy yêu cầu' : 'Chờ duyệt')),
-        escapeCsv(r.education_level || ''),
-        escapeCsv(r.review_notes || '')
-      ].join(','));
-    });
+    const isSortedByName = sortBy && sortBy.startsWith('name');
+    const data = rows.map((r, idx) => [
+      isSortedByName ? (idx + 1) : (r.order_index || (idx + 1)),
+      r.student_code || '',
+      r.batch_name || '',
+      r.target_name || '',
+      r.full_name || '',
+      r.gender || '',
+      r.birthday || '',
+      r.birthplace || '',
+      r.hometown || '',
+      r.id_card || '',
+      r.rank || '',
+      r.position || '',
+      r.unit || '',
+      r.class_name || '',
+      r.education_level || '',
+      r.phone || '',
+      r.email || '',
+      r.declaration_date || '',
+      statusLabel(r.status),
+      r.review_notes || ''
+    ]);
 
-    const csvContent = '\uFEFF' + lines.join('\r\n');
-    const fileName = `Danh_Sach_Hoc_Vien_${new Date().toISOString().slice(0, 10)}.csv`;
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    // Tạo workbook Excel thực sự (.xlsx) bằng thư viện xlsx
+    const XLSX = require('xlsx');
+    const wsData = [headers, ...data];
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Tự tính độ rộng cột phù hợp với nội dung dữ liệu
+    const colWidths = headers.map((h, colIdx) => {
+      let maxLen = h.length;
+      data.forEach(row => {
+        const cellVal = String(row[colIdx] ?? '');
+        // Tính theo ký tự Unicode (tiếng Việt), mỗi ký tự rộng hơn ASCII 1 chút
+        const len = cellVal.length;
+        if (len > maxLen) maxLen = len;
+      });
+      return { wch: Math.min(Math.max(maxLen + 2, 8), 50) };
+    });
+    ws['!cols'] = colWidths;
+
+    // Tên Sheet hiển thị ngắn gọn (tối đa 31 ký tự cho Excel)
+    let sheetName = 'Danh sach hoc vien';
+    if (batchId) {
+      const batchInfo = rows.length > 0 ? rows[0].batch_code : '';
+      if (batchInfo) sheetName = String(batchInfo).slice(0, 31);
+    }
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    const xlsxBuffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+
+    // Tạo tên file mô tả (bao gồm tên đợt nếu có)
+    let fileLabel = 'Tong_Hop_Tiep_Nhan_Hoc_Vien';
+    if (batchId) {
+      const batchRow = rows.length > 0 ? rows[0] : null;
+      if (batchRow && batchRow.batch_code) {
+        fileLabel = `Tong_Hop_${batchRow.batch_code}`;
+      }
+    }
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const fileName = `${fileLabel}_${dateStr}.xlsx`;
+
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Access-Control-Expose-Headers', 'Content-Disposition');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-    res.send(Buffer.from(csvContent, 'utf8'));
+    res.send(xlsxBuffer);
+  } catch (error) {
+    sendError(res, error);
+  }
+});
+
+// Sắp xếp và đánh lại số thứ tự (STT / order_index) theo họ và tên chuẩn tiếng Việt
+app.post('/api/students/reorder-by-name', async (req, res) => {
+  try {
+    const batchId = (req.body.batch_id || req.body.batchId) ? Number(req.body.batch_id || req.body.batchId) : null;
+    const targetId = (req.body.target_id || req.body.targetId) ? Number(req.body.target_id || req.body.targetId) : null;
+
+    let whereSql = 'WHERE is_active = 1';
+    const params = [];
+    if (batchId) {
+      whereSql += ' AND batch_id = ?';
+      params.push(batchId);
+    }
+    if (targetId) {
+      whereSql += ' AND target_id = ?';
+      params.push(targetId);
+    }
+
+    const students = await db.all(`
+      SELECT id, full_name, student_code, order_index
+      FROM students
+      ${whereSql}
+    `, params);
+
+    if (!students || !students.length) {
+      return res.json({ ok: true, count: 0, message: 'Không có học viên nào để sắp xếp.' });
+    }
+
+    // Sắp xếp theo thứ tự tiếng Việt chuẩn (Tên trước, Họ đệm sau)
+    students.sort((a, b) => compareVietnameseNames(a.full_name, b.full_name));
+
+    // Cập nhật order_index theo từng batch (tối đa 100 học viên / query) để tốc độ tối ưu
+    const CHUNK_SIZE = 100;
+    for (let i = 0; i < students.length; i += CHUNK_SIZE) {
+      const chunk = students.slice(i, i + CHUNK_SIZE);
+      const caseParts = [];
+      const idList = [];
+      chunk.forEach((st, idxInChunk) => {
+        const orderNum = i + idxInChunk + 1;
+        caseParts.push(`WHEN id = ${Number(st.id)} THEN ${orderNum}`);
+        idList.push(Number(st.id));
+      });
+      const sqlUpdate = `
+        UPDATE students 
+        SET order_index = CASE ${caseParts.join(' ')} END 
+        WHERE id IN (${idList.join(',')})
+      `;
+      await db.run(sqlUpdate);
+    }
+
+    await auditLog('Update', 'Students', null, { action: 'ReorderByName', count: students.length, batchId, targetId }, null, req);
+
+    res.json({
+      ok: true,
+      count: students.length,
+      message: `Đã sắp xếp và đánh lại số thứ tự thành công cho ${students.length} học viên theo vần A-Z.`
+    });
   } catch (error) {
     sendError(res, error);
   }
