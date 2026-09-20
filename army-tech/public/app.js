@@ -2040,7 +2040,7 @@ function renderWorkScheduleTable(eventsByDate = groupCalendarByDate()) {
       : 'Chưa có dữ liệu';
   }
 
-  el('workScheduleBody').innerHTML = weekDays.map((date, dayIndex) => {
+  const bodyRows = weekDays.map((date, dayIndex) => {
     const dateKey = localDateString(date);
     const events = (eventsByDate.get(dateKey) || []).slice().sort(sortCalendarEvents);
     const rows = events.length ? events : [null];
@@ -2059,7 +2059,7 @@ function renderWorkScheduleTable(eventsByDate = groupCalendarByDate()) {
             </div>
           </td>` : ''}
           <td class="schedule-time">${item ? escapeHtml(item.start_time || '') : ''}</td>
-          <td class="schedule-content">${item ? escapeHtml(item.title || item.content || '') : ''}</td>
+          <td class="schedule-content" style="${item && item.color === '#dc2626' ? 'color: #dc2626; font-weight: 600;' : ''}">${item ? escapeHtml(item.title || item.content || '') : ''}</td>
           <td>${item ? escapeHtml(item.tt_hv || '') : ''}</td>
           <td>${item ? escapeHtml(item.tt_phong || '') : ''}</td>
           <td>${item ? escapeHtml(item.person_in_charge || '') : ''}</td>
@@ -2069,6 +2069,31 @@ function renderWorkScheduleTable(eventsByDate = groupCalendarByDate()) {
       `;
     }).join('');
   }).join('');
+
+  let footerRows = '';
+  if (dailyDutyMap._dutyNote) {
+    footerRows += `
+      <tr class="schedule-footer-note" style="background: #e0f2fe; color: #0284c7; font-weight: 700; text-align: center;">
+        <td colspan="9" style="text-align: center; padding: 9px 12px; font-size: 0.875rem; letter-spacing: 0.02em;">${escapeHtml(dailyDutyMap._dutyNote)}</td>
+      </tr>
+    `;
+  }
+  if (dailyDutyMap._dutyOrder) {
+    footerRows += `
+      <tr class="schedule-footer-order" style="background: #fef9c3; color: #854d0e; font-weight: 700; text-align: center;">
+        <td colspan="9" style="text-align: center; padding: 9px 12px; font-size: 0.875rem;">${escapeHtml(dailyDutyMap._dutyOrder)}</td>
+      </tr>
+    `;
+  }
+  if (dailyDutyMap._dutyOff) {
+    footerRows += `
+      <tr class="schedule-footer-off" style="background: #ffffff; color: #dc2626; font-weight: 700; text-align: center;">
+        <td colspan="9" style="text-align: center; padding: 9px 12px; font-size: 0.875rem;">${escapeHtml(dailyDutyMap._dutyOff)}</td>
+      </tr>
+    `;
+  }
+
+  el('workScheduleBody').innerHTML = bodyRows + footerRows;
 }
 
 function getWeekMeta(weekStartKey) {
@@ -2149,6 +2174,11 @@ async function saveWeekMeta(event) {
       }
     });
   }
+  const currentMeta = getWeekMeta(weekStartKey);
+  const currentDailyMap = parseDailyDutyOfficers(currentMeta);
+  ['_dutyNote', '_dutyOrder', '_dutyOff'].forEach(k => {
+    if (currentDailyMap[k]) dailyDutyOfficers[k] = currentDailyMap[k];
+  });
 
   try {
     const row = await request('/api/calendar/week-meta', {
@@ -2418,6 +2448,11 @@ async function saveDutyAssignmentFull(event) {
     if (dKey) {
       dailyDutyOfficers[dKey] = inp.value.trim();
     }
+  });
+  const currentMeta = getWeekMeta(weekStartKey);
+  const currentDailyMap = parseDailyDutyOfficers(currentMeta);
+  ['_dutyNote', '_dutyOrder', '_dutyOff'].forEach(k => {
+    if (currentDailyMap[k]) dailyDutyOfficers[k] = currentDailyMap[k];
   });
 
   try {
