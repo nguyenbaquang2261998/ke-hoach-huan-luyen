@@ -3720,6 +3720,23 @@ async function downloadStudentBundleCurrent() {
   }
 }
 
+function exportStudentsPdf() {
+  const params = new URLSearchParams();
+  // Không giới hạn số lượng để lấy toàn bộ học viên thoả mãn (sử dụng limit=all)
+  params.append('limit', 'all');
+  if (admissionState.filters.batchId) params.append('batchId', admissionState.filters.batchId);
+  if (admissionState.filters.targetId) params.append('targetId', admissionState.filters.targetId);
+  if (admissionState.filters.status) params.append('status', admissionState.filters.status);
+  if (admissionState.filters.keyword) params.append('keyword', admissionState.filters.keyword);
+  if (admissionState.sortBy && admissionState.sortBy !== 'default') params.append('sort_by', admissionState.sortBy);
+
+  const query = params.toString() ? `?${params.toString()}` : '';
+  const printUrl = `/print-receipts.html${query}`;
+  
+  // Mở tab mới để in
+  window.open(printUrl, '_blank');
+}
+
 async function exportStudentsExcel() {
   try {
     const params = new URLSearchParams();

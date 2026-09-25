@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <title>In Phiếu Tiếp Nhận - Học viện Chính trị</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Times+New+Roman&display=swap');
+    
+    body {
+      font-family: 'Times New Roman', Times, serif;
+      margin: 0;
+      padding: 0;
+      background: #f0f2f5;
+    }
+    
+    .print-container {
+      max-width: 210mm; /* A4 width */
+      margin: 0 auto;
+      background: white;
+    }
+
+    .receipt-page {
+      padding: 20mm;
+      box-sizing: border-box;
+      min-height: 297mm; /* A4 height */
+      page-break-after: always;
+      position: relative;
+    }
+    
+    .receipt-page:last-child {
+      page-break-after: auto;
+    }
+
+    .header-center {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+
+    .header-title-1 {
+      font-size: 16px;
+      font-weight: bold;
+      margin: 0;
+      text-transform: uppercase;
+    }
+
+    .header-title-2 {
+      font-size: 16px;
+      font-weight: bold;
+      margin: 5px 0 0 0;
+    }
+
+    .header-line {
+      display: inline-block;
+      width: 150px;
+      border-bottom: 1px solid black;
+      margin: 2px 0 15px 0;
+    }
+
+    .receipt-title {
+      text-align: center;
+      font-size: 18px;
+      font-weight: bold;
+      text-transform: uppercase;
+      margin-top: 30px;
+      margin-bottom: 5px;
+    }
+    
+    .receipt-subtitle {
+      text-align: center;
+      font-size: 14px;
+      margin-bottom: 30px;
+    }
+
+    .section-title {
+      font-size: 16px;
+      font-weight: bold;
+      margin-top: 20px;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+    }
+
+    .info-row {
+      display: flex;
+      font-size: 15px;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .info-label {
+      width: 220px;
+      flex-shrink: 0;
+    }
+    
+    .info-value {
+      flex-grow: 1;
+    }
+    
+    .info-bullet {
+      margin-left: 15px;
+    }
+    
+    .note {
+      font-size: 15px;
+      font-style: italic;
+      font-weight: bold;
+      margin-top: 30px;
+      line-height: 1.5;
+    }
+
+    .commitment {
+      font-size: 15px;
+      margin-top: 15px;
+      line-height: 1.5;
+    }
+
+    .signature-section {
+      margin-top: 20px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .signature-box {
+      text-align: center;
+      width: 250px;
+    }
+
+    .signature-date {
+      font-size: 15px;
+      margin-bottom: 5px;
+      font-style: italic;
+    }
+    
+    .signature-title {
+      font-size: 15px;
+      font-weight: bold;
+      margin-bottom: 80px;
+    }
+
+    .no-data {
+      padding: 50px;
+      text-align: center;
+      font-family: sans-serif;
+    }
+
+    /* Print specific styles */
+    @media print {
+      body {
+        background: white;
+      }
+      .print-container {
+        max-width: 100%;
+        margin: 0;
+      }
+      .receipt-page {
+        padding: 0;
+        margin: 0;
+        min-height: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app" class="print-container">
+    <div class="no-data">Đang tải dữ liệu...</div>
+  </div>
+
+  <script>
+    // Format date string to dDay, dMonth, dYear
+    function parseDate(dateStr) {
+      if (!dateStr) return { day: '...', month: '...', year: '...' };
+      try {
+        const d = new Date(dateStr);
+        if (isNaN(d.getTime())) {
+            const parts = dateStr.split('-');
+            if(parts.length === 3) return { day: parseInt(parts[2]), month: parseInt(parts[1]), year: parts[0] };
+            return { day: '...', month: '...', year: '...' };
+        }
+        return { day: d.getDate(), month: d.getMonth() + 1, year: d.getFullYear() };
+      } catch (e) {
+        return { day: '...', month: '...', year: '...' };
+      }
+    }
+
+    async function loadDataAndPrint() {
+      try {
+        // Lấy token để gọi API (cùng cơ chế với app.js)
+        const authDataStr = localStorage.getItem('armyTechAuth');
+        const headers = {};
+        if (authDataStr) {
+          try {
+            const authData = JSON.parse(authDataStr);
+            if (authData && authData.accessToken) {
+              headers['Authorization'] = `Bearer ${authData.accessToken}`;
+            }
+          } catch (e) {
+            console.error('Failed to parse auth token', e);
+          }
+        }
+
+        // Lấy điều kiện lọc từ URL
+        const query = window.location.search;
+        
+        const response = await fetch(`/api/students${query}`, { headers });
+        if (!response.ok) throw new Error('Không thể tải dữ liệu học viên');
+        
+        let students = await response.json();
+        
+        // Nếu API trả về { data: [] } thay vì mảng trực tiếp (phòng ngừa)
+        if (students.data && Array.isArray(students.data)) {
+           students = students.data;
+        }
+
+        const appDiv = document.getElementById('app');
+        
+        if (!students || students.length === 0) {
+          appDiv.innerHTML = '<div class="no-data">Không có học viên nào phù hợp với điều kiện lọc.</div>';
+          return;
+        }
+
+        let html = '';
+        
+        students.forEach(student => {
+          const targetTitle = (student.target_name || 'ĐÀO TẠO').toUpperCase();
+          const pDate = parseDate(student.declaration_date || student.admission_date || new Date().toISOString().slice(0, 10));
+          
+          html += `
+            <div class="receipt-page">
+              <div class="header-center">
+                <p class="header-title-1">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+                <p class="header-title-2">Độc lập – Tự do – Hạnh phúc</p>
+                <span class="header-line"></span>
+              </div>
+
+              <div class="receipt-title">PHIẾU ĐĂNG KÝ NHẬP HỌC ${targetTitle}</div>
+              <div class="receipt-subtitle">Kính gửi: Phòng Đào tạo/Học viện Chính trị</div>
+
+              <div class="section-title">I. THÔNG TIN HỌC VIÊN</div>
+              <div class="info-row">
+                <div class="info-label">1. Họ và tên:</div>
+                <div class="info-value">${student.full_name || ''}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">2. Ngày sinh:</div>
+                <div class="info-value">${student.birthday || ''}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">3. Nơi sinh:</div>
+                <div class="info-value">${student.birthplace || ''}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">4. Quê quán:</div>
+                <div class="info-value">${student.hometown || ''}</div>
+              </div>
+
+              <div class="section-title">II. THÔNG TIN CÔNG TÁC</div>
+              <div class="info-row">
+                <div class="info-label">1. Cấp bậc:</div>
+                <div class="info-value">${student.rank || ''}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">2. Chức vụ:</div>
+                <div class="info-value">${student.position || ''}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">3. Đơn vị (Trực thuộc Bộ):</div>
+                <div class="info-value">${student.unit || ''}</div>
+              </div>
+              <div class="info-row">
+                <div class="info-label">4. Trình độ học vấn:</div>
+                <div class="info-value">${student.education_level || ''}</div>
+              </div>
+
+              <div class="section-title">III. THÔNG TIN LIÊN HỆ</div>
+              <div class="info-row">
+                <div class="info-label info-bullet">• Số điện thoại:</div>
+                <div class="info-value">${student.phone || ''}</div>
+              </div>
+              ${student.id_card ? `
+              <div class="info-row">
+                <div class="info-label info-bullet">• Số CCCD/CMND:</div>
+                <div class="info-value">${student.id_card}</div>
+              </div>
+              ` : ''}
+
+              <div class="note">Ghi chú: Chuẩn bị bản photocopy văn bằng (đã kê khai) kèm bản gốc để đối chiếu tại bàn tiếp nhận học viên.</div>
+              
+              <div class="commitment">Tôi xin cam đoan các thông tin kê khai trên là hoàn toàn chính xác và chấp hành nghiêm chỉnh mọi quy chế, quy định của Học viện.</div>
+
+              <div class="signature-section">
+                <div class="signature-box">
+                  <div class="signature-date">Hà Nội, ngày ${pDate.day} tháng ${pDate.month} năm ${pDate.year}</div>
+                  <div class="signature-title">NGƯỜI KÊ KHAI<br><span style="font-weight:normal; font-style:italic;">(Ký, ghi rõ họ tên)</span></div>
+                </div>
+              </div>
+            </div>
+          `;
+        });
+
+        appDiv.innerHTML = html;
+        
+        // Đợi DOM render xong rồi in
+        setTimeout(() => {
+          window.print();
+        }, 500);
+
+      } catch (err) {
+        console.error(err);
+        document.getElementById('app').innerHTML = `<div class="no-data" style="color:red">Lỗi tải dữ liệu: ${err.message}</div>`;
+      }
+    }
+
+    // Run when page loads
+    window.addEventListener('DOMContentLoaded', loadDataAndPrint);
+  </script>
+</body>
+</html>
