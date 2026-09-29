@@ -3736,6 +3736,7 @@ function exportStudentsPdf() {
   // Mở tab mới để in
   window.open(printUrl, '_blank');
 }
+window.exportStudentsPdf = exportStudentsPdf;
 
 async function exportStudentsExcel() {
   try {

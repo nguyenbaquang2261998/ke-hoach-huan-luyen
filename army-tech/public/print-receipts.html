@@ -157,12 +157,45 @@
         min-height: auto;
       }
     }
+    
+    .progress-container {
+      max-width: 500px;
+      margin: 100px auto;
+      text-align: center;
+      font-family: sans-serif;
+    }
+    .progress-bar {
+      width: 100%;
+      height: 20px;
+      background: #ccc;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-top: 20px;
+      display: none;
+    }
+    .progress-fill {
+      height: 100%;
+      background: #15803d;
+      width: 0%;
+      transition: width 0.2s;
+    }
+    #render-container {
+      position: absolute;
+      left: -9999px;
+      top: -9999px;
+    }
   </style>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </head>
 <body>
-  <div id="app" class="print-container">
-    <div class="no-data">Đang tải dữ liệu...</div>
+  <div class="progress-container" id="status-container">
+    <h3 id="status-text">Đang tải dữ liệu...</h3>
+    <div class="progress-bar" id="progress-bar">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
   </div>
+  <div id="render-container"></div>
 
   <script>
     // Format date string to dDay, dMonth, dYear
@@ -210,102 +243,139 @@
            students = students.data;
         }
 
-        const appDiv = document.getElementById('app');
+        const statusContainer = document.getElementById('status-container');
+        const statusText = document.getElementById('status-text');
         
         if (!students || students.length === 0) {
-          appDiv.innerHTML = '<div class="no-data">Không có học viên nào phù hợp với điều kiện lọc.</div>';
+          statusContainer.innerHTML = '<div class="no-data">Không có học viên nào phù hợp với điều kiện lọc.</div>';
           return;
         }
 
-        let html = '';
+        const progressBar = document.getElementById('progress-bar');
+        const progressFill = document.getElementById('progress-fill');
+        const renderContainer = document.getElementById('render-container');
         
-        students.forEach(student => {
+        statusText.innerText = 'Đang chuẩn bị xuất PDF...';
+        progressBar.style.display = 'block';
+
+        const zip = new JSZip();
+
+        for (let i = 0; i < students.length; i++) {
+          const student = students[i];
           const targetTitle = (student.target_name || 'ĐÀO TẠO').toUpperCase();
           const pDate = parseDate(student.declaration_date || student.admission_date || new Date().toISOString().slice(0, 10));
           
-          html += `
-            <div class="receipt-page">
-              <div class="header-center">
-                <p class="header-title-1">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
-                <p class="header-title-2">Độc lập – Tự do – Hạnh phúc</p>
-                <span class="header-line"></span>
+          const htmlContent = `
+            <div class="receipt-page" style="width: 210mm; padding: 20mm; background: white; font-family: 'Times New Roman', Times, serif; color: black; box-sizing: border-box;">
+              <div class="header-center" style="text-align: center; margin-bottom: 20px;">
+                <p class="header-title-1" style="font-weight: bold; font-size: 16px; margin:0;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
+                <p class="header-title-2" style="font-weight: bold; font-size: 16px; margin:0; text-decoration: underline;">Độc lập – Tự do – Hạnh phúc</p>
               </div>
 
-              <div class="receipt-title">PHIẾU ĐĂNG KÝ NHẬP HỌC ${targetTitle}</div>
-              <div class="receipt-subtitle">Kính gửi: Phòng Đào tạo/Học viện Chính trị</div>
+              <div class="receipt-title" style="text-align: center; font-weight: bold; font-size: 18px; margin-top: 40px; margin-bottom: 5px;">PHIẾU ĐĂNG KÝ NHẬP HỌC ${targetTitle}</div>
+              <div class="receipt-subtitle" style="text-align: center; font-size: 16px; margin-bottom: 30px;">Kính gửi: Phòng Đào tạo/Học viện Chính trị</div>
 
-              <div class="section-title">I. THÔNG TIN HỌC VIÊN</div>
-              <div class="info-row">
-                <div class="info-label">1. Họ và tên:</div>
-                <div class="info-value">${student.full_name || ''}</div>
+              <div class="section-title" style="font-weight: bold; font-size: 16px; margin-top: 15px; margin-bottom: 10px;">I. THÔNG TIN HỌC VIÊN</div>
+              <div class="info-row" style="display: flex; margin-bottom: 8px; font-size: 16px;">
+                <div class="info-label" style="width: 180px;">1. Họ và tên:</div>
+                <div class="info-value" style="flex: 1; font-weight: bold;">${student.full_name || ''}</div>
               </div>
-              <div class="info-row">
-                <div class="info-label">2. Ngày sinh:</div>
-                <div class="info-value">${student.birthday || ''}</div>
+              <div class="info-row" style="display: flex; margin-bottom: 8px; font-size: 16px;">
+                <div class="info-label" style="width: 180px;">2. Ngày sinh:</div>
+                <div class="info-value" style="flex: 1;">${student.birthday || ''}</div>
               </div>
-              <div class="info-row">
-                <div class="info-label">3. Nơi sinh:</div>
-                <div class="info-value">${student.birthplace || ''}</div>
+              <div class="info-row" style="display: flex; margin-bottom: 8px; font-size: 16px;">
+                <div class="info-label" style="width: 180px;">3. Nơi sinh:</div>
+                <div class="info-value" style="flex: 1;">${student.birthplace || ''}</div>
               </div>
-              <div class="info-row">
-                <div class="info-label">4. Quê quán:</div>
-                <div class="info-value">${student.hometown || ''}</div>
-              </div>
-
-              <div class="section-title">II. THÔNG TIN CÔNG TÁC</div>
-              <div class="info-row">
-                <div class="info-label">1. Cấp bậc:</div>
-                <div class="info-value">${student.rank || ''}</div>
-              </div>
-              <div class="info-row">
-                <div class="info-label">2. Chức vụ:</div>
-                <div class="info-value">${student.position || ''}</div>
-              </div>
-              <div class="info-row">
-                <div class="info-label">3. Đơn vị (Trực thuộc Bộ):</div>
-                <div class="info-value">${student.unit || ''}</div>
-              </div>
-              <div class="info-row">
-                <div class="info-label">4. Trình độ học vấn:</div>
-                <div class="info-value">${student.education_level || ''}</div>
+              <div class="info-row" style="display: flex; margin-bottom: 8px; font-size: 16px;">
+                <div class="info-label" style="width: 180px;">4. Quê quán:</div>
+                <div class="info-value" style="flex: 1;">${student.hometown || ''}</div>
               </div>
 
-              <div class="section-title">III. THÔNG TIN LIÊN HỆ</div>
-              <div class="info-row">
-                <div class="info-label info-bullet">• Số điện thoại:</div>
-                <div class="info-value">${student.phone || ''}</div>
+              <div class="section-title" style="font-weight: bold; font-size: 16px; margin-top: 15px; margin-bottom: 10px;">II. THÔNG TIN CÔNG TÁC</div>
+              <div class="info-row" style="display: flex; margin-bottom: 8px; font-size: 16px;">
+                <div class="info-label" style="width: 250px;">1. Cấp bậc:</div>
+                <div class="info-value" style="flex: 1;">${student.rank || ''}</div>
+              </div>
+              <div class="info-row" style="display: flex; margin-bottom: 8px; font-size: 16px;">
+                <div class="info-label" style="width: 250px;">2. Chức vụ:</div>
+                <div class="info-value" style="flex: 1;">${student.position || ''}</div>
+              </div>
+              <div class="info-row" style="display: flex; margin-bottom: 8px; font-size: 16px;">
+                <div class="info-label" style="width: 250px;">3. Đơn vị (Trực thuộc Bộ):</div>
+                <div class="info-value" style="flex: 1;">${student.unit || ''}</div>
+              </div>
+              <div class="info-row" style="display: flex; margin-bottom: 8px; font-size: 16px;">
+                <div class="info-label" style="width: 250px;">4. Trình độ học vấn:</div>
+                <div class="info-value" style="flex: 1;">${student.education_level || ''}</div>
+              </div>
+
+              <div class="section-title" style="font-weight: bold; font-size: 16px; margin-top: 15px; margin-bottom: 10px;">III. THÔNG TIN LIÊN HỆ</div>
+              <div class="info-row" style="display: flex; margin-bottom: 8px; font-size: 16px;">
+                <div class="info-label info-bullet" style="width: 180px;">• Số điện thoại:</div>
+                <div class="info-value" style="flex: 1;">${student.phone || ''}</div>
               </div>
               ${student.id_card ? `
-              <div class="info-row">
-                <div class="info-label info-bullet">• Số CCCD/CMND:</div>
-                <div class="info-value">${student.id_card}</div>
+              <div class="info-row" style="display: flex; margin-bottom: 8px; font-size: 16px;">
+                <div class="info-label info-bullet" style="width: 180px;">• Số CCCD/CMND:</div>
+                <div class="info-value" style="flex: 1;">${student.id_card}</div>
               </div>
               ` : ''}
 
-              <div class="note">Ghi chú: Chuẩn bị bản photocopy văn bằng (đã kê khai) kèm bản gốc để đối chiếu tại bàn tiếp nhận học viên.</div>
+              <div class="note" style="font-size: 16px; font-style: italic; font-weight: bold; margin-top: 30px; line-height: 1.5;">Ghi chú: Chuẩn bị bản photocopy văn bằng (đã kê khai) kèm bản gốc để đối chiếu tại bàn tiếp nhận học viên.</div>
               
-              <div class="commitment">Tôi xin cam đoan các thông tin kê khai trên là hoàn toàn chính xác và chấp hành nghiêm chỉnh mọi quy chế, quy định của Học viện.</div>
+              <div class="commitment" style="font-size: 16px; margin-top: 15px; line-height: 1.5;">Tôi xin cam đoan các thông tin kê khai trên là hoàn toàn chính xác và chấp hành nghiêm chỉnh mọi quy chế, quy định của Học viện.</div>
 
-              <div class="signature-section">
-                <div class="signature-box">
-                  <div class="signature-date">Hà Nội, ngày ${pDate.day} tháng ${pDate.month} năm ${pDate.year}</div>
-                  <div class="signature-title">NGƯỜI KÊ KHAI<br><span style="font-weight:normal; font-style:italic;">(Ký, ghi rõ họ tên)</span></div>
+              <div class="signature-section" style="margin-top: 20px; display: flex; justify-content: flex-end;">
+                <div class="signature-box" style="text-align: center; width: 250px;">
+                  <div class="signature-date" style="font-size: 16px; margin-bottom: 5px; font-style: italic;">Hà Nội, ngày ${pDate.day} tháng ${pDate.month} năm ${pDate.year}</div>
+                  <div class="signature-title" style="font-size: 16px; font-weight: bold; margin-bottom: 80px;">NGƯỜI KÊ KHAI<br><span style="font-weight:normal; font-style:italic;">(Ký, ghi rõ họ tên)</span></div>
                 </div>
               </div>
             </div>
           `;
-        });
+          
+          renderContainer.innerHTML = htmlContent;
+          
+          statusText.innerText = `Đang tạo PDF (${i + 1}/${students.length})...`;
+          progressFill.style.width = `${((i + 1) / students.length) * 100}%`;
 
-        appDiv.innerHTML = html;
+          const opt = {
+            margin:       0,
+            filename:     `Phieu_Tiep_Nhan_${student.student_code || student.id}.pdf`,
+            image:        { type: 'jpeg', quality: 0.98 },
+            html2canvas:  { scale: 2 },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+          };
+
+          if (students.length === 1) {
+            await html2pdf().set(opt).from(renderContainer.firstElementChild).save();
+            statusText.innerText = 'Hoàn tất xuất PDF!';
+            return;
+          } else {
+            const pdfBlob = await html2pdf().set(opt).from(renderContainer.firstElementChild).output('blob');
+            const safeName = student.full_name ? student.full_name.replace(/\s+/g, '_') : 'KhongTen';
+            const fileName = `Phieu_${student.student_code || student.id}_${safeName}.pdf`;
+            zip.file(fileName, pdfBlob);
+          }
+        }
         
-        // Đợi DOM render xong rồi in
-        setTimeout(() => {
-          window.print();
-        }, 500);
+        if (students.length > 1) {
+          statusText.innerText = 'Đang nén các file PDF thành file ZIP...';
+          const zipBlob = await zip.generateAsync({ type: 'blob' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(zipBlob);
+          a.download = `Danh_Sach_Phieu_Tiep_Nhan.zip`;
+          a.click();
+          
+          statusText.innerText = 'Hoàn tất tải xuống file ZIP chứa các PDF!';
+        }
 
       } catch (err) {
         console.error(err);
-        document.getElementById('app').innerHTML = `<div class="no-data" style="color:red">Lỗi tải dữ liệu: ${err.message}</div>`;
+        const statusContainer = document.getElementById('status-container') || document.body;
+        statusContainer.innerHTML = `<div class="no-data" style="color:red">Lỗi tải dữ liệu: ${err.message}</div>`;
       }
     }
 
