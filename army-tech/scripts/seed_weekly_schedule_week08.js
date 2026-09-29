@@ -73,6 +73,7 @@ const WEEK_TASKS = [
     title: 'Học viên lớp K44/H2 tham quan NCTT',
     content: 'Học viên lớp K44/H2 tham quan NCTT',
     tt_hv: '',
+
     tt_phong: '',
     person_in_charge: 'K3',
     ban: 'Diện theo dõi',

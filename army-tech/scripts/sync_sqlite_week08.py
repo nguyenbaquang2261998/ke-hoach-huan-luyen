@@ -4,6 +4,12 @@ import json
 conn = sqlite3.connect('exam-draw.db')
 c = conn.cursor()
 
+# Ensure daily_duty_officers column exists
+columns = [col[1] for col in c.execute('PRAGMA table_info(weekly_schedule_meta)').fetchall()]
+if 'daily_duty_officers' not in columns:
+    c.execute('ALTER TABLE weekly_schedule_meta ADD COLUMN daily_duty_officers TEXT NULL')
+    conn.commit()
+
 c.execute('DELETE FROM weekly_schedule_meta WHERE week_start = ?', ('2026-09-28',))
 c.execute('''INSERT INTO weekly_schedule_meta(week_start, duty_summary, room_summary, daily_duty_officers, created_at, updated_at)
 VALUES (?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))''',
@@ -40,5 +46,6 @@ for t in tasks:
     VALUES (?, ?, ?, '', ?, ?, ?, ?, ?, ?, ?, ?, 'Published', 1, datetime('now', 'localtime'), datetime('now', 'localtime'))''', t)
 
 conn.commit()
-print('SQLite updated. Tasks count for week:', c.execute("SELECT COUNT(*) FROM weekly_tasks WHERE task_date >= '2026-09-28' AND task_date <= '2026-10-04'").fetchone()[0])
+count = c.execute("SELECT COUNT(*) FROM weekly_tasks WHERE task_date >= '2026-09-28' AND task_date <= '2026-10-04'").fetchone()[0]
+print(f'SQLite exam-draw.db successfully updated with {count} tasks for week 2026-09-28.')
 conn.close()
