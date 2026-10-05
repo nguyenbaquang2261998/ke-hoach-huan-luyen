@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Đăng nhập</title>
+  <title>Đăng nhập - Hệ thống Điều hành Nội bộ HVCT</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
@@ -23,15 +23,53 @@
 <body data-page="login" class="login-page">
   <main class="login-shell">
     <section class="login-identity">
-      <div class="login-emblem">
-        <img src="img/logo-removebg-preview.png" alt="Logo Học viện Chính trị" />
+      <div class="login-brand-header">
+        <div class="login-emblem">
+          <img src="img/logo-removebg-preview.png" alt="Logo Học viện Chính trị" />
+        </div>
+        <div>
+          <div class="login-kicker-badge">
+            <span class="live-dot"></span>
+            HỆ THỐNG ĐIỀU HÀNH TÁC NGHIỆP NỘI BỘ
+          </div>
+          <p class="login-kicker">Học viện Chính trị - Bộ Quốc phòng</p>
+        </div>
       </div>
-      <div>
-        <p class="login-kicker">Học viện Chính trị</p>
-        <h1 style="font-size: 35px;">Hệ thống điều hành nội bộ</h1>
-        <p style="margin-top: 10px; color: #bbf7d0; font-size: 1.0625rem; font-weight: 500;">
-          Nền tảng chuyển đổi số trong điều hành huấn luyện
+      <div class="login-identity-info">
+        <h1>Hệ thống Điều hành & Huấn luyện</h1>
+        <p class="login-desc">
+          Nền tảng chuyển đổi số toàn diện trong quản lý kế hoạch huấn luyện, khảo thí bốc thăm và điều hành đào tạo quân sự.
         </p>
+        
+        <div class="login-features">
+          <div class="login-feat-item">
+            <div class="login-feat-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+            </div>
+            <div>
+              <strong>Chỉ huy & Điều hành thời gian thực</strong>
+              <span>Lịch công tác tuần, báo động, nhắc việc và điều phối tức thì</span>
+            </div>
+          </div>
+          <div class="login-feat-item">
+            <div class="login-feat-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><polygon points="10 8 16 12 10 16 10 8" fill="currentColor"></polygon></svg>
+            </div>
+            <div>
+              <strong>Khảo thí & Bốc thăm tự động</strong>
+              <span>Thuật toán bốc thăm coi thi, chấm thi minh bạch, chuẩn quy chế</span>
+            </div>
+          </div>
+          <div class="login-feat-item">
+            <div class="login-feat-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            </div>
+            <div>
+              <strong>An toàn thông tin & Bảo mật đa tầng</strong>
+              <span>Phân quyền RBAC, mã hóa định danh và nhật ký audit log chặt chẽ</span>
+            </div>
+          </div>
+        </div>
       </div> 
     </section>
 
@@ -41,32 +79,74 @@
           <svg viewBox="0 0 24 24" focusable="false"><path d="M12 2l1.35 4.1L17.5 7.5l-4.15 1.4L12 13l-1.35-4.1L6.5 7.5l4.15-1.4L12 2z"></path><path d="M19 13l.8 2.4L22 16.2l-2.2.8-.8 2.4-.8-2.4-2.2-.8 2.2-.8.8-2.4z"></path></svg>
         </span>
         <div>
-          <h2 id="loginTitle">Đăng nhập hệ thống</h2>
-          <p id="loginHint" style="font-size: 13px; color: var(--text-muted);">Nhập tài khoản định danh để truy cập.</p>
+          <h2 id="loginTitle">Cổng Đăng Nhập</h2>
+          <p id="loginHint">Nhập tài khoản định danh cán bộ để truy cập.</p>
         </div>
       </div>
 
       <form id="loginForm" class="login-form">
-        <label>
-          Tài khoản đăng nhập
-          <input id="loginUsername" autocomplete="username" placeholder="Tên đăng nhập" required autofocus />
-        </label>
-        <label>
-          Mật khẩu bảo mật
-          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Mật khẩu" required />
-        </label>
+        <div class="login-field-wrap">
+          <label for="loginUsername">Tài khoản đăng nhập</label>
+          <div class="login-input-box">
+            <span class="login-input-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+            </span>
+            <input id="loginUsername" autocomplete="username" placeholder="Tên đăng nhập hoặc mã cán bộ" required autofocus />
+          </div>
+        </div>
+
+        <div class="login-field-wrap">
+          <label for="loginPassword">Mật khẩu bảo mật</label>
+          <div class="login-input-box">
+            <span class="login-input-icon">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
+            </span>
+            <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Nhập mật khẩu truy cập" required />
+            <button type="button" class="login-pwd-toggle" id="togglePwdBtn" aria-label="Hiện mật khẩu" onclick="togglePasswordVisibility()">
+              <svg id="eyeIcon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+            </button>
+          </div>
+        </div>
+
         <p id="loginError" class="login-error" role="alert"></p>
-        <button id="loginSubmit" class="primary" type="submit">Đăng nhập</button>
+        
+        <button id="loginSubmit" class="primary login-submit-btn" type="submit">
+          <span>Đăng nhập hệ thống</span>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </button>
       </form>
 
-      <div class="login-default-account">
-        <strong>Tài khoản & Phân quyền</strong>
-        <span>Do Quản trị viên cấp</span>
+      <div class="login-card-footer">
+        <a href="tiep-nhan.html" class="login-portal-link" title="Mở cổng tiếp nhận hồ sơ trên di động">
+          <div class="portal-link-icon">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          </div>
+          <span>Cổng Tiếp nhận Học viên (Mobile Check-in) &rarr;</span>
+        </a>
+
+        <div class="login-security-tag">
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+          <span>Bảo mật cấp học viện · Phân quyền RBAC</span>
+        </div>
       </div>
     </section>
   </main>
 
   <div id="toast" class="toast hidden"></div>
   <script src="app.js"></script>
+  <script>
+    function togglePasswordVisibility() {
+      const pwd = document.getElementById('loginPassword');
+      const icon = document.getElementById('eyeIcon');
+      if (!pwd) return;
+      if (pwd.type === 'password') {
+        pwd.type = 'text';
+        icon.innerHTML = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line>';
+      } else {
+        pwd.type = 'password';
+        icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+      }
+    }
+  </script>
 </body>
 </html>

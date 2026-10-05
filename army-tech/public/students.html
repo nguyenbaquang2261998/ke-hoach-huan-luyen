@@ -6,6 +6,7 @@
   <title>Tiếp nhận học viên - Học viện Chính trị</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
   <link rel="manifest" href="manifest.json" />
   <meta name="theme-color" content="#166534" />
   <link rel="apple-touch-icon" href="img/icon-192.png" />
@@ -33,96 +34,7 @@
     .hidden { display: none !important; }
     .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0,0,0,0); }
 
-    /* =====================================================
-       LAYOUT SHELL
-       ===================================================== */
-    .shell {
-      display: grid;
-      grid-template-columns: 220px 1fr;
-      min-height: 100vh;
-    }
-
-    /* =====================================================
-       SIDEBAR
-       ===================================================== */
-    .sidebar {
-      background: #0f231c;
-      display: flex;
-      flex-direction: column;
-      position: sticky;
-      top: 0;
-      height: 100vh;
-      overflow-y: auto;
-      overflow-x: hidden;
-    }
-
-    .sidebar-brand {
-      padding: 20px 16px 16px;
-      border-bottom: 1px solid rgba(255,255,255,0.08);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .sidebar-brand img {
-      width: 38px;
-      height: 38px;
-      border-radius: 50%;
-      background: #fff;
-      padding: 2px;
-      object-fit: contain;
-      flex-shrink: 0;
-    }
-
-    .sidebar-brand-text h1 {
-      font-size: 12px;
-      font-weight: 800;
-      color: #fff;
-      text-transform: uppercase;
-      letter-spacing: 0.3px;
-    }
-
-    .sidebar-brand-text p {
-      font-size: 10px;
-      color: rgba(255,255,255,0.5);
-    }
-
-    .sidebar-nav {
-      flex: 1;
-      padding: 12px 8px;
-    }
-
-    .nav-group-label {
-      font-size: 9px;
-      font-weight: 800;
-      color: rgba(255,255,255,0.35);
-      text-transform: uppercase;
-      letter-spacing: 1px;
-      padding: 12px 10px 6px;
-    }
-
-    .nav-link {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      padding: 9px 10px;
-      border-radius: 8px;
-      color: rgba(255,255,255,0.65);
-      font-size: 13px;
-      font-weight: 500;
-      transition: all 0.15s;
-      margin-bottom: 2px;
-    }
-
-    .nav-link:hover { background: rgba(255,255,255,0.08); color: #fff; }
-    .nav-link.active { background: rgba(34,197,94,0.18); color: #4ade80; font-weight: 700; }
-    .nav-link svg { flex-shrink: 0; opacity: 0.7; }
-    .nav-link.active svg { opacity: 1; }
-
-    .sidebar-footer {
-      padding: 12px 8px;
-      border-top: 1px solid rgba(255,255,255,0.08);
-    }
+    /* Shell & Sidebar are inherited from master style.css */
 
     /* =====================================================
        WORKSPACE
@@ -1257,18 +1169,42 @@
     ::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
 
-    /* AI Widget (compatibility) */
-    .ai-widget { display: none; }
-    .bottom-nav { display: none; }
-    .mobile-topbar { display: none; }
-    .mobile-drawer { display: none; }
 </style>
 </head>
 <body data-page="students">
 
-  <!-- Mobile nav stubs for JS compatibility -->
-  <header class="mobile-topbar"></header>
-  <div class="mobile-drawer"><div class="drawer-backdrop"></div><div class="drawer-content"><div class="drawer-header"></div><nav class="nav drawer-nav"></nav></div></div>
+  <!-- Mobile Header (<1024px) -->
+  <header class="mobile-topbar">
+    <div class="mobile-brand">
+      <div class="logo"><img src="img/logo-removebg-preview.png" alt="Logo"></div>
+      <h1>Học viện Chính trị</h1>
+    </div>
+    <button class="mobile-menu-btn" onclick="openMobileDrawer()" aria-label="Mở menu" title="Mở menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true" width="24" height="24"><path d="M4 6h16M4 12h16M4 18h16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+    </button>
+  </header>
+
+  <!-- Slide-out Mobile Drawer -->
+  <div class="mobile-drawer" role="dialog" aria-modal="true" aria-label="Menu điều hướng">
+    <div class="drawer-backdrop" onclick="closeMobileDrawer()"></div>
+    <div class="drawer-content">
+      <div class="drawer-header">
+        <div class="mobile-brand">
+          <div class="logo"><img src="img/logo-removebg-preview.png" alt="Logo"></div>
+          <div>
+            <h1>Học viện Chính trị</h1>
+            <p style="font-size: 11px; color: var(--sidebar-muted);">Hệ thống điều hành nội bộ</p>
+          </div>
+        </div>
+        <button class="drawer-close icon-action-btn" onclick="closeMobileDrawer()" aria-label="Đóng menu">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <nav class="nav drawer-nav"></nav>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation Bar (Mobile <1024px) -->
   <nav class="bottom-nav"></nav>
 
   <!-- ===================================================
@@ -1278,52 +1214,47 @@
 
     <!-- SIDEBAR -->
     <aside class="sidebar">
-      <div class="sidebar-brand">
-        <img src="img/logo-removebg-preview.png" alt="Logo HVCT" />
-        <div class="sidebar-brand-text">
+      <div class="brand">
+        <div class="logo"><img src="img/logo-removebg-preview.png" alt="Logo"></div>
+        <div>
           <h1>Học viện Chính trị</h1>
-          <p>Phòng Đào tạo</p>
+          <p>Hệ thống điều hành nội bộ</p>
         </div>
       </div>
-
-      <nav class="sidebar-nav">
-        <div class="nav-group-label">Điều hành</div>
-        <a href="index.html" class="nav-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-          Dashboard
+      <nav class="nav">
+        <a href="index.html" title="Dashboard" style="--item-color: #3b82f6; --item-gradient: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span>
+          <span class="nav-label">Dashboard</span>
         </a>
-        <a href="calendar.html" class="nav-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-          Lịch tuần
+        <a href="calendar.html" title="Lịch tuần" style="--item-color: #8b5cf6; --item-gradient: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></span>
+          <span class="nav-label">Lịch tuần</span>
         </a>
-        <a href="students.html" class="nav-link active">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Tiếp nhận học viên
+        <a class="active" href="students.html" title="Tiếp nhận học viên" style="--item-color: #0284c7; --item-gradient: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+          <span class="nav-label">Tiếp nhận học viên</span>
         </a>
-        <a href="exam.html" class="nav-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-          Thi tốt nghiệp
+        <a href="exam.html" title="Thi tốt nghiệp" style="--item-color: #f43f5e; --item-gradient: linear-gradient(135deg, #f43f5e 0%, #be123c 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #f43f5e 0%, #be123c 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+          <span class="nav-label">Thi tốt nghiệp</span>
         </a>
-        <a href="tasks.html" class="nav-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          Nhắc việc
+        <a href="tasks.html" title="Nhắc việc" style="--item-color: #22c55e; --item-gradient: linear-gradient(135deg, #22c55e 0%, #15803d 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #22c55e 0%, #15803d 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></span>
+          <span class="nav-label">Nhắc việc</span>
         </a>
-        <a href="ai.html" class="nav-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-          AI Assistant
+        <a href="ai.html" title="AI Assistant" style="--item-color: #8b5cf6; --item-gradient: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+          <span class="nav-label">AI Assistant</span>
         </a>
-
-        <div class="nav-group-label" style="margin-top:8px">Hệ thống</div>
-        <a href="admin.html" class="nav-link">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
-          Quản trị
+        <a href="admin.html" title="Quản trị" style="--item-color: #64748b; --item-gradient: linear-gradient(135deg, #64748b 0%, #334155 100%);">
+          <span class="nav-icon-box" style="background: linear-gradient(135deg, #64748b 0%, #334155 100%);"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg></span>
+          <span class="nav-label">Quản trị</span>
         </a>
       </nav>
-
-      <div class="sidebar-footer">
-        <a href="tiep-nhan.html" target="_blank" class="btn btn-ghost btn-full" style="justify-content:flex-start; font-size:12px; color:rgba(255,255,255,0.6);">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
-          Cổng tiếp nhận (Mobile)
+      <div class="sidebar-footer" style="padding: 12px 14px; border-top: 1px solid var(--sidebar-border); margin-top: auto;">
+        <a href="tiep-nhan.html" target="_blank" class="btn btn-secondary btn-full" style="justify-content: center; font-size: 11.5px; padding: 7px 10px; background: rgba(255,255,255,0.06); color: #86efac; border-color: rgba(34,197,94,0.3); border-radius: 8px;">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
+          <span>Cổng tiếp nhận (Mobile)</span>
         </a>
       </div>
     </aside>
@@ -1333,18 +1264,19 @@
 
       <!-- TOPBAR -->
       <header class="topbar">
-        <div class="topbar-left">
+        <div>
+          <p class="eyebrow">Hồ sơ &amp; Đào tạo</p>
           <h2>Tiếp nhận &amp; Quản lý học viên</h2>
-          <p>Quản lý đợt, đối tượng, duyệt hồ sơ, in phiếu tiếp nhận &amp; xuất file trọn gói</p>
         </div>
         <div class="topbar-actions">
+          <span id="todayLabel" class="date-chip"></span>
           <button class="btn btn-secondary" onclick="openQrModal()" title="Mã QR cổng nộp hồ sơ">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
-            Mã QR nộp hồ sơ
+            <span>Mã QR nộp hồ sơ</span>
           </button>
           <button class="btn btn-primary" onclick="openStudentFormModal()">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            Thêm hồ sơ mới
+            <span>Thêm hồ sơ mới</span>
           </button>
         </div>
       </header>

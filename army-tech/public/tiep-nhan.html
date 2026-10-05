@@ -40,40 +40,45 @@
        ==================================================== */
     .app-header {
       position: sticky; top: 0; z-index: 200;
-      background: linear-gradient(135deg, #166534 0%, #15803d 60%, #16a34a 100%);
-      padding: 0 16px; height: 60px;
+      background: linear-gradient(135deg, rgba(22, 101, 52, 0.96) 0%, rgba(21, 128, 61, 0.96) 60%, rgba(22, 163, 74, 0.96) 100%);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      padding: 0 16px; height: 62px;
       display: flex; align-items: center; justify-content: space-between;
-      box-shadow: 0 2px 12px rgba(22,101,52,0.4);
+      box-shadow: 0 4px 20px rgba(22, 101, 52, 0.25);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.15);
     }
-    .header-brand { display: flex; align-items: center; gap: 10px; min-width: 0; flex: 1; }
-    .header-logo { width: 38px; height: 38px; border-radius: 50%; background: #fff; padding: 2px; object-fit: contain; flex-shrink: 0; }
+    .header-brand { display: flex; align-items: center; gap: 12px; min-width: 0; flex: 1; }
+    .header-logo { width: 40px; height: 40px; border-radius: 50%; background: #fff; padding: 2px; object-fit: contain; flex-shrink: 0; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
     .header-text { min-width: 0; }
-    .header-text h1 { font-size: 13px; font-weight: 800; color: #fff; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .header-text p { font-size: 10px; color: rgba(255,255,255,0.82); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-text h1 { font-size: 13.5px; font-weight: 800; color: #fff; letter-spacing: 0.3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .header-text p { font-size: 10.5px; color: rgba(255,255,255,0.85); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
     .header-admin-btn {
       display: flex; flex-direction: column; align-items: center; gap: 2px;
-      color: rgba(255,255,255,0.85); text-decoration: none;
+      color: rgba(255,255,255,0.9); text-decoration: none;
       font-size: 9px; font-weight: 700; flex-shrink: 0;
-      padding: 6px 8px; border-radius: 8px; transition: background 0.15s; letter-spacing: 0.3px;
+      padding: 6px 10px; border-radius: 10px; transition: all 0.15s; letter-spacing: 0.3px;
+      background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.2);
     }
-    .header-admin-btn:hover, .header-admin-btn:active { background: rgba(255,255,255,0.15); color: #fff; }
+    .header-admin-btn:hover, .header-admin-btn:active { background: rgba(255,255,255,0.25); color: #fff; transform: scale(0.98); }
 
     /* ====================================================
        TAB BAR
        ==================================================== */
     .tab-bar {
-      position: sticky; top: 60px; z-index: 190;
-      background: #fff; border-bottom: 1px solid #e2e8f0;
-      display: flex; padding: 8px 12px; gap: 8px;
+      position: sticky; top: 62px; z-index: 190;
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid #e2e8f0;
+      display: flex; padding: 10px 14px; gap: 10px;
     }
     .tab-btn {
-      flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px;
-      padding: 10px 8px; border: none; border-radius: 10px;
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 10px 12px; border: none; border-radius: 12px;
       background: #f1f5f9; color: #64748b;
-      font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
-      transition: all 0.2s; white-space: nowrap;
+      font-size: 13.5px; font-weight: 700; font-family: inherit; cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); white-space: nowrap;
     }
-    .tab-btn.active { background: #166534; color: #fff; box-shadow: 0 2px 8px rgba(22,101,52,0.3); }
+    .tab-btn.active { background: #166534; color: #fff; box-shadow: 0 4px 14px rgba(22,101,52,0.35); }
     .tab-btn svg { flex-shrink: 0; }
 
     /* ====================================================
@@ -123,9 +128,9 @@
     /* ====================================================
        CARD
        ==================================================== */
-    .card { background: #fff; border-radius: 14px; padding: 16px; margin-bottom: 12px; border: 1px solid #e8edf3; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .card { background: #fff; border-radius: 16px; padding: 18px 16px; margin-bottom: 14px; border: 1px solid #e2e8f0; box-shadow: 0 4px 16px -2px rgba(15, 23, 42, 0.05); }
     .card-label {
-      font-size: 11px; font-weight: 800; color: #166534;
+      font-size: 11.5px; font-weight: 800; color: #166534;
       text-transform: uppercase; letter-spacing: 0.6px;
       margin-bottom: 14px; display: flex; align-items: center; gap: 6px;
     }
@@ -139,8 +144,8 @@
     .field label { display: block; font-size: 12px; font-weight: 700; color: #374151; margin-bottom: 6px; }
     .field label .req { color: #ef4444; margin-left: 2px; }
     .field input, .field select, .field textarea {
-      width: 100%; padding: 11px 13px;
-      border: 1.5px solid #d1d5db; border-radius: 10px;
+      width: 100%; padding: 12px 14px;
+      border: 1.5px solid #d1d5db; border-radius: 12px;
       font-size: 15px; font-family: inherit; color: #0f172a;
       background: #fff; transition: border-color 0.15s, box-shadow 0.15s;
       -webkit-appearance: none; appearance: none;
@@ -149,7 +154,7 @@
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
       background-repeat: no-repeat; background-position: right 13px center; padding-right: 36px;
     }
-    .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: #166534; box-shadow: 0 0 0 3px rgba(22,101,52,0.12); }
+    .field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: #166534; box-shadow: 0 0 0 3px rgba(22,101,52,0.18); }
     .field input::placeholder, .field textarea::placeholder { color: #9ca3af; font-size: 14px; }
     .field textarea { resize: vertical; min-height: 72px; }
     .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
@@ -232,19 +237,19 @@
        ==================================================== */
     .step-nav { display: flex; gap: 10px; margin-top: 16px; }
     .btn {
-      display: inline-flex; align-items: center; justify-content: center; gap: 6px;
-      padding: 12px 18px; border-radius: 10px; border: none;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 18px; border-radius: 12px; border: none;
       font-size: 14px; font-weight: 700; font-family: inherit;
-      cursor: pointer; transition: all 0.15s;
+      cursor: pointer; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
       -webkit-tap-highlight-color: transparent; text-decoration: none;
     }
-    .btn-primary { background: #166534; color: #fff; box-shadow: 0 2px 8px rgba(22,101,52,0.3); }
-    .btn-primary:active { background: #14532d; transform: scale(0.98); }
+    .btn-primary { background: linear-gradient(135deg, #15803d 0%, #166534 100%); color: #fff; box-shadow: 0 4px 14px rgba(22,101,52,0.3); }
+    .btn-primary:active { transform: scale(0.98); }
     .btn-secondary { background: #f1f5f9; color: #374151; }
     .btn-secondary:active { background: #e2e8f0; transform: scale(0.98); }
     .btn-grow { flex: 1; }
     .btn-full { width: 100%; }
-    .btn-submit { width: 100%; padding: 14px; font-size: 15px; border-radius: 12px; background: linear-gradient(135deg, #166534, #15803d); box-shadow: 0 4px 14px rgba(22,101,52,0.35); justify-content: center; }
+    .btn-submit { width: 100%; padding: 14px; font-size: 15px; border-radius: 14px; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); box-shadow: 0 6px 20px rgba(22,101,52,0.35); justify-content: center; }
     .btn-submit:active { transform: scale(0.98); box-shadow: none; }
 
     /* ====================================================
